@@ -1,0 +1,367 @@
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  Plus, Edit, Trash2, X, Loader2, ChevronUp, ChevronDown, Lock,
+} from 'lucide-react'
+import api from '../../../api/client'
+import toast from 'react-hot-toast'
+
+// ── Simplified field types ──────────────────────────────────────────────
+const FIELD_TYPES = [
+  { value: 'text',     label: 'Text' },
+  { value: 'email',    label: 'Email' },
+  { value: 'phone',    label: 'Phone' },
+  { value: 'date',     label: 'Date' },
+  { value: 'dropdown', label: 'Dropdown' },
+  { value: 'textarea', label: 'Text Area' },
+  { value: 'image',    label: 'File Upload' },
+]
+
+const TYPE_LABEL = Object.fromEntries(FIELD_TYPES.map(t => [t.value, t.label]))
+
+// Fixed fields for Steps 2–5 (shown read-only)
+const FIXED_SECTIONS = [
+  {
+    title: 'Location',
+    step: 2,
+    description: 'Member selects their region',
+    fields: [
+      { label: 'Location Type', type: 'Dropdown', options: 'Rajasthan, Other States, Overseas', required: true },
+    ],
+  },
+  {
+    title: 'Membership Type',
+    step: 3,
+    description: 'Member selects individual or corporate membership',
+    fields: [
+      { label: 'Membership Type', type: 'Selection', options: 'Individual, Corporate', required: true },
+    ],
+  },
+  {
+    title: 'Plan Selection',
+    step: 4,
+    description: 'Member chooses duration and a package is matched automatically',
+    fields: [
+      { label: 'Plan Duration', type: 'Selection', options: 'Yearly, Lifetime', required: true },
+      { label: 'Package', type: 'Auto-matched', options: 'Based on location + type + duration', required: true },
+    ],
+  },
+  {
+    title: 'Payment',
+    step: 5,
+    description: 'Member completes payment and uploads proof',
+    fields: [
+      { label: 'Country', type: 'Dropdown', options: 'Shown for overseas members only', required: false },
+      { label: 'Payment Method', type: 'Selection', options: 'Based on location / country', required: true },
+      { label: 'Transaction ID', type: 'Text', required: true },
+      { label: 'Payment Screenshot', type: 'File Upload', required: true },
+      { label: 'Terms & Conditions', type: 'Checkbox', required: true },
+    ],
+  },
+]
+
+// ── Field Edit Modal ────────────────────────────────────────────────────
+const EMPTY_FIELD = {
+  field_key: '', label: '', field_type: 'text', is_required: 0, placeholder: '', options: [],
+}
+
+// ── Field Modal ──────────────────────────────────────────────────────────
+function FieldModal({ field, onClose, onSave, saving }) {
+  const isEdit = !!field
+  const [d, setD] = useState(() => {
+    if (field) return {
+      ...field,
+      options: Array.isArray(field.options) ? field.options : [],
+    }
+    return { ...EMPTY_FIELD }
+  })
+  const set = (k, v) => setD(x => ({ ...x, [k]: v }))
+
+  function handleLabelChange(label) {
+    setD(prev => ({
+      ...prev,
+      label,
+      field_key: isEdit ? prev.field_key : label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''),
+    }))
+  }
+
+  const needsOptions = d.field_type === 'dropdown'
+
+  function addOption()         { set('options', [...d.options, '']) }
+  function updateOption(i, v)  { set('options', d.options.map((o, idx) => idx === i ? v : o)) }
+  function removeOption(i)     { set('options', d.options.filter((_, idx) => idx !== i)) }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b">
+          <h3 className="font-semibold text-gray-900">{isEdit ? 'Edit Field' : 'Add New Field'}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        </div>
+        <form className="p-5 space-y-4" onSubmit={e => {
+          e.preventDefault()
+          if (!d.label.trim()) return toast.error('Label is required')
+          onSave(d)
+        }}>
+          <div>
+            <label className="label">Label *</label>
+            <input className="input" required value={d.label}
+              placeholder="e.g. Full Name, Date of Birth"
+              onChange={e => handleLabelChange(e.target.value)} />
+          </div>
+
+          <div>
+            <label className="label">Field Type *</label>
+            <select className="input" value={d.field_type} onChange={e => set('field_type', e.target.value)}>
+              {FIELD_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </div>
+
+          {!['image'].includes(d.field_type) && (
+            <div>
+              <label className="label">Placeholder <span className="text-gray-400 font-normal">(optional)</span></label>
+              <input className="input" value={d.placeholder || ''} placeholder="Hint text shown inside the field"
+                onChange={e => set('placeholder', e.target.value)} />
+            </div>
+          )}
+
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" className="w-4 h-4 accent-primary-600"
+              checked={!!d.is_required}
+              onChange={e => set('is_required', e.target.checked ? 1 : 0)} />
+            <span className="text-sm text-gray-700 font-medium">Required field</span>
+          </label>
+
+          {needsOptions && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="label mb-0">Dropdown Options *</label>
+                <button type="button" className="text-primary-600 text-xs hover:underline" onClick={addOption}>
+                  + Add Option
+                </button>
+              </div>
+              {d.options.length === 0 && (
+                <p className="text-xs text-amber-600">Add at least one option</p>
+              )}
+              <div className="space-y-2">
+                {d.options.map((opt, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400 w-5 text-right">{i + 1}.</span>
+                    <input className="input flex-1 text-sm" placeholder={`Option ${i + 1}`}
+                      value={opt} onChange={e => updateOption(i, e.target.value)} />
+                    <button type="button" onClick={() => removeOption(i)}
+                      className="text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-3 border-t">
+            <button type="submit" className="btn-primary flex-1" disabled={saving}>
+              {saving ? 'Saving...' : isEdit ? 'Update Field' : 'Add Field'}
+            </button>
+            <button type="button" className="btn-outline" onClick={onClose}>Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ── Fixed Section Card (read-only) ──────────────────────────────────────
+function FixedSection({ section }) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-gray-50 px-5 py-3 border-b flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="w-7 h-7 rounded-full bg-gray-200 text-gray-600 text-xs font-bold flex items-center justify-center">
+            {section.step}
+          </span>
+          <div>
+            <h3 className="font-semibold text-gray-800 text-sm">{section.title}</h3>
+            <p className="text-xs text-gray-400">{section.description}</p>
+          </div>
+        </div>
+        <span className="inline-flex items-center gap-1 text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
+          <Lock size={10} /> Fixed
+        </span>
+      </div>
+      <div className="divide-y divide-gray-100">
+        {section.fields.map((f, i) => (
+          <div key={i} className="px-5 py-3 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-700">{f.label}</p>
+              {f.options && <p className="text-xs text-gray-400 mt-0.5">{f.options}</p>}
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded">{f.type}</span>
+              {f.required
+                ? <span className="text-xs font-medium text-red-500">Required</span>
+                : <span className="text-xs text-gray-300">Optional</span>
+              }
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Main Page ───────────────────────────────────────────────────────────
+export default function ApplicationFieldsPage() {
+  const qc = useQueryClient()
+  const [modal, setModal] = useState(null)
+
+  const { data: fields = [], isLoading } = useQuery({
+    queryKey: ['application-fields'],
+    queryFn: () => api.get('/application-fields').then(r => r.data.data),
+  })
+
+  const saveMut = useMutation({
+    mutationFn: d => {
+      const payload = {
+        field_key: d.field_key,
+        label: d.label,
+        field_type: d.field_type,
+        is_required: d.is_required ? 1 : 0,
+        placeholder: d.placeholder || '',
+        options: d.options || [],
+        is_active: d.is_active !== undefined ? d.is_active : 1,
+      }
+      return d.id
+        ? api.put(`/application-fields/${d.id}`, payload)
+        : api.post('/application-fields', payload)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries(['application-fields'])
+      toast.success('Field saved')
+      setModal(null)
+    },
+    onError: err => toast.error(err.response?.data?.message || 'Error'),
+  })
+
+  const deleteMut = useMutation({
+    mutationFn: id => api.delete(`/application-fields/${id}`),
+    onSuccess: () => { qc.invalidateQueries(['application-fields']); toast.success('Field removed') },
+  })
+
+  const reorderMut = useMutation({
+    mutationFn: orders => api.patch('/application-fields/reorder', { orders }),
+    onSuccess: () => { qc.invalidateQueries(['application-fields']) },
+  })
+
+  function moveField(idx, dir) {
+    const arr = [...fields]
+    const newIdx = idx + dir
+    if (newIdx < 0 || newIdx >= arr.length) return
+    ;[arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]]
+    reorderMut.mutate(arr.map((f, i) => ({ id: f.id, field_order: i })))
+  }
+
+  const activeFields = fields.filter(f => f.is_active)
+  const inactiveFields = fields.filter(f => !f.is_active)
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">Form Builder</h2>
+        <p className="text-sm text-gray-500 mt-1">
+          This is the structure of the membership application form.
+          You can add, edit, or remove fields in the Basic Details section.
+        </p>
+      </div>
+
+      {/* ── Section 1: Basic Details (Editable) ── */}
+      <div className="bg-white rounded-xl border border-primary-200 overflow-hidden">
+        <div className="bg-primary-50 px-5 py-3 border-b border-primary-200 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="w-7 h-7 rounded-full bg-primary-600 text-white text-xs font-bold flex items-center justify-center">
+              1
+            </span>
+            <div>
+              <h3 className="font-semibold text-gray-800 text-sm">Basic Details</h3>
+              <p className="text-xs text-gray-500">Personal information collected from the applicant</p>
+            </div>
+          </div>
+          <button className="btn-primary btn-sm flex items-center gap-1.5" onClick={() => setModal('new')}>
+            <Plus size={14} /> Add Field
+          </button>
+        </div>
+
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
+          </div>
+        ) : activeFields.length === 0 ? (
+          <div className="p-8 text-center">
+            <p className="text-sm text-gray-500">No fields yet. Click "Add Field" to get started.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {activeFields.map((field, idx) => (
+              <div key={field.id} className="px-5 py-3 flex items-center justify-between hover:bg-gray-50 group">
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                  <div className="flex flex-col gap-0.5">
+                    <button className="p-0.5 text-gray-300 hover:text-gray-600 disabled:opacity-30"
+                      disabled={idx === 0} onClick={() => moveField(fields.indexOf(field), -1)}>
+                      <ChevronUp size={14} />
+                    </button>
+                    <button className="p-0.5 text-gray-300 hover:text-gray-600 disabled:opacity-30"
+                      disabled={idx === activeFields.length - 1} onClick={() => moveField(fields.indexOf(field), 1)}>
+                      <ChevronDown size={14} />
+                    </button>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-800">{field.label}</p>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <span className="text-xs text-gray-400">{TYPE_LABEL[field.field_type] || field.field_type}</span>
+                      {field.is_required
+                        ? <span className="text-xs font-medium text-red-500">• Required</span>
+                        : <span className="text-xs text-gray-300">• Optional</span>
+                      }
+                      {field.placeholder && <span className="text-xs text-gray-300 truncate max-w-[200px]">• {field.placeholder}</span>}
+                      {Array.isArray(field.options) && field.options.length > 0 && (
+                        <span className="text-xs text-gray-300 truncate max-w-[250px]">• {field.options.join(', ')}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button className="p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50"
+                    title="Edit" onClick={() => setModal(field)}>
+                    <Edit size={14} />
+                  </button>
+                  <button className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50"
+                    title="Remove" onClick={() => { if (window.confirm(`Remove "${field.label}"?`)) deleteMut.mutate(field.id) }}>
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {inactiveFields.length > 0 && (
+          <div className="px-5 py-3 bg-gray-50 border-t text-xs text-gray-400">
+            {inactiveFields.length} hidden field{inactiveFields.length > 1 ? 's' : ''}: {inactiveFields.map(f => f.label).join(', ')}
+          </div>
+        )}
+      </div>
+
+      {/* ── Fixed Sections 2–5 ── */}
+      {FIXED_SECTIONS.map(section => (
+        <FixedSection key={section.step} section={section} />
+      ))}
+
+      {modal && (
+        <FieldModal
+          field={modal === 'new' ? null : modal}
+          onClose={() => setModal(null)}
+          onSave={saveMut.mutate}
+          saving={saveMut.isPending}
+        />
+      )}
+    </div>
+  )
+}
