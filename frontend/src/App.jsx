@@ -38,10 +38,9 @@ import ManagerReports from './pages/admin/reports/ManagerReports'
 
 function PrivateRoute() {
   const { token, loading } = useAuth()
-  console.log('[PrivateRoute] loading:', loading, '| token:', token ? 'SET' : 'NULL', '| localStorage:', localStorage.getItem('forti_token') ? 'SET' : 'NULL')
   if (loading) return <div className="flex items-center justify-center h-screen"><div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" /></div>
-  const hasToken = token || localStorage.getItem('forti_token')
-  return hasToken ? <Outlet /> : <Navigate to="/login" replace />
+  // Only trust server-validated token from AuthContext — never read localStorage directly
+  return token ? <Outlet /> : <Navigate to="/login" replace />
 }
 
 // RoleRoute — only allow specified roles; others redirect to /dashboard
@@ -53,26 +52,9 @@ function RoleRoute({ children, roles }) {
 }
 
 function MemberRoute({ children }) {
-  const { token, member, loading, logout } = useMember()
+  const { token, loading } = useMember()
   if (loading) return <div className="flex items-center justify-center h-screen"><div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" /></div>
   if (!token) return <Navigate to="/member/login" replace />
-  if (member && member.member_status && member.member_status !== 'active') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center space-y-4">
-          <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          </div>
-          <h2 className="text-xl font-bold text-gray-900">Membership Not Active Yet</h2>
-          <p className="text-gray-500 text-sm">Your application is currently under review. You'll get access once your membership is approved and active.<br/><br/>Current status: <strong className="capitalize">{String(member.member_status || '').replace(/_/g, ' ')}</strong></p>
-          <div className="flex gap-3 justify-center">
-            <a href="/track" className="inline-flex items-center gap-1.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold text-sm px-4 py-2 rounded-xl transition">Track Status</a>
-            <button onClick={logout} className="px-4 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm font-medium transition">Sign Out</button>
-          </div>
-        </div>
-      </div>
-    )
-  }
   return children
 }
 
@@ -100,6 +82,7 @@ export default function App() {
 
             {/* ── Admin Login ── */}
             <Route path="/login" element={<Login />} />
+            <Route path="/admin/login" element={<Login />} />
             <Route path="/reset-password" element={<ResetPassword />} />
 
             {/* ── Admin Routes ── */}

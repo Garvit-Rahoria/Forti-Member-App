@@ -337,7 +337,6 @@ export default function ApplicationView() {
             {sub.applicant_email && <span>{sub.applicant_email}</span>}
             {sub.applicant_phone && <span>{sub.applicant_phone}</span>}
             {sub.submitted_at && <span>Submitted {new Date(sub.submitted_at).toLocaleString()}</span>}
-            <span className="font-mono">{sub.uuid}</span>
           </div>
         </div>
       </div>
@@ -472,12 +471,6 @@ export default function ApplicationView() {
                 <span className="text-gray-900">{new Date(sub.reviewed_at).toLocaleDateString()}</span>
               </div>
             )}
-            {sub.ip_address && (
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-500 shrink-0">IP</span>
-                <span className="font-mono text-xs text-gray-600">{sub.ip_address}</span>
-              </div>
-            )}
           </div>
 
           {/* Review panel — role-gated */}
@@ -527,34 +520,45 @@ export default function ApplicationView() {
             </div>
           )}
 
-          {/* Activate Membership — shown when payment is verified or status is approved and user is admin/BM */}
-          {(sub.status === 'approved' || sub.status === 'payment_verified') && (isAdmin || isBM) && (
-            <div className="card p-4 space-y-3 border-emerald-200 bg-emerald-50">
-              <h4 className="font-semibold text-gray-900 text-sm flex items-center gap-1.5">
-                <CheckCircle size={15} className="text-emerald-600"/> Activate Membership
-              </h4>
-              <p className="text-xs text-gray-500">
-                {sub.status === 'payment_verified'
-                  ? 'Payment has been verified. Click below to activate the membership account.'
-                  : 'Application is approved. Click below to finalise and activate the membership account.'}
-              </p>
-              <div className="bg-white rounded-lg p-3 text-xs text-emerald-800 space-y-0.5 border border-emerald-100">
-                <p className="font-medium mb-1">This will:</p>
-                <p>• Assign Membership ID (if not yet assigned)</p>
-                <p>• Create / update member login account</p>
-                <p>• Send membership confirmation email</p>
-                <p>• Generate Certificate and Membership Card (background)</p>
-                <p>• Set application status to Active</p>
+          {/* Activate Membership — shown when status is approved and user is admin/BM */}
+          {sub.status === 'approved' && (isAdmin || isBM) && (() => {
+            const paymentVerified = sub.payment?.status === 'verified' || sub.payment?.status === 'approved'
+            return (
+              <div className="card p-4 space-y-3 border-emerald-200 bg-emerald-50">
+                <h4 className="font-semibold text-gray-900 text-sm flex items-center gap-1.5">
+                  <CheckCircle size={15} className="text-emerald-600"/> Activate Membership
+                </h4>
+                {paymentVerified ? (
+                  <p className="text-xs text-gray-500">
+                    Payment has been verified. Click below to activate the membership account.
+                  </p>
+                ) : (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-xs text-yellow-800 font-medium">
+                    ⚠ Payment must be verified before activating membership.
+                    <br/>
+                    <span className="text-yellow-600 font-normal">
+                      Current payment status: <strong>{sub.payment?.status || 'No payment submitted'}</strong>
+                    </span>
+                  </div>
+                )}
+                <div className="bg-white rounded-lg p-3 text-xs text-emerald-800 space-y-0.5 border border-emerald-100">
+                  <p className="font-medium mb-1">This will:</p>
+                  <p>• Assign Membership ID (if not yet assigned)</p>
+                  <p>• Create / update member login account</p>
+                  <p>• Send membership confirmation email</p>
+                  <p>• Generate Certificate and Membership Card (background)</p>
+                  <p>• Set application status to Active</p>
+                </div>
+                <button
+                  className="w-full text-sm bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => openConfirm('activate', 'Activate Membership', 'This will activate the membership account, assign a Membership ID, and send the welcome email. Continue?', 'Activate Membership', 'bg-emerald-600 hover:bg-emerald-700')}
+                  disabled={statusMut.isPending || !paymentVerified}>
+                  {statusMut.isPending ? <Loader2 size={14} className="animate-spin"/> : <CheckCircle size={14}/>}
+                  Activate Membership
+                </button>
               </div>
-              <button
-                className="w-full text-sm bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
-                onClick={() => openConfirm('activate', 'Activate Membership', 'This will activate the membership account, assign a Membership ID, and send the welcome email. Continue?', 'Activate Membership', 'bg-emerald-600 hover:bg-emerald-700')}
-                disabled={statusMut.isPending}>
-                {statusMut.isPending ? <Loader2 size={14} className="animate-spin"/> : <CheckCircle size={14}/>}
-                Activate Membership
-              </button>
-            </div>
-          )}
+            )
+          })()}
 
           {/* Download Invoice – for approved/active members */}
           {['approved', 'active'].includes(sub.status) && (

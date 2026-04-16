@@ -29,14 +29,16 @@ export function AuthProvider({ children }) {
       return
     }
 
-    // Token looks valid — verify with the server
-    setToken(stored)
-    api.get('/auth/me')
+    // Token looks valid locally — verify with the server before granting access
+    api.get('/auth/me', { headers: { Authorization: `Bearer ${stored}` } })
       .then(r => {
+        // Only set token in state AFTER server confirms it's valid
+        setToken(stored)
         setUser(r.data.data)
         setLoading(false)
       })
       .catch(() => {
+        // Server rejected token — clear everything
         localStorage.removeItem('forti_token')
         setToken(null)
         setUser(null)

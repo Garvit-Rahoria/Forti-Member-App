@@ -19,20 +19,14 @@ const MEMBERSHIP_TYPES = [
   { value: 'corporate',  label: 'Corporate' },
 ]
 
-const DURATIONS = [
-  { value: '1year',    label: '1 Year' },
-  { value: '3years',   label: '3 Years' },
-  { value: 'lifetime', label: 'Lifetime' },
-]
-
 const LOC_CODE_MAP = { rajasthan: 'RAJ', other_states: 'OTH', overseas: 'OVSEA' }
 const TYPE_CODE_MAP = { individual: 'IND', corporate: 'CORP' }
 const DUR_CODE_MAP  = { '1year': '1Y', '3years': '3Y', lifetime: 'LFT' }
 
-function generatePlanName(loc, type, dur) {
-  const locLabel = LOCATIONS.find(l => l.value === loc)?.label || loc
+function generatePlanName(loc, type, dur, durations) {
+  const locLabel  = LOCATIONS.find(l => l.value === loc)?.label || loc
   const typeLabel = MEMBERSHIP_TYPES.find(t => t.value === type)?.label || type
-  const durLabel = DURATIONS.find(d => d.value === dur)?.label || dur
+  const durLabel  = durations?.find(d => d.value === dur)?.label || dur
   return `${locLabel} ${typeLabel} - ${durLabel}`
 }
 
@@ -45,8 +39,18 @@ function comboKey(loc, type, dur, countryId) {
 }
 
 // ── Plan Modal ──────────────────────────────────────────────────────────────
-function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries }) {
+function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries, durations }) {
   const isEdit = !!pkg
+
+  // Detect if existing package has a custom duration (not in known durations list)
+  const detectCustomDuration = (pkgDur) => {
+    if (!pkgDur || pkgDur === 'lifetime') return { isCustom: false, customYears: '' }
+    const known = (durations || []).map(d => d.value)
+    if (!known.includes(pkgDur)) return { isCustom: true, customYears: pkgDur.replace('years','').replace('year','') || '' }
+    return { isCustom: false, customYears: '' }
+  }
+
+  const { isCustom: initCustom, customYears: initYears } = detectCustomDuration(pkg?.duration)
   const [d, setD] = useState(() => {
     if (pkg) return {
       ...pkg,
@@ -57,7 +61,16 @@ function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries }) 
       price: 0, description: '', benefits: '', is_active: 1, country_id: '', currency: 'INR',
     }
   })
+  const [isCustomDuration, setIsCustomDuration] = useState(initCustom)
+  const [customYears, setCustomYears] = useState(initYears)
   const [duplicate, setDuplicate] = useState(false)
+
+  // The effective duration value used in save/validation
+  const effectiveDuration = isCustomDuration
+    ? (customYears && Number(customYears) > 0
+        ? (Number(customYears) === 1 ? '1year' : `${customYears}years`)
+        : '')
+    : d.duration
 
   function checkDuplicate(loc, type, dur, countryId) {
     if (!loc || !type || !dur) { setDuplicate(false); return }
@@ -66,46 +79,73 @@ function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries }) 
     setDuplicate(exists)
   }
 
+  const currencyLocked = !!d.location  // lock once location is selected
+  const autoCurrencyForLoc = (loc) => loc === 'overseas' ? 'USD' : 'INR'
+
   function handleLocationChange(loc) {
     const type = d.membership_type
-    const dur = d.duration
+    const dur = effectiveDuration
     const cid = loc === 'overseas' ? d.country_id : ''
-    const name = (loc && type && dur) ? generatePlanName(loc, type, dur) : d.name
+    const name = (loc && type && dur) ? generatePlanName(loc, type, dur, durations) : d.name
     const code = (loc && type && dur) ? generatePlanCode(loc, type, dur) : d.code
-    const autoCurrency = loc === 'overseas' ? 'USD' : 'INR'
-    setD(x => ({ ...x, location: loc, name, code, country_id: loc === 'overseas' ? x.country_id : '', currency: autoCurrency }))
+    const currency = autoCurrencyForLoc(loc)
+    setD(x => ({ ...x, location: loc, name, code, country_id: loc === 'overseas' ? x.country_id : '', currency }))
     checkDuplicate(loc, type, dur, cid)
   }
 
   function handleTypeChange(type) {
     const loc = d.location
-    const dur = d.duration
-    const name = (loc && type && dur) ? generatePlanName(loc, type, dur) : d.name
+    const dur = effectiveDuration
+    const name = (loc && type && dur) ? generatePlanName(loc, type, dur, durations) : d.name
     const code = (loc && type && dur) ? generatePlanCode(loc, type, dur) : d.code
     setD(x => ({ ...x, membership_type: type, name, code }))
     checkDuplicate(loc, type, dur, d.country_id)
   }
 
   function handleDurationChange(dur) {
+    if (dur === '__custom__') {
+      setIsCustomDuration(true)
+      // Don't set d.duration yet — wait for custom input
+      const loc = d.location
+      const type = d.membership_type
+      setD(x => ({ ...x, duration: '' }))
+      checkDuplicate(loc, type, '', d.country_id)
+      return
+    }
+    setIsCustomDuration(false)
+    setCustomYears('')
     const loc = d.location
     const type = d.membership_type
-    const name = (loc && type && dur) ? generatePlanName(loc, type, dur) : d.name
+    const name = (loc && type && dur) ? generatePlanName(loc, type, dur, durations) : d.name
     const code = (loc && type && dur) ? generatePlanCode(loc, type, dur) : d.code
     setD(x => ({ ...x, duration: dur, name, code }))
     checkDuplicate(loc, type, dur, d.country_id)
+  }
+
+  function handleCustomYearsChange(val) {
+    setCustomYears(val)
+    const yrs = Number(val)
+    if (!yrs || yrs <= 0) { checkDuplicate(d.location, d.membership_type, '', d.country_id); return }
+    const durValue = yrs === 1 ? '1year' : `${yrs}years`
+    const loc = d.location
+    const type = d.membership_type
+    const name = (loc && type) ? generatePlanName(loc, type, durValue, durations) : d.name
+    const code = (loc && type) ? generatePlanCode(loc, type, durValue) : d.code
+    setD(x => ({ ...x, name, code }))
+    checkDuplicate(loc, type, durValue, d.country_id)
   }
 
   function handleCountryChange(cid) {
     const country = countries.find(c => String(c.id) === String(cid))
     const loc = d.location
     const type = d.membership_type
-    const dur = d.duration
+    const dur = effectiveDuration
     let name = d.name
     let code = d.code
     if (loc && type && dur) {
       name = cid && country
-        ? `${country.name} ${MEMBERSHIP_TYPES.find(t => t.value === type)?.label || type} - ${DURATIONS.find(dd => dd.value === dur)?.label || dur}`
-        : generatePlanName(loc, type, dur)
+        ? `${country.name} ${MEMBERSHIP_TYPES.find(t => t.value === type)?.label || type} - ${durations?.find(dd => dd.value === dur)?.label || dur}`
+        : generatePlanName(loc, type, dur, durations)
       code = cid && country
         ? `${(country.code || country.name).substring(0,3).toUpperCase()}-${TYPE_CODE_MAP[type] || 'UNK'}-${DUR_CODE_MAP[dur] || 'UNK'}`
         : generatePlanCode(loc, type, dur)
@@ -115,13 +155,14 @@ function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries }) 
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 z-50 overflow-y-auto" onClick={onClose}>
+      <div className="min-h-full flex items-center justify-center p-4">
       <div className="bg-white rounded-xl w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
           <h3 className="font-semibold text-gray-900">{isEdit ? 'Edit Package' : 'New Membership Package'}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
         </div>
-        <form className="p-5 space-y-4" onSubmit={e => { e.preventDefault(); if (!duplicate) onSave(d) }}>
+        <form className="p-5 space-y-4" onSubmit={e => { e.preventDefault(); if (!duplicate) onSave({ ...d, duration: effectiveDuration }) }}>
           {/* Location */}
           <div>
             <label className="label">Location *</label>
@@ -156,10 +197,28 @@ function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries }) 
             </div>
             <div>
               <label className="label">Duration *</label>
-              <select className="input" value={d.duration || ''} required onChange={e => handleDurationChange(e.target.value)}>
+              <select className="input" value={isCustomDuration ? '__custom__' : (d.duration || '')} required onChange={e => handleDurationChange(e.target.value)}>
                 <option value="">Select duration...</option>
-                {DURATIONS.map(dur => <option key={dur.value} value={dur.value}>{dur.label}</option>)}
+                {(durations || []).map(dur => <option key={dur.value} value={dur.value}>{dur.label}</option>)}
+                <option value="__custom__">Custom...</option>
               </select>
+              {isCustomDuration && (
+                <div className="mt-2">
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    className="input"
+                    placeholder="Enter number of years (e.g. 5)"
+                    value={customYears}
+                    onChange={e => handleCustomYearsChange(e.target.value)}
+                    required
+                  />
+                  {customYears && Number(customYears) > 0 && (
+                    <p className="text-xs text-gray-500 mt-1">Duration: {Number(customYears) === 1 ? '1 Year' : `${customYears} Years`}</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -193,14 +252,16 @@ function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries }) 
             </div>
             <div>
               <label className="label">Currency</label>
-              <select className="input" value={d.currency || 'INR'} onChange={e => setD(x => ({ ...x, currency: e.target.value }))}>
+              <select className="input" value={d.currency || 'INR'} disabled={currencyLocked}
+                onChange={e => setD(x => ({ ...x, currency: e.target.value }))}>
                 <option value="INR">INR (₹)</option>
                 <option value="USD">USD ($)</option>
-                <option value="AED">AED (د.إ)</option>
-                <option value="EUR">EUR (€)</option>
-                <option value="GBP">GBP (£)</option>
-                <option value="SGD">SGD (S$)</option>
               </select>
+              {currencyLocked && (
+                <p className="text-xs text-gray-400 mt-1">
+                  {d.location === 'overseas' ? 'Overseas plans use USD automatically' : 'India plans use INR automatically'}
+                </p>
+              )}
             </div>
           </div>
 
@@ -233,6 +294,7 @@ function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries }) 
             <button type="button" className="btn-outline" onClick={onClose}>Cancel</button>
           </div>
         </form>
+      </div>
       </div>
     </div>
   )
@@ -424,9 +486,25 @@ export default function PackagesList() {
   const [modal, setModal] = useState(null)
   const [filter, setFilter] = useState({ location: '', mt: '', dur: '' })
   const [countries, setCountries] = useState([])
+  const [durations, setDurations] = useState([])
 
   useEffect(() => {
     api.get('/locations/countries').then(r => setCountries(r.data.data || [])).catch(() => {})
+    api.get('/durations').then(r => {
+      const rows = r.data.data || []
+      // Normalize: use label-derived value keys for backward compat
+      setDurations(rows.map(d => ({
+        ...d,
+        value: d.type === 'lifetime' ? 'lifetime' : `${d.value}year${d.value === 1 ? '' : 's'}`,
+      })))
+    }).catch(() => {
+      // fallback if migration not yet run
+      setDurations([
+        { id: 1, label: '1 Year',   value: '1year',    type: 'year' },
+        { id: 2, label: '3 Years',  value: '3years',   type: 'year' },
+        { id: 3, label: 'Lifetime', value: 'lifetime', type: 'lifetime' },
+      ])
+    })
   }, [])
 
   const { data, isLoading } = useQuery({
@@ -510,7 +588,7 @@ export default function PackagesList() {
         </select>
         <select className="input w-40 text-sm" value={filter.dur} onChange={e => setFilter(f => ({ ...f, dur: e.target.value }))}>
           <option value="">All Durations</option>
-          {DURATIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+          {durations.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
         </select>
         {(filter.location || filter.mt || filter.dur) && (
           <button className="text-xs text-gray-400 hover:text-gray-600" onClick={() => setFilter({ location: '', mt: '', dur: '' })}>Clear</button>
@@ -557,7 +635,7 @@ export default function PackagesList() {
                   {pkg.membership_type === 'corporate' ? 'Corporate' : 'Individual'}
                 </span>
                 <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
-                  {DURATIONS.find(d => d.value === pkg.duration)?.label || pkg.duration}
+                  {durations.find(d => d.value === pkg.duration)?.label || pkg.duration}
                 </span>
                 {pkg.location === 'overseas' && pkg.country_id && (
                   <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
@@ -595,6 +673,7 @@ export default function PackagesList() {
           onSave={saveMut.mutate}
           saving={saveMut.isPending}
           countries={countries}
+          durations={durations}
         />
       )}
     </div>

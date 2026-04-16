@@ -124,8 +124,8 @@ function ActionModal({ row, action, onClose, onConfirm, pending }) {
   const CONFIG = {
     under_review:      { title: "Mark Under Review",    icon: <RotateCcw size={18} className="text-yellow-600" />, btnCls: "bg-yellow-500 hover:bg-yellow-600 text-white", label: "Move to Under Review" },
     payment_verified:  { title: "Verify Payment",       icon: <CreditCard size={18} className="text-teal-600" />,  btnCls: "bg-teal-600 hover:bg-teal-700 text-white",      label: "Mark Payment Verified" },
-    approved:          { title: "Approve Application",  icon: <CheckCircle size={18} className="text-green-600" />, btnCls: "bg-green-600 hover:bg-green-700 text-white",   label: "Approve & Activate" },
-    active:            { title: "Activate Membership",  icon: <Shield size={18} className="text-green-600" />,     btnCls: "bg-green-600 hover:bg-green-700 text-white",    label: "Activate" },
+    approved:          { title: "Approve Application",  icon: <CheckCircle size={18} className="text-green-600" />, btnCls: "bg-green-600 hover:bg-green-700 text-white",   label: "Approve Application" },
+    active:            { title: "Activate Membership",  icon: <Shield size={18} className="text-green-600" />,     btnCls: "bg-green-600 hover:bg-green-700 text-white",    label: "Activate Membership" },
     activate:          { title: "Activate Membership",  icon: <Shield size={18} className="text-emerald-600" />,   btnCls: "bg-emerald-600 hover:bg-emerald-700 text-white", label: "Activate Membership" },
     rejected:          { title: "Reject Application",   icon: <XCircle size={18} className="text-red-600" />,      btnCls: "bg-red-600 hover:bg-red-700 text-white",        label: "Reject" },
     pending_info:      { title: "Request Information",  icon: <MessageSquare size={18} className="text-blue-600" />, btnCls: "bg-blue-500 hover:bg-blue-600 text-white",     label: "Request Info" },
@@ -162,14 +162,22 @@ function ActionModal({ row, action, onClose, onConfirm, pending }) {
             </div>
           )}
 
-          {(action === "approved" || action === "activate") && (
+          {action === "approved" && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-xs text-green-800 space-y-0.5">
+              <p className="font-medium mb-1">This will:</p>
+              <p>• Mark application as Approved</p>
+              <p>• Generate Membership ID (if not yet assigned)</p>
+              <p>• Send approval notification email</p>
+              <p className="pt-1 text-green-600 font-medium">Note: Activation is a separate step after approval.</p>
+            </div>
+          )}
+          {(action === "active" || action === "activate") && (
             <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-xs text-emerald-800 space-y-0.5">
               <p className="font-medium mb-1">This will:</p>
-              <p>• Generate Membership ID (if not yet assigned)</p>
               <p>• Create / update member login account</p>
-              <p>• Send membership confirmation email</p>
+              <p>• Send membership welcome email</p>
               <p>• Generate Certificate and Membership Card (background)</p>
-              <p>• Set application status to Active</p>
+              <p>• Set membership status to Active</p>
             </div>
           )}
 
@@ -252,7 +260,10 @@ export default function ApplicationsList() {
       toast.success(`Status updated: ${STATUS_LABELS[s] || s || "done"}`)
       setActionModal(null)
     },
-    onError: err => toast.error(err.response?.data?.message || "Action failed"),
+    onError: err => {
+      toast.error(err.response?.data?.message || "Action failed")
+      setActionModal(null)
+    },
   })
 
   const rows       = data?.data || []
@@ -277,19 +288,16 @@ export default function ApplicationsList() {
 
     btns.push({ label: "View", icon: <Eye size={12} />, onClick: () => nav(`/applications/${row.id}`), cls: "btn-outline btn-sm" })
 
+    const pmtVerified = (row.pmt_status === 'verified' || row.payment_status === 'verified' ||
+      s === 'payment_verified' || s === 'approved' || s === 'active')
+
     if (s === "submitted") {
       if (isAdmin || isStaff)       btns.push(mkBtn("Review",      <RotateCcw size={12} />,    () => openAction(row, "under_review"),    "yellow"))
-      if (isAdmin || isBM) {
-                                    btns.push(mkBtn("Approve",     <CheckCircle size={12} />,  () => openAction(row, "approved"),        "green"))
-                                    btns.push(mkBtn("Reject",      <XCircle size={12} />,      () => openAction(row, "rejected"),        "red"))
-      }
+      if (isAdmin || isBM)          btns.push(mkBtn("Reject",      <XCircle size={12} />,      () => openAction(row, "rejected"),        "red"))
       if (isBM)                     btns.push(mkBtn("Req Info",    <MessageSquare size={12} />,() => openAction(row, "pending_info"),    "blue"))
     }
     if (s === "under_review") {
-      if (isAdmin || isBM) {
-                                    btns.push(mkBtn("Approve",     <CheckCircle size={12} />,  () => openAction(row, "approved"),        "green"))
-                                    btns.push(mkBtn("Reject",      <XCircle size={12} />,      () => openAction(row, "rejected"),        "red"))
-      }
+      if (isAdmin || isBM)          btns.push(mkBtn("Reject",      <XCircle size={12} />,      () => openAction(row, "rejected"),        "red"))
       if (isBM)                     btns.push(mkBtn("Req Info",    <MessageSquare size={12} />,() => openAction(row, "pending_info"),    "blue"))
     }
     if (s === "payment_pending" || s === "payment_submitted") {
@@ -299,20 +307,19 @@ export default function ApplicationsList() {
       }
     }
     if (s === "payment_verified") {
-      if (isAdmin || isBM) {
-                                    btns.push(mkBtn("Activate",    <Shield size={12} />,       () => openAction(row, "activate"),        "green"))
-                                    btns.push(mkBtn("Reject",      <XCircle size={12} />,      () => openAction(row, "rejected"),        "red"))
-      }
-    }
-    if (s === "pending_info") {
-      if (isAdmin || isStaff)       btns.push(mkBtn("Review",      <RotateCcw size={12} />,   () => openAction(row, "under_review"),    "yellow"))
+      // Step 5: Approve (only after payment verified)
       if (isAdmin || isBM) {
                                     btns.push(mkBtn("Approve",     <CheckCircle size={12} />,  () => openAction(row, "approved"),        "green"))
                                     btns.push(mkBtn("Reject",      <XCircle size={12} />,      () => openAction(row, "rejected"),        "red"))
       }
     }
-    if (s === "approved" && isAdmin) {
-                                    btns.push(mkBtn("Activate",    <Shield size={12} />,       () => openAction(row, "activate"),       "green"))
+    if (s === "pending_info") {
+      if (isAdmin || isStaff)       btns.push(mkBtn("Review",      <RotateCcw size={12} />,   () => openAction(row, "under_review"),    "yellow"))
+      if (isAdmin || isBM)          btns.push(mkBtn("Reject",      <XCircle size={12} />,      () => openAction(row, "rejected"),        "red"))
+    }
+    if (s === "approved") {
+      // Step 6: Activate (only after approved)
+      if (isAdmin)                  btns.push(mkBtn("Activate",    <Shield size={12} />,       () => openAction(row, "activate"),        "green"))
     }
     return btns
   }

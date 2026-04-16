@@ -19,6 +19,8 @@ import {
   getPhonePlaceholder,
   ORGANISATION_TYPE_OPTIONS,
   RAJASTHAN_MAJOR_CITIES,
+  OTHER_STATES,
+  OVERSEAS_COUNTRIES,
   validatePhoneNumber,
 } from '../../utils/membershipForm'
 
@@ -112,6 +114,7 @@ function SearchableSelect({
   disabled = false,
   className = '',
   inputClassName = '',
+  minQueryLength = 0,
 }) {
   const rootRef = useRef(null)
   const [open, setOpen] = useState(false)
@@ -125,7 +128,7 @@ function SearchableSelect({
 
   const visibleOptions = useMemo(() => {
     const term = query.trim().toLowerCase()
-    if (!term) return options
+    if (!term) return minQueryLength > 0 ? [] : options
     const filtered = options.filter(option => String(option.label || '').toLowerCase().includes(term))
     // Sort: items starting with the term appear first
     return filtered.sort((a, b) => {
@@ -137,7 +140,7 @@ function SearchableSelect({
       if (!aS && bS) return 1
       return 0
     })
-  }, [options, query])
+  }, [options, query, minQueryLength])
 
   useEffect(() => {
     setQuery(selectedOption?.label || '')
@@ -200,15 +203,15 @@ function SearchableSelect({
         value={query}
         disabled={disabled}
         placeholder={placeholder}
-        onFocus={() => { if (!disabled) { setQuery(''); setOpen(true) } }}
-        onClick={() => { if (!disabled) { setQuery(''); setOpen(true) } }}
+        onFocus={() => { if (!disabled) { if (minQueryLength === 0) { setQuery(''); setOpen(true) } } }}
+        onClick={() => { if (!disabled) { if (minQueryLength === 0) { setQuery(''); setOpen(true) } } }}
         onChange={event => {
           setQuery(event.target.value)
-          setOpen(true)
+          setOpen(event.target.value.trim().length >= minQueryLength)
         }}
         onKeyDown={handleKeyDown}
       />
-      <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"/>
+      {minQueryLength === 0 && <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"/>}
       {open && !disabled && (
         <div className="absolute left-0 right-0 top-full mt-2 z-[9999] rounded-xl border border-gray-200 bg-white shadow-xl max-h-64 overflow-auto">
           {visibleOptions.length ? visibleOptions.map((option, index) => {
@@ -349,18 +352,47 @@ export default function MembershipApplicationForm({ prefill = {} }) {
     })
     return [...map.values()].sort((left, right) => left.label.localeCompare(right.label))
   }, [cities])
-  const stateOptions = useMemo(
-    () => states.map(state => ({ value: String(state.id), label: state.name, raw: state })),
-    [states],
-  )
+  const stateOptions = useMemo(() => {
+    const map = new Map()
+    // DB states first
+    states.forEach(state => {
+      map.set(String(state.name).toLowerCase(), { value: String(state.id), label: state.name, raw: state })
+    })
+    // Static fallback so dropdown is never empty
+    OTHER_STATES.forEach(name => {
+      const key = name.toLowerCase()
+      if (!map.has(key)) map.set(key, { value: name, label: name, raw: { name } })
+    })
+    return [...map.values()].sort((a, b) => a.label.localeCompare(b.label))
+  }, [states])
+
   const cityOptions = useMemo(
     () => cities.map(city => ({ value: String(city.id), label: city.name, raw: city })),
     [cities],
   )
-  const countryOptions = useMemo(
-    () => countries.map(c => ({ value: String(c.id), label: `${getFlagEmoji(c.iso2 || '')} ${c.name}`, raw: c })),
-    [countries],
-  )
+
+  const countryOptions = useMemo(() => {
+    const map = new Map()
+    // DB countries first (with flags)
+    countries.forEach(c => {
+      map.set(String(c.name).toLowerCase(), {
+        value: String(c.id),
+        label: `${getFlagEmoji(c.iso2 || '')} ${c.name}`,
+        raw: c,
+      })
+    })
+    // Static fallback so dropdown is never empty
+    OVERSEAS_COUNTRIES.forEach(name => {
+      const key = name.toLowerCase()
+      if (!map.has(key)) map.set(key, { value: name, label: name, raw: { name } })
+    })
+    return [...map.values()].sort((a, b) => {
+      // Sort by plain name (strip emoji prefix if present)
+      const la = a.label.replace(/^[^\w]+/, '').trim()
+      const lb = b.label.replace(/^[^\w]+/, '').trim()
+      return la.localeCompare(lb)
+    })
+  }, [countries])
 
   /* ── Social link helpers ─────────────────────────────────────────── */
   function updateSocialLink(i, field, value) {
@@ -546,6 +578,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
       } else if (!/^[A-Za-z0-9]{6,9}$/.test(form.passport_number || '')) {
         e.passport_number = 'Passport number must be 6 to 9 alphanumeric characters'
       }
+      if (!form.organisation_name?.trim()) e.organisation_name = 'Organisation name is required'
       if (!form.organisation_type?.trim()) e.organisation_type = 'Please select an organization type'
       if (form.organisation_type === 'Other' && !form.organisation_type_other?.trim()) {
         e.organisation_type_other = 'Please specify your organization type'
@@ -585,6 +618,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
       currentErrors.document = isIndianApplicant
         ? !/^\d{12}$/.test(form.aadhaar_number || '')
         : !/^[A-Za-z0-9]{6,9}$/.test(form.passport_number || '')
+      currentErrors.organisation_name = !form.organisation_name?.trim()
       currentErrors.organisation_type = !form.organisation_type?.trim() || (form.organisation_type === 'Other' && !form.organisation_type_other?.trim())
     }
     if (stepIndex === 4) {
@@ -882,17 +916,19 @@ export default function MembershipApplicationForm({ prefill = {} }) {
             )}
           </div>
           <div>
-            <label className="label">Organisation Name</label>
+            <label className="label">Organisation Name *</label>
             <input className="input" placeholder="Company / Organisation name"
               value={form.organisation_name} onChange={e => set('organisation_name', e.target.value)} />
+            <FieldError msg={errors.organisation_name} />
           </div>
           <div>
-            <label className="label">Organisation Type</label>
-            <select className="input" value={form.organisation_type}
-              onChange={e => set('organisation_type', e.target.value)}>
-              <option value="">Select type</option>
-              {ORGANISATION_TYPE_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
+            <label className="label">Organisation Type *</label>
+            <SearchableSelect
+              options={ORGANISATION_TYPE_OPTIONS.map(t => ({ value: t, label: t }))}
+              value={form.organisation_type}
+              onChange={v => set('organisation_type', v)}
+              placeholder="Select type"
+            />
             <FieldError msg={errors.organisation_type} />
           </div>
           {form.organisation_type === 'Other' && (
@@ -1089,7 +1125,8 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                     ? 'Select state first'
                     : citiesLoading
                       ? 'Loading cities…'
-                      : 'Search city'}
+                      : 'Type to search city…'}
+                  minQueryLength={1}
                   onChange={nextValue => {
                     set('city_id', nextValue)
                     set('city_other', '')

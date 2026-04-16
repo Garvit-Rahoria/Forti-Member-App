@@ -417,21 +417,35 @@ router.post(
       // Create / find member_accounts for auto-login
       let memberAccountId = null;
       const [[existingAcc]] = await conn.query(
-        'SELECT id FROM member_accounts WHERE email = ? LIMIT 1',
-        [email.toLowerCase().trim()]
+        'SELECT id FROM member_accounts WHERE submission_id = ? LIMIT 1',
+        [submissionId]
       );
       if (existingAcc) {
         memberAccountId = existingAcc.id;
-        // Don't overwrite submission_id on existing accounts (preserve active membership)
       } else {
         const memberUuid = require('crypto').randomUUID();
-        const [mResult] = await conn.query(
-          `INSERT INTO member_accounts (uuid, submission_id, email, full_name, phone, membership_id, plan_type, membership_type, package_id, is_active)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-          [memberUuid, submissionId, email.toLowerCase().trim(), full_name, phone || null, finalMembershipId,
-           plan_type || null, membership_type || null, package_id ? Number(package_id) : null]
-        );
-        memberAccountId = mResult.insertId;
+        try {
+          const [mResult] = await conn.query(
+            `INSERT INTO member_accounts (uuid, submission_id, email, full_name, phone, membership_id, plan_type, membership_type, package_id, is_active)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+            [memberUuid, submissionId, email.toLowerCase().trim(), full_name, phone || null, finalMembershipId,
+             plan_type || null, membership_type || null, package_id ? Number(package_id) : null]
+          );
+          memberAccountId = mResult.insertId;
+        } catch (memberErr) {
+          // Older databases may still have UNIQUE(email) on member_accounts.
+          // Fall back to an existing account id so submission succeeds; dashboard reads are pinned by submission_id.
+          if (memberErr.code === 'ER_DUP_ENTRY') {
+            const [[emailAcc]] = await conn.query(
+              'SELECT id FROM member_accounts WHERE email = ? LIMIT 1',
+              [email.toLowerCase().trim()]
+            );
+            if (emailAcc) memberAccountId = emailAcc.id;
+            else throw memberErr;
+          } else {
+            throw memberErr;
+          }
+        }
       }
 
       const memberToken = jwt.sign(

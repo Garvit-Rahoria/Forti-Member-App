@@ -3,7 +3,7 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const express = require('express');
 const cors = require('cors');
 const { testConnection, pool } = require('./config/database');
-const { apiLimiter, authLimiter, otpLimiter, uploadLimiter } = require('./middleware/rateLimiter');
+const { apiLimiter, otpLimiter, uploadLimiter } = require('./middleware/rateLimiter');
 const { startRenewalReminderCron } = require('./cron/renewalReminders');
 
 const app = express();
@@ -19,7 +19,6 @@ app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
 // Rate limiting
 app.use('/api/', apiLimiter);
-app.use('/api/auth', authLimiter);
 app.use('/api/otp', otpLimiter);
 app.use('/api/membership/apply', uploadLimiter);
 
@@ -37,6 +36,7 @@ app.use('/api/submissions',  require('./routes/submissions'));
 app.use('/api/approvals',    require('./routes/approvals'));
 app.use('/api/members',      require('./routes/members'));
 app.use('/api/packages',     require('./routes/packages'));
+app.use('/api/durations',    require('./routes/durations'));
 app.use('/api/payments',     require('./routes/payments'));
 app.use('/api/locations',    require('./routes/locations'));
 app.use('/api/reports',      require('./routes/reports'));
@@ -59,6 +59,29 @@ app.use('/api/email-templates', require('./emailTemplatesRouter'));
 // Staff & Manager routes
 app.use('/api/staff',    require('./routes/staff'));
 app.use('/api/manager',  require('./routes/manager'));
+
+// ── Public status lookup: GET /api/status?referenceId=XXX ───────────────────
+app.get('/api/status', async (req, res) => {
+  const { referenceId } = req.query;
+  if (!referenceId || !String(referenceId).trim()) {
+    return res.status(422).json({ success: false, message: 'referenceId is required' });
+  }
+  try {
+    const [[row]] = await pool.query(
+      `SELECT s.status, s.member_status
+       FROM fb_submissions s
+       WHERE (s.membership_id = ? OR s.uuid = ?)
+         AND s.status NOT IN ('draft')
+       ORDER BY s.created_at DESC LIMIT 1`,
+      [String(referenceId).trim(), String(referenceId).trim()]
+    );
+    if (!row) return res.status(404).json({ success: false, message: 'Application not found' });
+    return res.json({ success: true, data: { status: row.status, member_status: row.member_status } });
+  } catch (err) {
+    console.error('[GET /api/status]', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -155,8 +178,42 @@ async function seedCurrencyData() {
   }
 }
 
+// Older DBs created member_accounts.email as UNIQUE, which breaks multi-application flows.
+// Remove that uniqueness at startup so one email can have separate accounts per submission.
+async function ensureMemberAccountsSchema() {
+  try {
+    const [indexes] = await pool.query(
+      `SELECT INDEX_NAME, NON_UNIQUE, COLUMN_NAME, SEQ_IN_INDEX
+       FROM information_schema.statistics
+       WHERE table_schema = DATABASE()
+         AND table_name = 'member_accounts'
+       ORDER BY INDEX_NAME, SEQ_IN_INDEX`
+    );
+
+    const byIndex = new Map();
+    for (const row of indexes) {
+      const current = byIndex.get(row.INDEX_NAME) || [];
+      current.push(row);
+      byIndex.set(row.INDEX_NAME, current);
+    }
+
+    for (const [indexName, rows] of byIndex.entries()) {
+      if (indexName === 'PRIMARY') continue;
+      const isUnique = Number(rows[0].NON_UNIQUE) === 0;
+      const cols = rows.map(r => r.COLUMN_NAME);
+      if (isUnique && cols.length === 1 && cols[0] === 'email') {
+        await pool.query(`ALTER TABLE member_accounts DROP INDEX ${indexName}`);
+        console.log(`[SCHEMA] Dropped UNIQUE email index on member_accounts: ${indexName}`);
+      }
+    }
+  } catch (err) {
+    console.error('[SCHEMA] member_accounts schema check failed (non-fatal):', err.message);
+  }
+}
+
 async function start() {
   await testConnection();
+  await ensureMemberAccountsSchema();
   await seedCurrencyData();
   startRenewalReminderCron();
   app.listen(PORT, () => {

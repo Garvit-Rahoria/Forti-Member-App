@@ -91,8 +91,60 @@ router.post('/:uuid/submit', async (req, res) => {
       `UPDATE fb_submissions SET status='submitted', submitted_at=NOW() WHERE id=?`,
       [sub.id]
     );
-    return ok(res, { submission_uuid: sub.uuid }, 'Application submitted successfully');
-  } catch (err) { return fail(res, 'Server error', 500); }
+
+    // Create provisional member_accounts entry (is_active=0) pinned to THIS submission only.
+    let memberId = null;
+    let memberUuid = null;
+    try {
+      const { v4: uuidv4 } = require('uuid');
+      const [[existing]] = await pool.query(
+        'SELECT id, uuid FROM member_accounts WHERE submission_id=? LIMIT 1',
+        [sub.id]
+      );
+      if (existing) {
+        memberId = existing.id;
+        memberUuid = existing.uuid;
+      } else {
+        memberUuid = uuidv4();
+        const [ins] = await pool.query(
+          `INSERT INTO member_accounts (uuid, submission_id, email, full_name, phone, is_active)
+           VALUES (?, ?, ?, ?, ?, 0)`,
+          [memberUuid, sub.id, sub.applicant_email, sub.applicant_name, sub.applicant_phone || null]
+        );
+        memberId = ins.insertId;
+      }
+    } catch (e) {
+      console.error('[submit: member_accounts upsert]', e.message);
+    }
+
+    // Generate member JWT so frontend can auto-login and show blocked dashboard
+    let memberToken = null;
+    if (memberId) {
+      try {
+        const jwt = require('jsonwebtoken');
+        memberToken = jwt.sign(
+          { id: memberId, email: sub.applicant_email, submission_id: sub.id, role: 'member' },
+          process.env.JWT_SECRET,
+          { expiresIn: '7d' }
+        );
+      } catch (e) {
+        console.error('[submit: jwt sign]', e.message);
+      }
+    }
+
+    return ok(res, {
+      submission_uuid: sub.uuid,
+      member_token: memberToken,
+      member: memberToken ? {
+        id: memberId,
+        uuid: memberUuid,
+        email: sub.applicant_email,
+        full_name: sub.applicant_name,
+        membership_id: sub.membership_id || null,
+        submission_id: sub.id,
+      } : null,
+    }, 'Application submitted successfully');
+  } catch (err) { console.error('[submit]', err); return fail(res, 'Server error', 500); }
 });
 
 // GET /api/submissions/:uuid  Fetch submission with all data

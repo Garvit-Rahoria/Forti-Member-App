@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import OTPModal from '../../components/membership/OTPModal'
+import { useMember } from '../../contexts/MemberContext'
 import {
   Shield, Globe, Award, Users, ChevronRight, CheckCircle,
   FileText, CreditCard, UserCheck, Download, Star,
@@ -19,6 +20,11 @@ function Navbar({ onApply }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const navigate = useNavigate()
+  const { token: memberToken } = useMember()
+
+  function handleMemberNav() {
+    navigate(memberToken ? '/member/dashboard' : '/member/login')
+  }
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 10)
@@ -56,8 +62,10 @@ function Navbar({ onApply }) {
           </div>
 
           {/* CTA buttons */}
-          <div className="hidden lg:flex items-center gap-3">
-            <button onClick={() => navigate('/member/login')} className="btn-outline text-sm">Member Login</button>
+          <div className="hidden lg:flex items-center gap-2">
+            <button onClick={() => navigate('/admin/login')} className="text-sm text-gray-600 hover:text-primary-600 font-medium px-3 py-1.5 rounded-lg hover:bg-primary-50 transition border border-gray-200">Admin Login</button>
+            <button onClick={() => navigate('/track')} className="text-sm text-gray-600 hover:text-primary-600 font-medium px-3 py-1.5 rounded-lg hover:bg-primary-50 transition border border-gray-200">Track Status</button>
+            <button onClick={handleMemberNav} className="btn-outline text-sm">{memberToken ? 'My Dashboard' : 'Member Login'}</button>
             <button onClick={onApply} className="btn-primary text-sm">Apply Now</button>
           </div>
 
@@ -72,7 +80,9 @@ function Navbar({ onApply }) {
               <Link key={l.to} to={l.to} className="block text-sm text-gray-700 hover:text-primary-600 py-2 px-2 font-medium rounded-lg hover:bg-primary-50" onClick={() => setMenuOpen(false)}>{l.label}</Link>
             ))}
             <div className="pt-3 space-y-2 border-t border-gray-100">
-              <button onClick={() => navigate('/member/login')} className="btn-outline w-full text-sm">Member Login</button>
+              <button onClick={() => { navigate('/admin/login'); setMenuOpen(false) }} className="w-full text-sm text-gray-700 font-medium border border-gray-200 rounded-xl py-2 hover:bg-gray-50 transition">Admin Login</button>
+              <button onClick={() => { navigate('/track'); setMenuOpen(false) }} className="w-full text-sm text-gray-700 font-medium border border-gray-200 rounded-xl py-2 hover:bg-gray-50 transition">Track Status</button>
+              <button onClick={() => { handleMemberNav(); setMenuOpen(false) }} className="btn-outline w-full text-sm">{memberToken ? 'My Dashboard' : 'Member Login'}</button>
               <button onClick={onApply} className="btn-primary w-full text-sm">Apply Now</button>
             </div>
           </div>
@@ -159,13 +169,8 @@ function Hero({ onApply }) {
 
 // â”€â”€ Live Stats (from DB) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function Stats() {
-  const { data } = useQuery({
-    queryKey: ['public-stats'],
-    queryFn: () => http.get('/reports/dashboard').then(r => r.data.data).catch(() => null),
-    staleTime: 5 * 60 * 1000,
-  })
   const items = [
-    { icon: Users,     num: data?.total_members  ? `${data.total_members.toLocaleString()}+` : '10,000+', label: 'Active Members' },
+    { icon: Users,     num: '10,000+', label: 'Active Members' },
     { icon: Globe,     num: '50+',  label: 'Countries' },
     { icon: MapPin,    num: '20+',  label: 'Indian States' },
     { icon: Building2, num: '500+', label: 'Organisations' },
@@ -272,11 +277,6 @@ function Benefits() {
 // â”€â”€ Dynamic Plans Preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function PlansPreview({ onApply }) {
   const navigate = useNavigate()
-  const { data: plans } = useQuery({
-    queryKey: ['public-plans-preview'],
-    queryFn: () => http.get('/membership/packages/list').then(r => r.data.data).catch(() => null),
-    staleTime: 5 * 60 * 1000,
-  })
 
   const staticPlans = [
     { name: 'Individual Membership', badge: 'Most Popular', badgeColor: 'bg-primary-100 text-primary-700', icon: 'ðŸ‘¤',

@@ -6,7 +6,7 @@ import api from '../api/client'
 import {
   LayoutDashboard, FileText, Users, CreditCard, Package,
   BarChart2, Settings, LogOut, ChevronDown, Menu, X,
-  UserCog, ClipboardList, RefreshCw, Mail, DollarSign,
+  UserCog, ClipboardList, RefreshCw, Mail,
 } from 'lucide-react'
 
 // Role-specific navigation trees
@@ -25,7 +25,6 @@ const NAV_BY_ROLE = {
     { label: 'Email Templates', icon: Mail,            to: '/email-templates' },
     { label: 'Audit Log',       icon: ClipboardList,   to: '/audit' },
     { label: 'Users',           icon: UserCog,         to: '/users' },
-    { label: 'Currency',        icon: DollarSign,      to: '/currency-settings' },
     { label: 'Settings',        icon: Settings,        to: '/settings' },
   ],
   admin: [

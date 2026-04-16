@@ -7,6 +7,7 @@ import {
   getPhonePlaceholder,
   validatePhoneNumber,
   normalizePhoneInput,
+  PHONE_COUNTRIES,
 } from '../../utils/membershipForm'
 
 const http = axios.create({ baseURL: '/api' })
@@ -102,14 +103,16 @@ export default function OTPModal({ onVerified, onClose }) {
       .then(res => {
         if (ignore) return
         const rows = res.data?.data || []
-        setCountries(rows)
-        const india = rows.find(country => String(country.name || '').toLowerCase() === 'india')
-        setSelectedCountryId(india ? String(india.id) : rows[0] ? String(rows[0].id) : '')
+        const list = rows.length > 0 ? rows : PHONE_COUNTRIES
+        setCountries(list)
+        const india = list.find(c => String(c.name || '').toLowerCase() === 'india')
+        setSelectedCountryId(india ? String(india.id) : String(list[0].id))
       })
       .catch(() => {
         if (!ignore) {
-          setCountries([{ id: 'in', name: 'India', iso2: 'IN', phone_code: '+91' }])
-          setSelectedCountryId('in')
+          setCountries(PHONE_COUNTRIES)
+          const india = PHONE_COUNTRIES.find(c => c.iso2 === 'IN')
+          setSelectedCountryId(india ? String(india.id) : String(PHONE_COUNTRIES[0].id))
         }
       })
     return () => { ignore = true }
@@ -232,7 +235,7 @@ export default function OTPModal({ onVerified, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
 
         {/* Header */}
         <div className="bg-gradient-to-r from-primary-600 to-primary-800 p-6 text-white relative">

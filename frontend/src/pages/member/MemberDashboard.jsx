@@ -61,7 +61,7 @@ function Sidebar({ activeTab, onTab, member, onLogout }) {
     { id: 'profile',     label: 'My Profile',     icon: User },
     { id: 'documents',   label: 'My Documents',   icon: Award },
     { id: 'payments',    label: 'Payment History', icon: CreditCard },
-    { id: 'renewal',     label: 'Renew Membership',icon: RefreshCw },
+    { id: 'renewal',     label: 'Renew Membership', icon: RefreshCw },
   ]
   return (
     <div className="w-64 bg-white border-r border-gray-200 flex flex-col h-screen sticky top-0 shrink-0">
@@ -121,12 +121,120 @@ function Sidebar({ activeTab, onTab, member, onLogout }) {
 const TIMELINE_STEPS = [
   { key: 'submitted',         label: 'Application Submitted'  },
   { key: 'under_review',      label: 'Under Review'           },
-  { key: 'approved',          label: 'Approved'               },
   { key: 'payment_pending',   label: 'Payment Pending'        },
   { key: 'payment_submitted', label: 'Payment Submitted'      },
   { key: 'payment_verified',  label: 'Payment Verified'       },
+  { key: 'approved',          label: 'Approved'               },
   { key: 'active',            label: 'Membership Active'      },
 ]
+
+// ── Status messages for the pending popup ─────────────────────────────────
+const STATUS_MESSAGES = {
+  submitted:         'Your application has been received and is under review by our team.',
+  pending:           'Your application is under review by our team.',
+  under_review:      'Your application is being actively processed by our team.',
+  approved:          'Your membership has been approved. Please await payment instructions.',
+  payment_pending:   'Your application is approved. Please submit your payment to activate membership.',
+  payment_submitted: 'Your payment has been submitted and is under review by our team.',
+  payment_verified:  'Your payment has been verified. Your membership is being activated.',
+  rejected:          'Your application was rejected. Please contact support for assistance.',
+}
+
+// ── Membership Blocked Screen (full-page, replaces dashboard entirely) ────
+function MembershipBlockedScreen({ member, onLogout, refetch }) {
+  const appStatus  = member?.status || 'submitted'
+  const statusInfo = STATUS_MAP[appStatus] || { label: String(appStatus).replace(/_/g, ' '), color: 'badge-gray', icon: Clock }
+  const StatusIcon = statusInfo.icon
+  const msg        = STATUS_MESSAGES[appStatus] || 'Status update in progress. Please check back soon.'
+  const isRejected = appStatus === 'rejected'
+
+  // Poll backend every 15 seconds; auto-unlocks when member_status becomes 'active'
+  useEffect(() => {
+    const id = setInterval(() => refetch?.(), 15000)
+    return () => clearInterval(id)
+  }, [refetch])
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Top bar */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center text-white font-black text-sm">F</div>
+          <div>
+            <p className="font-bold text-gray-900 text-sm">FORTI</p>
+            <p className="text-xs text-gray-400">Member Portal</p>
+          </div>
+        </div>
+        <button onClick={onLogout}
+          className="flex items-center gap-2 text-sm text-red-500 hover:text-red-700 font-medium transition">
+          <LogOut size={15}/> Sign Out
+        </button>
+      </div>
+
+      {/* Centered content */}
+      <div className="flex-1 flex flex-col items-center justify-start py-10 px-4 overflow-y-auto">
+        {/* Main card */}
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
+
+          {/* Purple header */}
+          <div className="bg-gradient-to-r from-primary-700 to-primary-900 px-6 py-6 text-white">
+            <div className="flex items-start gap-3">
+              <div className="w-11 h-11 bg-white/20 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                <Clock size={22}/>
+              </div>
+              <div>
+                <h2 className="font-black text-xl leading-tight">Membership Not Active</h2>
+                <p className="text-primary-200 text-sm mt-1">
+                  Your membership is not active yet. You can track your application status below.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Current status banner */}
+          <div className="px-6 pt-5 pb-3">
+            <div className={`flex items-start gap-3 p-4 rounded-xl border ${
+              isRejected
+                ? 'bg-red-50 border-red-200 text-red-800'
+                : 'bg-amber-50 border-amber-200 text-amber-800'
+            }`}>
+              <StatusIcon size={18} className="shrink-0 mt-0.5"/>
+              <div>
+                <p className="text-sm font-semibold">Current Status: {statusInfo.label}</p>
+                <p className="text-xs mt-0.5">{msg}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Track Application Status section */}
+          <div className="px-6 pb-6">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                <Activity size={12}/> Track Application Status
+              </p>
+              <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                <Loader2 size={10} className="animate-spin"/>
+                <span>Auto-updating every 15s</span>
+              </div>
+            </div>
+            <StatusTimeline status={appStatus}/>
+          </div>
+
+        </div>
+
+        {/* Member reference info */}
+        {member?.email && (
+          <p className="mt-4 text-center text-xs text-gray-400">
+            Logged in as <span className="font-semibold text-gray-600">{member.full_name || member.email}</span>
+            {member.membership_id && (
+              <> · Ref: <span className="font-mono text-primary-600">{member.membership_id}</span></>
+            )}
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
 
 const TIMELINE_ORDER = TIMELINE_STEPS.map(s => s.key)
 
@@ -795,6 +903,7 @@ function RenewalTab({ member, apiClient }) {
   const daysLeft = member?.expiry_date
     ? Math.ceil((new Date(member.expiry_date) - new Date()) / 86400000)
     : null
+  const canRenewNow = daysLeft !== null && daysLeft <= 30
 
   const membershipStatus = () => {
     if (member?.member_status === 'active' && daysLeft !== null && daysLeft > 30) return { label: 'Active', color: 'bg-green-100 text-green-800 border-green-200', dot: 'bg-green-500' }
@@ -839,6 +948,39 @@ function RenewalTab({ member, apiClient }) {
       <Loader2 size={28} className="animate-spin text-primary-500"/>
     </div>
   )
+
+  if (!canRenewNow) {
+    return (
+      <div className="space-y-6 max-w-2xl">
+        <div className="card">
+          <div className="card-header">
+            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+              <Shield size={17} className="text-primary-600"/> Membership Information
+            </h3>
+          </div>
+          <div className="card-body">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <InfoRow icon={Shield} label="Membership ID" value={member?.membership_id || '—'} mono />
+              <InfoRow icon={Award} label="Current Plan" value={currentPlan?.name || '—'} />
+              <InfoRow icon={Calendar} label="Start Date" value={member?.applied_at ? fmtDate(member.applied_at) : '—'} />
+              <InfoRow icon={Calendar} label="Expiry Date" value={member?.expiry_date ? fmtDate(member.expiry_date) : '—'} />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3 text-blue-800">
+          <Info size={17} className="shrink-0 mt-0.5"/>
+          <div>
+            <p className="font-semibold text-sm">Renewal Not Available Yet</p>
+            <p className="text-xs mt-0.5">
+              Your membership expires on <strong>{member?.expiry_date ? fmtDate(member.expiry_date) : '—'}</strong>.
+              Renewal will be available during the last <strong>30 days</strong> before expiry.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -1273,19 +1415,16 @@ export default function MemberDashboard() {
   const { member, loading, logout, apiClient, refetch } = useMember()
   const [activeTab, setActiveTab] = useState('overview')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-
-  // Real-time status polling: every 15 seconds while not active
-  useEffect(() => {
-    if (!member || member.member_status === 'active') return
-    const id = setInterval(() => { refetch && refetch() }, 15000)
-    return () => clearInterval(id)
-  }, [member?.member_status, refetch])
+  const daysLeft = member?.expiry_date
+    ? Math.ceil((new Date(member.expiry_date) - new Date()) / 86400000)
+    : null
+  const canRenewNow = daysLeft !== null && daysLeft <= 30
 
   useEffect(() => {
     if (!loading && !member) {
       navigate('/member/login', { replace: true })
     }
-  }, [member, loading])
+  }, [member, loading, navigate])
 
   if (loading) {
     return (
@@ -1307,16 +1446,24 @@ export default function MemberDashboard() {
     navigate('/', { replace: true })
   }
 
+  // ── STRICT BLOCK: member not yet active → show ONLY the blocking screen ──
+  // No dashboard data, no sidebar, no interaction possible
+  if (member.member_status !== 'active') {
+    return <MembershipBlockedScreen member={member} onLogout={handleLogout} refetch={refetch}/>
+  }
+
+  // ── ACTIVE MEMBER: full dashboard ─────────────────────────────────────────
   const tabContent = {
     overview:  <OverviewTab member={member} onTab={setActiveTab}/>,
-    profile:   <ProfileTab member={member} apiClient={apiClient} refetch={refetch}/>,  
+    profile:   <ProfileTab member={member} apiClient={apiClient} refetch={refetch}/>,
     documents: <DocumentsTab member={member} apiClient={apiClient}/>,
     payments:  <PaymentsTab apiClient={apiClient}/>,
-    renewal:   <RenewalTab member={member} apiClient={apiClient}/>,
+    renewal:   <RenewalTab member={member} apiClient={apiClient}/> ,
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 flex relative">
+
       {/* Desktop Sidebar */}
       <div className="hidden lg:block">
         <Sidebar activeTab={activeTab} onTab={setActiveTab} member={member} onLogout={handleLogout}/>
@@ -1325,7 +1472,7 @@ export default function MemberDashboard() {
       {/* Mobile sidebar overlay */}
       {mobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div className="bg-black/50" onClick={() => setMobileMenuOpen(false)}/>
+          <div className="bg-black/50 flex-1" onClick={() => setMobileMenuOpen(false)}/>
           <div className="w-64">
             <Sidebar activeTab={activeTab} onTab={t => { setActiveTab(t); setMobileMenuOpen(false) }} member={member} onLogout={handleLogout}/>
           </div>
@@ -1372,6 +1519,7 @@ export default function MemberDashboard() {
           {tabContent[activeTab]}
         </div>
       </div>
+
     </div>
   )
 }

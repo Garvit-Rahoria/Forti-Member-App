@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import api from '../../api/client'
 import FieldRenderer from './FieldRenderer'
 import toast from 'react-hot-toast'
+import { useMember } from '../../contexts/MemberContext'
 
 /**
  * DynamicFormRenderer
@@ -13,6 +15,8 @@ import toast from 'react-hot-toast'
  *   submissionUuid – for resuming a draft
  */
 export default function DynamicFormRenderer({ formSlug, formData: externalFormData, onSubmitSuccess, applicantUuid, submissionUuid: initSubmissionUuid, previewMode = false }) {
+  const navigate = useNavigate()
+  const { login } = useMember()
   const [form, setForm] = useState(externalFormData || null)
   const [loading, setLoading] = useState(!externalFormData)
   const [currentStep, setCurrentStep] = useState(0)
@@ -142,9 +146,18 @@ export default function DynamicFormRenderer({ formSlug, formData: externalFormDa
       let uuid = submissionUuid
       if (!uuid) uuid = await saveDraft(currentStep)
       if (!uuid) return
-      await api.post(`/submissions/${uuid}/submit`)
-      setSubmitted(true)
-      onSubmitSuccess?.(uuid)
+      const res = await api.post(`/submissions/${uuid}/submit`)
+      const { member_token, member } = res.data?.data || {}
+
+      // Auto-login with the newly created member session
+      if (member_token && member) {
+        login(member_token, member)
+        onSubmitSuccess?.(uuid)
+        navigate('/member/dashboard', { replace: true })
+      } else {
+        setSubmitted(true)
+        onSubmitSuccess?.(uuid)
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Submission failed')
     } finally {

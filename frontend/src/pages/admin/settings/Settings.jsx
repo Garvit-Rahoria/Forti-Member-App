@@ -5,7 +5,7 @@ import { Save, Loader2, Globe, Users, CreditCard, Bell, Mail, Upload, Image } fr
 import api from '../../../api/client'
 import toast from 'react-hot-toast'
 
-const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD', 'MYR']
+const CURRENCIES = ['INR', 'USD']
 const DURATIONS  = [
   { value: '1_year', label: '1 Year' },
   { value: '2_years', label: '2 Years' },

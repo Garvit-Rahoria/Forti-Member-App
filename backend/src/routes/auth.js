@@ -8,11 +8,12 @@ const { ok, fail } = require('../utils/helpers');
 const { v4: uuidv4 } = require('uuid');
 const { createAuditLog } = require('../utils/auditLog');
 const { sendMail } = require('../utils/email');
+const { loginLimiter, forgotPasswordLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
 
 // POST /api/auth/login
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return fail(res, 'Email and password required', 422);
 
@@ -75,7 +76,7 @@ router.get('/me', require('../middleware/auth').authMiddleware, async (req, res)
 });
 
 // POST /api/auth/forgot-password  — generates a reset link and emails it
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   const { email } = req.body;
   if (!email) return fail(res, 'Email is required', 422);
 

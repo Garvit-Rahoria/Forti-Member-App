@@ -150,6 +150,7 @@ router.post('/actions', async (req, res) => {
       [submission_id]
     );
 
+
     if (sub) {
       const memberName   = sub.applicant_name;
       const memberEmail  = sub.applicant_email;
@@ -168,47 +169,11 @@ router.post('/actions', async (req, res) => {
             [finalMembershipId, submission_id]
           );
         }
-
-        // Create member account if not yet created
-        const [existing] = await pool.query(
-          'SELECT id FROM member_accounts WHERE submission_id = ? LIMIT 1',
-          [submission_id]
-        );
-        if (!existing.length) {
-          const { v4: uuidv4 } = require('uuid');
-          // Calculate expiry based on plan_type
-          let expiryDate = null;
-          if (sub.plan_type === 'yearly' || sub.plan_type === '1year') {
-            const d = new Date(); d.setFullYear(d.getFullYear() + 1);
-            expiryDate = d.toISOString().split('T')[0];
-          } else if (sub.plan_type === '3years' || sub.plan_type === '3_years') {
-            const d = new Date(); d.setFullYear(d.getFullYear() + 3);
-            expiryDate = d.toISOString().split('T')[0];
-          }
-          // lifetime: expiryDate stays null
-          await pool.query(
-            `INSERT INTO member_accounts
-               (uuid, submission_id, email, full_name, phone, membership_id, plan_type, membership_type, expiry_date, package_id)
-             VALUES (?,?,?,?,?,?,?,?,?,?)`,
-            [uuidv4(), submission_id, memberEmail, memberName,
-             sub.applicant_phone || null, finalMembershipId,
-             sub.plan_type || null, sub.membership_type || null, expiryDate,
-             sub.package_id || null]
-          ).catch(e => console.error('[member account create]', e.message));
-        }
-
-        // Update submission to active
-        await pool.query(
-          "UPDATE fb_submissions SET status='active', member_status='active' WHERE id=?",
-          [submission_id]
-        );
-
-        // Send approval + confirmation emails
+        // Do NOT activate membership here. Only update status to approved.
+        // Send approval email only (no membership confirmation yet)
         const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/member/login`;
         sendApplicationApproved({ to: memberEmail, name: memberName, membershipId: finalMembershipId })
           .catch(e => console.error('[approval email]', e.message));
-        sendMembershipConfirmed({ to: memberEmail, name: memberName, membershipId: finalMembershipId, loginUrl })
-          .catch(e => console.error('[membership confirmed email]', e.message));
       }
 
       if (action === 'rejected') {
@@ -260,14 +225,36 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
         return fail(res, 'This submission is not in your assigned state', 403);
     }
 
-    // ── Branch manager: can only approve if payment is approved ──
+    // ── Branch manager: can only approve if payment is verified ──
     if (role === 'branch_manager' && (status === 'approved' || status === 'active')) {
       const [[pmt]] = await pool.query(
         'SELECT status FROM portal_payments WHERE submission_id=? ORDER BY id DESC LIMIT 1',
         [req.params.id]
       );
-      if (!pmt || pmt.status !== 'approved') {
-        return fail(res, 'Cannot approve: payment must be approved first', 422);
+      if (!pmt || pmt.status !== 'verified') {
+        return fail(res, 'Cannot approve: payment must be verified first', 422);
+      }
+    }
+
+    // ── STRICT: No approval without payment verified (all roles) ──
+    if (status === 'approved') {
+      const [[pmt]] = await pool.query(
+        'SELECT status FROM portal_payments WHERE submission_id=? ORDER BY id DESC LIMIT 1',
+        [req.params.id]
+      );
+      if (!pmt || pmt.status !== 'verified') {
+        return fail(res, 'Action not allowed. Payment must be verified before approving.', 422);
+      }
+      // Also check current application status
+      if (!['payment_verified'].includes(sub.status)) {
+        return fail(res, 'Action not allowed. Complete previous steps first.', 422);
+      }
+    }
+
+    // ── STRICT: No activation without approved status ──
+    if (status === 'active') {
+      if (sub.status !== 'approved') {
+        return fail(res, 'Action not allowed. Application must be approved before activation.', 422);
       }
     }
 
@@ -297,10 +284,9 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
       ).catch(e => console.error('[sync payment rejected]', e.message));
     }
 
-    // ── Approve: skip 'approved' state, go directly to 'active' ──
-    // Assign Membership ID when approving
+    // ── Approve: assign membership_id but do NOT activate ──
     let finalMembershipId = sub.membership_id;
-    if (status === 'approved' || status === 'active' || status === 'activate') {
+    if (status === 'approved') {
       if (!finalMembershipId) {
         const [[{ cnt }]] = await pool.query(
           "SELECT COUNT(*) AS cnt FROM fb_submissions WHERE membership_id IS NOT NULL AND membership_id != ''"
@@ -321,7 +307,7 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
         [req.params.id]
       );
       if (!pmt || pmt.status !== 'verified') {
-        return fail(res, 'Cannot activate: payment must be verified first', 422);
+        return fail(res, 'Payment not verified. Cannot activate membership.', 422);
       }
       // Calculate expiry based on package duration_months or plan_type fallback
       let expiryDate = null;
@@ -355,10 +341,10 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
         [req.user.id, req.user.id, finalMembershipId, expiryDate, req.params.id]
       );
 
-      // Upsert member_accounts — link to THIS submission, update all fields
+      // Upsert member_accounts for THIS submission only. Never repoint another account by email.
       const [[existingAcc]] = await pool.query(
-        'SELECT id FROM member_accounts WHERE submission_id=? OR email=? LIMIT 1',
-        [req.params.id, sub.applicant_email]
+        'SELECT id FROM member_accounts WHERE submission_id=? LIMIT 1',
+        [req.params.id]
       );
       if (existingAcc) {
         await pool.query(
@@ -419,81 +405,14 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
       return ok(res, { id: Number(req.params.id), status: 'active' }, 'Membership activated successfully');
     }
 
-    // When approving (legacy path), write 'active' directly into the DB
-    const dbStatus = status === 'approved' ? 'active' : status;
 
+    // Always update status as requested (except for legacy 'approved'→'active' path)
     await pool.query(
       'UPDATE fb_submissions SET status=?, reviewed_by=?, reviewed_at=NOW(), review_notes=? WHERE id=?',
-      [dbStatus, req.user.id, notes || null, req.params.id]
+      [status, req.user.id, notes || null, req.params.id]
     );
 
-    // ── Full activation: create member account, set member_status, send emails ──
-    if (status === 'approved' || status === 'active') {
-      // Ensure member account exists
-      const [existing] = await pool.query(
-        'SELECT id FROM member_accounts WHERE submission_id=? LIMIT 1', [req.params.id]
-      );
-      if (!existing.length) {
-        const { v4: uuidv4 } = require('uuid');
-        let expiryDate = null;
-        if (sub.plan_type === 'yearly' || sub.plan_type === '1year') {
-          const d = new Date(); d.setFullYear(d.getFullYear() + 1);
-          expiryDate = d.toISOString().split('T')[0];
-        } else if (sub.plan_type === '3years' || sub.plan_type === '3_years') {
-          const d = new Date(); d.setFullYear(d.getFullYear() + 3);
-          expiryDate = d.toISOString().split('T')[0];
-        }
-        // lifetime: expiryDate stays null
-        const [[freshSub]] = await pool.query('SELECT * FROM fb_submissions WHERE id=?', [req.params.id]);
-        await pool.query(
-          `INSERT INTO member_accounts
-             (uuid, submission_id, email, full_name, phone, membership_id, plan_type, membership_type, expiry_date, package_id)
-           VALUES (?,?,?,?,?,?,?,?,?,?)`,
-          [uuidv4(), req.params.id, freshSub.applicant_email, freshSub.applicant_name,
-           freshSub.applicant_phone || null, freshSub.membership_id,
-           freshSub.plan_type || null, freshSub.membership_type || null, expiryDate,
-           freshSub.package_id || null]
-        ).catch(e => console.error('[member account create]', e.message));
-      }
-
-      await pool.query("UPDATE fb_submissions SET member_status='active' WHERE id=?", [req.params.id]);
-
-      // Send approval emails (only on direct approval action, not manual re-activate)
-      if (status === 'approved') {
-        const [[freshSub]] = await pool.query('SELECT * FROM fb_submissions WHERE id=?', [req.params.id]);
-        const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/member/login`;
-        sendApplicationApproved({ to: freshSub.applicant_email, name: freshSub.applicant_name, membershipId: freshSub.membership_id })
-          .catch(e => console.error('[approval email]', e.message));
-        sendMembershipConfirmed({ to: freshSub.applicant_email, name: freshSub.applicant_name, membershipId: freshSub.membership_id, loginUrl })
-          .catch(e => console.error('[membership confirmed email]', e.message));
-
-        // Trigger certificate + card generation in background
-        setImmediate(async () => {
-          try {
-            const path = require('path');
-            const fs   = require('fs');
-            const { generateCertPDF, generateCardPDF } = require('./certificates');
-            const [[memberData]] = await pool.query('SELECT * FROM fb_submissions WHERE id=?', [req.params.id]);
-            if (!memberData || !memberData.membership_id) return;
-            const mid = memberData.membership_id;
-            const certDir = path.join(__dirname, '../../storage/certificates');
-            const cardDir = path.join(__dirname, '../../storage/cards');
-            if (!fs.existsSync(certDir)) fs.mkdirSync(certDir, { recursive: true });
-            if (!fs.existsSync(cardDir)) fs.mkdirSync(cardDir, { recursive: true });
-            if (typeof generateCertPDF === 'function')
-              await generateCertPDF(memberData, path.join(certDir, `cert_${mid}.pdf`));
-            if (typeof generateCardPDF === 'function')
-              await generateCardPDF(memberData, path.join(cardDir, `card_${mid}.pdf`));
-            await pool.query(
-              'UPDATE fb_submissions SET cert_generated=1, certificate_pdf=?, card_generated=1, id_card_pdf=? WHERE id=?',
-              [`storage/certificates/cert_${mid}.pdf`, `storage/cards/card_${mid}.pdf`, req.params.id]
-            );
-          } catch (e) { console.error('[cert gen on approval]', e.message); }
-        });
-      }
-    }
-
-    createAuditLog(req.user.id, `STATUS_CHANGE_${dbStatus.toUpperCase()}`, 'submissions', req.params.id, req.ip);
+    createAuditLog(req.user.id, `STATUS_CHANGE_${status.toUpperCase()}`, 'submissions', req.params.id, req.ip);
 
     // ── Send status-update email to applicant ──
     if (status === 'under_review') {
@@ -505,7 +424,7 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
         .catch(e => console.error('[rejection email]', e.message));
     }
 
-    return ok(res, { id: Number(req.params.id), status: dbStatus }, 'Status updated');
+    return ok(res, { id: Number(req.params.id), status }, 'Status updated');
   } catch (err) { console.error(err); return fail(res, 'Server error', 500); }
 });
 

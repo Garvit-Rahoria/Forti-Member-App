@@ -1,25 +1,51 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import api from '../../api/client'
-
-const STEPS = [
-  { key: 'submitted',       label: 'Submitted',        desc: 'Application received' },
-  { key: 'under_review',    label: 'Under Review',     desc: 'Being reviewed by our team' },
-  { key: 'approved',        label: 'Approved',         desc: 'Application approved' },
-  { key: 'payment_pending', label: 'Payment Pending',  desc: 'Awaiting payment verification' },
-  { key: 'active',          label: 'Active',           desc: 'Membership is active' },
-]
-
-function getStepIndex(status, member_status, payment_status) {
-  if (member_status === 'active') return 4
-  if (payment_status === 'pending' || payment_status === 'submitted') return 3
-  if (status === 'approved') return 2
-  if (status === 'under_review') return 1
-  return 0
-}
 
 function fmt(dateStr) {
   if (!dateStr) return null
   return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+// Build the list of completed steps based on real backend data only
+function buildSteps(result) {
+  if (!result) return []
+  const { status, member_status, payment_status, submitted_at, approved_at, payment_date } = result
+  const steps = []
+
+  // Step 1 – always shown when we have data
+  steps.push({ key: 'submitted', label: 'Submitted', desc: 'Application received', date: submitted_at })
+
+  // Step 2 – under review
+  const pastSubmitted = ['under_review', 'approved', 'payment_pending', 'payment_submitted', 'payment_verified', 'active']
+  if (pastSubmitted.includes(status)) {
+    steps.push({ key: 'under_review', label: 'Under Review', desc: 'Being reviewed by our team' })
+  }
+
+  // Step 3 – approved
+  if (['approved', 'payment_pending', 'payment_submitted', 'payment_verified', 'active'].includes(status)) {
+    steps.push({ key: 'approved', label: 'Approved', desc: 'Application approved', date: approved_at })
+  }
+
+  // Step 4 – payment submitted by applicant
+  const pmtSubmitted = ['submitted', 'verified', 'approved']
+  if (pmtSubmitted.includes(payment_status) || ['payment_submitted', 'payment_verified'].includes(status)) {
+    steps.push({ key: 'payment_submitted', label: 'Payment Submitted', desc: 'Awaiting payment verification', date: payment_date })
+  }
+
+  // Step 5 – payment verified by admin
+  if (['verified', 'approved'].includes(payment_status) || status === 'payment_verified') {
+    steps.push({ key: 'payment_verified', label: 'Payment Verified', desc: 'Payment has been confirmed' })
+  }
+
+  // Step 6 – membership active ONLY when app approved AND payment verified
+  const appApproved = ['approved', 'active'].includes(status)
+  const pmtVerified = ['verified', 'approved'].includes(payment_status)
+  if (member_status === 'active' && appApproved && pmtVerified) {
+    steps.push({ key: 'active', label: 'Membership Activated', desc: 'Membership is active' })
+  }
+
+  return steps
 }
 
 export default function TrackApplication() {
@@ -45,10 +71,26 @@ export default function TrackApplication() {
     }
   }
 
-  const currentStep = result ? getStepIndex(result.status, result.member_status, result.payment_status) : -1
+  const steps = buildSteps(result)
+  const lastIdx = steps.length - 1
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-white flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-white">
+      {/* Simple top bar */}
+      <div className="bg-white border-b border-gray-100 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-primary-600 flex items-center justify-center text-white font-black text-base shadow-md">F</div>
+            <span className="font-black text-gray-900 tracking-tight">FORTI</span>
+          </Link>
+          <div className="flex items-center gap-3">
+            <Link to="/member/login" className="text-sm text-gray-600 hover:text-primary-600 font-medium transition">Member Login</Link>
+            <Link to="/" className="text-sm text-primary-600 hover:text-primary-700 font-medium transition">← Back to Home</Link>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-center p-4 py-12">
       <div className="w-full max-w-lg space-y-6">
 
         {/* Header */}
@@ -75,11 +117,21 @@ export default function TrackApplication() {
             </button>
           </form>
 
+          {loading && (
+            <div className="flex justify-center py-4">
+              <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"/>
+            </div>
+          )}
+
           {error && (
             <p className="text-red-600 text-sm bg-red-50 border border-red-100 rounded-xl px-4 py-2.5">{error}</p>
           )}
 
-          {result && (
+          {result && steps.length === 0 && (
+            <p className="text-gray-400 text-sm text-center py-4">No status information available yet.</p>
+          )}
+
+          {result && steps.length > 0 && (
             <div className="space-y-5 pt-2">
               <div className="flex items-center justify-between">
                 <div>
@@ -97,48 +149,45 @@ export default function TrackApplication() {
                 </span>
               </div>
 
-              {/* Timeline */}
+              {/* Dynamic Timeline — only completed steps */}
               <div className="space-y-0">
-                {STEPS.map((step, i) => {
-                  const done    = i <= currentStep
-                  const current = i === currentStep
+                {steps.map((step, i) => {
+                  const isCurrent = i === lastIdx
                   return (
                     <div key={step.key} className="flex gap-3 items-start">
                       <div className="flex flex-col items-center">
                         <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold transition-colors ${
-                          done
-                            ? current
-                              ? 'bg-primary-600 text-white ring-4 ring-primary-100'
-                              : 'bg-emerald-500 text-white'
-                            : 'bg-gray-100 text-gray-300'
+                          isCurrent
+                            ? 'bg-primary-600 text-white ring-4 ring-primary-100'
+                            : 'bg-emerald-500 text-white'
                         }`}>
-                          {done && !current ? (
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
-                          ) : (
+                          {isCurrent ? (
                             i + 1
+                          ) : (
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
                           )}
                         </div>
-                        {i < STEPS.length - 1 && (
-                          <div className={`w-0.5 h-8 mt-1 rounded-full ${i < currentStep ? 'bg-emerald-400' : 'bg-gray-100'}`} />
+                        {i < lastIdx && (
+                          <div className="w-0.5 h-8 mt-1 rounded-full bg-emerald-400" />
                         )}
                       </div>
                       <div className="pb-4">
-                        <p className={`text-sm font-semibold leading-tight ${done ? 'text-gray-900' : 'text-gray-300'}`}>{step.label}</p>
-                        <p className={`text-xs mt-0.5 ${done ? 'text-gray-400' : 'text-gray-200'}`}>{step.desc}</p>
-                        {current && step.key === 'submitted' && result.submitted_at && (
-                          <p className="text-xs text-primary-600 font-medium mt-0.5">{fmt(result.submitted_at)}</p>
-                        )}
-                        {step.key === 'approved' && result.approved_at && i <= currentStep && (
-                          <p className="text-xs text-emerald-600 font-medium mt-0.5">{fmt(result.approved_at)}</p>
-                        )}
-                        {step.key === 'payment_pending' && result.payment_date && i <= currentStep && (
-                          <p className="text-xs text-gray-400 font-medium mt-0.5">Payment received {fmt(result.payment_date)}</p>
+                        <p className="text-sm font-semibold leading-tight text-gray-900">{step.label}</p>
+                        <p className="text-xs mt-0.5 text-gray-400">{step.desc}</p>
+                        {step.date && (
+                          <p className="text-xs text-primary-600 font-medium mt-0.5">{fmt(step.date)}</p>
                         )}
                       </div>
                     </div>
                   )
                 })}
               </div>
+
+              {result.status === 'rejected' && (
+                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 font-medium">
+                  Your application has been rejected. Please contact support for more information.
+                </div>
+              )}
 
               {result.member_status === 'active' && (
                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-sm text-emerald-700 font-medium">
@@ -151,8 +200,9 @@ export default function TrackApplication() {
 
         <p className="text-center text-xs text-gray-400">
           Your Application ID was sent to your email when you applied.{' '}
-          <a href="/" className="text-primary-600 hover:underline">← Back to home</a>
+          <Link to="/" className="text-primary-600 hover:underline">← Back to home</Link>
         </p>
+      </div>
       </div>
     </div>
   )

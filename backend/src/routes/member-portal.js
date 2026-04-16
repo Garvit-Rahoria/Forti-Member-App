@@ -8,7 +8,35 @@ const { upload } = require('../middleware/upload');
 
 const router = express.Router();
 
-// ── PUBLIC: GET /api/member/packages ─────────────────────────────────────
+// ── PUBLIC: GET /api/member/track-status?email=... ───────────────────────
+// Returns application_status, payment_status, membership_status for tracking
+router.get('/track-status', async (req, res) => {
+  const { email } = req.query;
+  if (!email || !String(email).trim()) return fail(res, 'email is required', 422);
+  try {
+    const [[sub]] = await pool.query(
+      `SELECT s.status AS application_status,
+              COALESCE(pp.status, 'pending') AS payment_status,
+              COALESCE(s.member_status, 'inactive') AS membership_status
+       FROM fb_submissions s
+       LEFT JOIN portal_payments pp ON pp.submission_id = s.id
+         AND pp.id = (SELECT MAX(id) FROM portal_payments WHERE submission_id = s.id)
+       WHERE s.applicant_email = ? AND s.status NOT IN ('draft')
+       ORDER BY s.created_at DESC LIMIT 1`,
+      [String(email).trim()]
+    );
+    if (!sub) return fail(res, 'Application not found', 404);
+    return ok(res, {
+      application_status: sub.application_status,
+      payment_status: sub.payment_status,
+      membership_status: sub.membership_status,
+    });
+  } catch (err) {
+    console.error(err);
+    return fail(res, 'Server error', 500);
+  }
+});
+
 // Returns active packages filterable by membership_type
 router.get('/packages', async (req, res) => {
   try {
@@ -102,10 +130,33 @@ function memberAuth(req, res, next) {
   }
 }
 
+// ── GET /api/member/status — lightweight status check (auth-protected) ──────
+router.get('/status', memberAuth, async (req, res) => {
+  try {
+    const [[row]] = await pool.query(
+      `SELECT s.status, s.member_status
+       FROM fb_submissions s
+       WHERE s.id = ? LIMIT 1`,
+      [req.member.submission_id]
+    );
+    if (!row) return fail(res, 'Not found', 404);
+    return ok(res, { status: row.status, member_status: row.member_status });
+  } catch (err) {
+    console.error('[GET /api/member/status]', err);
+    return fail(res, 'Server error', 500);
+  }
+});
+
 // ── GET /api/member/me ─────────────────────────────────────────────────────
 router.get('/me', memberAuth, async (req, res) => {
   const [rows] = await pool.query(
-    `SELECT ma.id, ma.uuid, ma.email, ma.full_name, ma.phone, ma.membership_id, ma.last_login,
+    `SELECT COALESCE(ma.id, 0) AS id,
+            ma.uuid,
+            COALESCE(ma.email, s.applicant_email) AS email,
+            COALESCE(ma.full_name, s.applicant_name) AS full_name,
+            COALESCE(ma.phone, s.applicant_phone) AS phone,
+            COALESCE(ma.membership_id, s.membership_id) AS membership_id,
+            ma.last_login,
             s.id AS submission_id, s.uuid AS sub_uuid, s.status, s.member_status,
             s.expiry_date, s.submitted_at, s.created_at AS applied_at,
             s.approved_at AS start_date,
@@ -119,14 +170,14 @@ router.get('/me', memberAuth, async (req, res) => {
             pp.status AS payment_status, pp.amount AS payment_amount,
             pp.transaction_id, pp.created_at AS payment_date,
             pm.name AS payment_method
-     FROM member_accounts ma
-     JOIN fb_submissions s ON s.id = ma.submission_id
+     FROM fb_submissions s
+     LEFT JOIN member_accounts ma ON ma.submission_id = s.id
      LEFT JOIN portal_packages p ON p.id = COALESCE(ma.package_id, s.package_id)
      LEFT JOIN portal_payments pp ON pp.submission_id = s.id
        AND pp.id = (SELECT MAX(id) FROM portal_payments WHERE submission_id = s.id)
      LEFT JOIN portal_payment_methods pm ON pm.id = pp.method_id
-     WHERE ma.id = ? LIMIT 1`,
-    [req.member.id]
+     WHERE s.id = ? LIMIT 1`,
+    [req.member.submission_id]
   );
   if (!rows.length) return fail(res, 'Member not found', 404);
 
@@ -267,14 +318,15 @@ router.get('/payment-history', memberAuth, async (req, res) => {
   const [rows] = await pool.query(
     `SELECT pp.id, pp.uuid, pp.transaction_id, pp.amount, pp.status,
             pp.created_at AS payment_date,
+            pp.currency,
             pm.name AS method_name,
             s.membership_id, s.uuid AS submission_uuid
      FROM portal_payments pp
      JOIN fb_submissions s ON s.id = pp.submission_id
      LEFT JOIN portal_payment_methods pm ON pm.id = pp.method_id
-     WHERE s.applicant_email = ?
+     WHERE s.id = ?
      ORDER BY pp.created_at DESC`,
-    [req.member.email]
+    [req.member.submission_id]
   );
   return ok(res, rows);
 });

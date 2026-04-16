@@ -417,7 +417,7 @@ function CreditInrModal({ payment, onClose, onConfirm, pending }) {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="card w-full max-w-md" onClick={e => e.stopPropagation()}>
+      <div className="card w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="card-header">
           <div className="flex items-center gap-2">
             <ArrowRightLeft size={16} className="text-indigo-600"/>
@@ -683,6 +683,7 @@ function TransactionsTab() {
       qc.invalidateQueries(['approval-counts'])
       toast.success(vars.action === 'verify' ? '✅ Payment approved & membership activated' : 'Payment rejected')
       setViewPayment(null)
+      setPaymentAction(null)
     },
     onError: err => toast.error(err.response?.data?.message || 'Action failed'),
   })
