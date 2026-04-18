@@ -49,7 +49,7 @@ router.post('/login', loginLimiter, async (req, res) => {
 });
 
 // POST /api/auth/register (super_admin only – create new admin accounts)
-router.post('/register', async (req, res) => {
+router.post('/register', require('../middleware/auth').authMiddleware, require('../middleware/auth').requireRole('super_admin'), async (req, res) => {
   const { full_name, email, password, role = 'staff' } = req.body;
   if (!full_name || !email || !password) return fail(res, 'All fields required', 422);
 

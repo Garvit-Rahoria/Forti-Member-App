@@ -1,9 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { MemberProvider, useMember } from './contexts/MemberContext'
+import ErrorBoundary from './components/ErrorBoundary'
 import AdminLayout from './layouts/AdminLayout'
 import Login from './pages/auth/Login'
 import ResetPassword from './pages/auth/ResetPassword'
+import NotFound from './pages/NotFound'
 import Dashboard from './pages/admin/Dashboard'
 import FormList from './pages/admin/forms/FormList'
 import FormBuilder from './pages/admin/forms/FormBuilder'
@@ -60,6 +62,7 @@ function MemberRoute({ children }) {
 
 export default function App() {
   return (
+    <ErrorBoundary>
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AuthProvider>
         <MemberProvider>
@@ -127,10 +130,11 @@ export default function App() {
               </Route>
             </Route>
 
-            <Route path="*" element={<Navigate to="/login" replace />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </MemberProvider>
       </AuthProvider>
     </BrowserRouter>
+    </ErrorBoundary>
   )
 }

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
@@ -15,7 +15,7 @@ import {
 
 const http = axios.create({ baseURL: '/api' })
 
-// â”€â”€ Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Navigation ─────────────────────────────────────────────────────────────
 function Navbar({ onApply }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
@@ -92,7 +92,7 @@ function Navbar({ onApply }) {
   )
 }
 
-// â”€â”€ Hero â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Hero ───────────────────────────────────────────────────────────────────
 function Hero({ onApply }) {
   const navigate = useNavigate()
   return (
@@ -154,7 +154,7 @@ function Hero({ onApply }) {
                   <span>Valid: Lifetime</span>
                 </div>
               </div>
-              <div className="absolute -top-4 -right-4 bg-yellow-400 text-yellow-900 rounded-xl px-3 py-1.5 text-xs font-bold shadow-lg">âœ“ Verified</div>
+              <div className="absolute -top-4 -right-4 bg-yellow-400 text-yellow-900 rounded-xl px-3 py-1.5 text-xs font-bold shadow-lg">✓ Verified</div>
               <div className="absolute -bottom-4 -left-4 bg-white text-primary-700 rounded-xl px-3 py-2 text-xs font-bold shadow-lg flex items-center gap-1.5">
                 <Award size={14}/> Lifetime Access
               </div>
@@ -167,7 +167,7 @@ function Hero({ onApply }) {
   )
 }
 
-// â”€â”€ Live Stats (from DB) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Live Stats (from DB) ─────────────────────────────────────────────────────
 function Stats() {
   const items = [
     { icon: Users,     num: '10,000+', label: 'Active Members' },
@@ -193,7 +193,7 @@ function Stats() {
   )
 }
 
-// â”€â”€ About Snippet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── About Snippet ─────────────────────────────────────────────────────────
 function AboutSnippet() {
   const navigate = useNavigate()
   return (
@@ -225,10 +225,10 @@ function AboutSnippet() {
             </button>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            {[['ðŸ›ï¸','Founded in 2010','With a mission to empower professionals globally'],
-              ['ðŸ¤','10,000+ Members','Active professionals across all sectors'],
-              ['ðŸ“œ','ISO Accredited','Internationally recognised membership certificates'],
-              ['ðŸŒ','Global Network','Chapters in 50+ countries worldwide']].map(([emoji, title, desc]) => (
+            {[['','Founded in 2010','With a mission to empower professionals globally'],
+              ['','10,000+ Members','Active professionals across all sectors'],
+              ['','ISO Accredited','Internationally recognised membership certificates'],
+              ['','Global Network','Chapters in 50+ countries worldwide']].map(([emoji, title, desc]) => (
               <div key={title} className="bg-white rounded-2xl p-5 border border-gray-200 hover:border-primary-200 hover:shadow-sm transition">
                 <div className="text-3xl mb-3">{emoji}</div>
                 <h4 className="font-bold text-gray-900 text-sm">{title}</h4>
@@ -242,7 +242,7 @@ function AboutSnippet() {
   )
 }
 
-// â”€â”€ Benefits â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Benefits ───────────────────────────────────────────────────────────────
 function Benefits() {
   const items = [
     { icon: Award, title: 'Digital Membership Certificate', desc: 'Professionally designed membership certificate as a PDF, ready to download and print.', color: 'text-yellow-600 bg-yellow-50' },
@@ -274,16 +274,16 @@ function Benefits() {
   )
 }
 
-// â”€â”€ Dynamic Plans Preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Dynamic Plans Preview ─────────────────────────────────────────────────
 function PlansPreview({ onApply }) {
   const navigate = useNavigate()
 
   const staticPlans = [
-    { name: 'Individual Membership', badge: 'Most Popular', badgeColor: 'bg-primary-100 text-primary-700', icon: 'ðŸ‘¤',
+    { name: 'Individual Membership', badge: 'Most Popular', badgeColor: 'bg-primary-100 text-primary-700', icon: '👤',
       desc: 'For professionals, consultants, freelancers, students, and independent practitioners.',
       features: ['Personal membership certificate','Digital ID card with QR code','Access to FORTI events','Networking directory listing','Monthly newsletter','Renewal management'],
       cta: 'Apply as Individual' },
-    { name: 'Corporate Membership', badge: 'Best Value', badgeColor: 'bg-green-100 text-green-700', icon: 'ðŸ¢',
+    { name: 'Corporate Membership', badge: 'Best Value', badgeColor: 'bg-green-100 text-green-700', icon: '',
       desc: 'For companies, organisations, institutions, and enterprises looking to associate with FORTI.',
       features: ['Multiple member seats','Corporate profile listing','Priority event access','Dedicated account manager','Corporate certificate','Custom payment terms'],
       cta: 'Apply as Corporate' },
@@ -334,13 +334,13 @@ function PlansPreview({ onApply }) {
   )
 }
 
-// â”€â”€ How It Works â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── How It Works ───────────────────────────────────────────────────────────
 function HowItWorks({ onApply }) {
   const steps = [
-    { step: '01', icon: Shield,    title: 'Verify Identity',  desc: 'Enter your Name, Mobile, and Email. OTP sent to verify â€” takes 30 seconds.' },
+    { step: '01', icon: Shield,    title: 'Verify Identity',  desc: 'Enter your Name, Mobile, and Email. OTP sent to verify — takes 30 seconds.' },
     { step: '02', icon: FileText,  title: 'Fill Application', desc: 'Complete the membership form: Personal Details, Location, Category, Plan, and Payment.' },
     { step: '03', icon: CreditCard,title: 'Submit Payment',   desc: 'Pay via UPI, Bank Transfer, or Cash. Upload payment screenshot and transaction reference.' },
-    { step: '04', icon: UserCheck, title: 'Get Approved',     desc: 'Our team reviews your application (2â€“3 business days). Email updates at every step.' },
+    { step: '04', icon: UserCheck, title: 'Get Approved',     desc: 'Our team reviews your application (2–3 business days). Email updates at every step.' },
     { step: '05', icon: Download,  title: 'Get Documents',    desc: 'Once approved, download your Certificate, ID Card, and Invoice from your dashboard.' },
   ]
   return (
@@ -376,12 +376,12 @@ function HowItWorks({ onApply }) {
   )
 }
 
-// â”€â”€ News Preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── News Preview ───────────────────────────────────────────────────────────
 function NewsPreview() {
   const navigate = useNavigate()
   const newsItems = [
     { id: 1, cat: 'Announcement', title: 'FORTI Launches New Online Membership Portal', date: 'March 2026', excerpt: 'FORTI has launched its new digital membership management portal, enabling faster application processing and instant certificate delivery.' },
-    { id: 2, cat: 'Event',        title: 'Annual General Meeting 2026 â€” New Delhi', date: 'February 2026', excerpt: 'FORTI hosted its Annual General Meeting in New Delhi, with over 500 members attending in person and virtually across the globe.' },
+    { id: 2, cat: 'Event',        title: 'Annual General Meeting 2026 — New Delhi', date: 'February 2026', excerpt: 'FORTI hosted its Annual General Meeting in New Delhi, with over 500 members attending in person and virtually across the globe.' },
     { id: 3, cat: 'Update',       title: 'Expansion to 5 New States Announced', date: 'January 2026', excerpt: 'FORTI announces expansion of its State Chapter network to 5 new states, bringing the total active state chapters to 25.' },
   ]
   return (
@@ -416,7 +416,7 @@ function NewsPreview() {
   )
 }
 
-// â”€â”€ Gallery Preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Gallery Preview ────────────────────────────────────────────────────────
 function GalleryPreview() {
   const navigate = useNavigate()
   const colors = ['from-purple-200 to-purple-300','from-blue-200 to-blue-300','from-green-200 to-green-300','from-yellow-200 to-yellow-300','from-pink-200 to-pink-300','from-orange-200 to-orange-300']
@@ -446,7 +446,7 @@ function GalleryPreview() {
   )
 }
 
-// â”€â”€ Verify Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Verify Section ─────────────────────────────────────────────────────────
 function VerifySection() {
   const navigate = useNavigate()
   const [input, setInput] = useState('')
@@ -472,7 +472,7 @@ function VerifySection() {
   )
 }
 
-// â”€â”€ Contact Preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Contact Preview ────────────────────────────────────────────────────────
 function ContactPreview() {
   const navigate = useNavigate()
   return (
@@ -509,7 +509,7 @@ function ContactPreview() {
   )
 }
 
-// â”€â”€ Footer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Footer ─────────────────────────────────────────────────────────────────
 function Footer() {
   const navigate = useNavigate()
   return (
@@ -570,7 +570,7 @@ function Footer() {
   )
 }
 
-// â”€â”€ Landing Page (main) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Landing Page (main) ────────────────────────────────────────────────────
 export default function LandingPage() {
   const [showOTPModal, setShowOTPModal] = useState(false)
   const navigate = useNavigate()

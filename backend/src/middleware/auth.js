@@ -1,7 +1,11 @@
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'forti_portal_secret';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is not set. Exiting.');
+  process.exit(1);
+}
 
 // Verify JWT token and attach user to request
 async function authMiddleware(req, res, next) {

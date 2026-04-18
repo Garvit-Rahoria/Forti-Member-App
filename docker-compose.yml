@@ -1,0 +1,19 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: forti_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root@2026
+      MYSQL_DATABASE: forti_membership
+      MYSQL_USER: forti
+      MYSQL_PASSWORD: forti@2026
+    ports:
+      - "3307:3306"
+    volumes:
+      - forti_db_data:/var/lib/mysql
+      - ./database/init:/docker-entrypoint-initdb.d
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+volumes:
+  forti_db_data:

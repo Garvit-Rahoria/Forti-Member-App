@@ -2,6 +2,7 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const express = require('express');
 const cors = require('cors');
+const morgan = require('morgan');
 const { testConnection, pool } = require('./config/database');
 const { apiLimiter, otpLimiter, uploadLimiter } = require('./middleware/rateLimiter');
 const { startRenewalReminderCron } = require('./cron/renewalReminders');
@@ -16,6 +17,7 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+app.use(morgan('dev'));
 
 // Rate limiting
 app.use('/api/', apiLimiter);
