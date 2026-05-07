@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import api from '../../api/client'
 import toast from 'react-hot-toast'
 
 export default function ResetPassword() {
   const navigate = useNavigate()
+  const { token: tokenParam } = useParams()
   const [searchParams] = useSearchParams()
-  const token = searchParams.get('token')
+  // Support both /reset-password/:token (path param) and /reset-password?token= (query param)
+  const token = tokenParam || searchParams.get('token')
 
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Plus, Edit, Trash2, X, Loader2, ToggleLeft, ToggleRight, AlertCircle,
@@ -36,6 +36,18 @@ function generatePlanCode(loc, type, dur) {
 
 function comboKey(loc, type, dur, countryId) {
   return `${loc}_${type}_${dur}_${countryId || ''}`.toUpperCase()
+}
+
+function formatDurationLabel(duration) {
+  const raw = String(duration || '').trim()
+  if (!raw) return ''
+  if (raw.toLowerCase() === 'lifetime') return 'Lifetime'
+  const yearsMatch = raw.match(/^(\d+)years?$/i)
+  if (yearsMatch) {
+    const years = Number(yearsMatch[1])
+    return `${years} Year${years === 1 ? '' : 's'}`
+  }
+  return raw
 }
 
 // ── Plan Modal ──────────────────────────────────────────────────────────────
@@ -492,10 +504,10 @@ export default function PackagesList() {
     api.get('/locations/countries').then(r => setCountries(r.data.data || [])).catch(() => {})
     api.get('/durations').then(r => {
       const rows = r.data.data || []
-      // Normalize: use label-derived value keys for backward compat
       setDurations(rows.map(d => ({
         ...d,
-        value: d.type === 'lifetime' ? 'lifetime' : `${d.value}year${d.value === 1 ? '' : 's'}`,
+        value: d.type === 'lifetime' ? 'lifetime' : `${d.value}year${Number(d.value) === 1 ? '' : 's'}`,
+        label: d.label || formatDurationLabel(d.type === 'lifetime' ? 'lifetime' : `${d.value}year${Number(d.value) === 1 ? '' : 's'}`),
       })))
     }).catch(() => {
       // fallback if migration not yet run
@@ -511,6 +523,21 @@ export default function PackagesList() {
     queryKey: ['packages'],
     queryFn: () => api.get('/packages').then(r => r.data.data),
   })
+
+  const durationOptions = useMemo(() => {
+    const map = new Map()
+    durations.forEach(duration => {
+      if (duration?.value) map.set(duration.value, duration.label || formatDurationLabel(duration.value))
+    })
+    ;(data || []).forEach(pkg => {
+      if (pkg?.duration && !map.has(pkg.duration)) {
+        map.set(pkg.duration, formatDurationLabel(pkg.duration))
+      }
+    })
+    return [...map.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }))
+  }, [durations, data])
 
   // Build existing combos set for duplicate checking (include country_id)
   const existingCombos = new Set(
@@ -553,7 +580,8 @@ export default function PackagesList() {
 
   const deleteMut = useMutation({
     mutationFn: id => api.delete(`/packages/${id}`),
-    onSuccess: () => { qc.invalidateQueries(['packages']); toast.success('Package deactivated') },
+    onSuccess: () => { qc.invalidateQueries(['packages']); toast.success('Package deleted') },
+    onError: err => toast.error(err.response?.data?.message || 'Failed to delete package'),
   })
 
   const filtered = (data || []).filter(pkg => {
@@ -588,7 +616,7 @@ export default function PackagesList() {
         </select>
         <select className="input w-40 text-sm" value={filter.dur} onChange={e => setFilter(f => ({ ...f, dur: e.target.value }))}>
           <option value="">All Durations</option>
-          {durations.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+          {durationOptions.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
         </select>
         {(filter.location || filter.mt || filter.dur) && (
           <button className="text-xs text-gray-400 hover:text-gray-600" onClick={() => setFilter({ location: '', mt: '', dur: '' })}>Clear</button>
@@ -635,7 +663,7 @@ export default function PackagesList() {
                   {pkg.membership_type === 'corporate' ? 'Corporate' : 'Individual'}
                 </span>
                 <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
-                  {durations.find(d => d.value === pkg.duration)?.label || pkg.duration}
+                  {durationOptions.find(d => d.value === pkg.duration)?.label || formatDurationLabel(pkg.duration)}
                 </span>
                 {pkg.location === 'overseas' && pkg.country_id && (
                   <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
@@ -656,7 +684,7 @@ export default function PackagesList() {
                   <Edit size={12} /> Edit
                 </button>
                 <button className="btn-danger btn-sm"
-                  onClick={() => { if (window.confirm('Deactivate this package?')) deleteMut.mutate(pkg.id) }}>
+                  onClick={() => { if (window.confirm('Permanently delete this package? This cannot be undone.')) deleteMut.mutate(pkg.id) }}>
                   <Trash2 size={12} />
                 </button>
               </div>

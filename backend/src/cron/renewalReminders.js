@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const { pool } = require('../config/database');
 const { sendRenewalReminder } = require('../utils/email');
+const { ensureAutoRenewals } = require('../utils/autoRenewals');
 
 /**
  * Scheduled job: Check for expiring memberships and send reminder emails.
@@ -12,6 +13,11 @@ function startRenewalReminderCron() {
   cron.schedule('0 9 * * *', async () => {
     console.log('[CRON] Running renewal reminder check...');
     try {
+      const created = await ensureAutoRenewals({ force: true });
+      if (created > 0) {
+        console.log(`[CRON] Auto-created ${created} renewal record(s)`);
+      }
+
       const REMINDER_DAYS = [30, 15, 7, 3, 1];
 
       for (const days of REMINDER_DAYS) {
@@ -79,6 +85,12 @@ function startRenewalReminderCron() {
   });
 
   console.log('📅 Renewal reminder cron job scheduled (daily at 9:00 AM)');
+
+  ensureAutoRenewals({ force: true })
+    .then(created => {
+      if (created > 0) console.log(`[CRON] Initial auto-renewal sync created ${created} record(s)`);
+    })
+    .catch(err => console.error('[CRON] Initial auto-renewal sync error:', err.message));
 }
 
 module.exports = { startRenewalReminderCron };

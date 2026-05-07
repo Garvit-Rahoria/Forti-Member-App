@@ -9,6 +9,14 @@ import api from "../../../api/client"
 import toast from "react-hot-toast"
 import { useAuth } from "../../../contexts/AuthContext"
 
+const BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+
+function resolveAssetUrl(path) {
+  if (!path) return ''
+  if (path.startsWith('http://') || path.startsWith('https://')) return path
+  return `${BASE}${path.startsWith('/') ? path : `/${path}`}`
+}
+
 // ── Status config ─────────────────────────────────────────────────────────────
 const STATUS_TABS = [
   { key: "all",      label: "All"      },
@@ -126,7 +134,7 @@ function ActionModal({ row, action, onClose, onConfirm, pending }) {
     payment_verified:  { title: "Verify Payment",       icon: <CreditCard size={18} className="text-teal-600" />,  btnCls: "bg-teal-600 hover:bg-teal-700 text-white",      label: "Mark Payment Verified" },
     approved:          { title: "Approve Application",  icon: <CheckCircle size={18} className="text-green-600" />, btnCls: "bg-green-600 hover:bg-green-700 text-white",   label: "Approve Application" },
     active:            { title: "Activate Membership",  icon: <Shield size={18} className="text-green-600" />,     btnCls: "bg-green-600 hover:bg-green-700 text-white",    label: "Activate Membership" },
-    activate:          { title: "Activate Membership",  icon: <Shield size={18} className="text-emerald-600" />,   btnCls: "bg-emerald-600 hover:bg-emerald-700 text-white", label: "Activate Membership" },
+    activate:          { title: "Approve & Activate Membership",  icon: <Shield size={18} className="text-emerald-600" />,   btnCls: "bg-emerald-600 hover:bg-emerald-700 text-white", label: "Approve & Activate" },
     rejected:          { title: "Reject Application",   icon: <XCircle size={18} className="text-red-600" />,      btnCls: "bg-red-600 hover:bg-red-700 text-white",        label: "Reject" },
     pending_info:      { title: "Request Information",  icon: <MessageSquare size={18} className="text-blue-600" />, btnCls: "bg-blue-500 hover:bg-blue-600 text-white",     label: "Request Info" },
   }
@@ -149,10 +157,12 @@ function ActionModal({ row, action, onClose, onConfirm, pending }) {
           {action === "payment_verified" && row.screenshot_path && (
             <div>
               <p className="text-xs font-medium text-gray-600 mb-1">Payment Proof</p>
-              <a href={row.screenshot_path} target="_blank" rel="noreferrer">
-                <img src={row.screenshot_path} alt="Payment proof"
+              <a href={resolveAssetUrl(row.screenshot_path)} target="_blank" rel="noreferrer">
+                <img src={resolveAssetUrl(row.screenshot_path)} alt="Payment proof"
                   className="max-h-48 w-full object-contain rounded border border-gray-200 hover:opacity-90 transition"
-                  onError={e => { e.target.style.display = "none" }} />
+                  onError={e => {
+                    e.currentTarget.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="480" height="240"><rect width="100%" height="100%" fill="%23f3f4f6"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%236b7280" font-family="Arial" font-size="18">Payment screenshot unavailable</text></svg>'
+                  }} />
               </a>
               <div className="mt-2 grid grid-cols-2 gap-1 text-xs text-gray-500">
                 {(row.pmt_transaction_id || row.transaction_id) && <span>Txn: <span className="font-mono text-gray-700">{row.pmt_transaction_id || row.transaction_id}</span></span>}
@@ -307,9 +317,9 @@ export default function ApplicationsList() {
       }
     }
     if (s === "payment_verified") {
-      // Step 5: Approve (only after payment verified)
+      // Single-click Approve = Approve + Activate directly
       if (isAdmin || isBM) {
-                                    btns.push(mkBtn("Approve",     <CheckCircle size={12} />,  () => openAction(row, "approved"),        "green"))
+                                    btns.push(mkBtn("Approve",     <CheckCircle size={12} />,  () => openAction(row, "activate"),         "green"))
                                     btns.push(mkBtn("Reject",      <XCircle size={12} />,      () => openAction(row, "rejected"),        "red"))
       }
     }
@@ -318,8 +328,7 @@ export default function ApplicationsList() {
       if (isAdmin || isBM)          btns.push(mkBtn("Reject",      <XCircle size={12} />,      () => openAction(row, "rejected"),        "red"))
     }
     if (s === "approved") {
-      // Step 6: Activate (only after approved)
-      if (isAdmin)                  btns.push(mkBtn("Activate",    <Shield size={12} />,       () => openAction(row, "activate"),        "green"))
+      // Already activated via single-click approve — no extra activate button needed
     }
     return btns
   }

@@ -51,9 +51,8 @@ export default function Dashboard() {
           <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
           <p className="text-gray-500 text-sm mt-0.5">Welcome back! Here's your portal overview.</p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-gray-400 bg-white border border-gray-200 rounded-full px-3 py-1.5">
-          <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-          Live
+        <div className="flex items-center gap-2 text-xs text-gray-500 bg-white border border-gray-200 rounded-full px-3 py-1.5">
+          Overview
         </div>
       </div>
 

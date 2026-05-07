@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import axios from 'axios'
 import { X, Mail, Phone, User, ShieldCheck, Loader2, AlertCircle, CheckCircle2, RefreshCw, ChevronDown } from 'lucide-react'
+import toast from 'react-hot-toast'
 import {
   formatFullPhoneNumber,
   getFlagEmoji,
@@ -8,9 +9,55 @@ import {
   validatePhoneNumber,
   normalizePhoneInput,
   PHONE_COUNTRIES,
+  mergeCountryDatasets,
 } from '../../utils/membershipForm'
 
 const http = axios.create({ baseURL: '/api' })
+
+function normalizeCountrySearch(value) {
+  const query = String(value || '').trim()
+  const normalized = query.toLowerCase().replace(/\s+/g, ' ')
+  const digits = query.replace(/\D/g, '')
+  const withPlus = digits ? `+${digits}` : ''
+  return { query, normalized, digits, withPlus }
+}
+
+function searchCountries(countries, value) {
+  const { normalized, digits, withPlus } = normalizeCountrySearch(value)
+  if (!normalized && !digits) return countries
+
+  const scored = countries
+    .map(country => {
+      const name = String(country?.name || '').toLowerCase()
+      const iso = String(country?.iso2 || '').toLowerCase()
+      const phoneCode = String(country?.phone_code || '')
+      const codeDigits = phoneCode.replace(/\D/g, '')
+
+      let score = -1
+      if (digits && codeDigits === digits) score = 0
+      else if (normalized && phoneCode.toLowerCase() === normalized) score = 0
+      else if (normalized && iso === normalized) score = 1
+      else if (normalized && name === normalized) score = 2
+      else if (digits && phoneCode.startsWith(withPlus)) score = 3
+      else if (digits && codeDigits.startsWith(digits)) score = 4
+      else if (normalized && name.startsWith(normalized)) score = 5
+      else if (normalized && name.includes(normalized)) score = 6
+      else if (normalized && iso.includes(normalized)) score = 7
+
+      return score === -1 ? null : { country, score }
+    })
+    .filter(Boolean)
+    .sort((left, right) => {
+      if (left.score !== right.score) return left.score - right.score
+      return left.country.name.localeCompare(right.country.name)
+    })
+
+  return scored.map(item => item.country)
+}
+
+function formatCountryDisplay(country) {
+  return `${getFlagEmoji(country.iso2)} ${country.name} (${country.phone_code})`
+}
 
 // ── OTP Input (6 boxes) ────────────────────────────────────────────────────
 function OTPInput({ value, onChange, disabled }) {
@@ -77,7 +124,9 @@ export default function OTPModal({ onVerified, onClose }) {
   const [selectedCountryId, setSelectedCountryId] = useState('')
   const [countryQuery, setCountryQuery] = useState('')
   const [countryDropdownOpen, setCountryDropdownOpen] = useState(false)
+  const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const countryContainerRef = useRef(null)
+  const dropdownListRef = useRef(null)
   const [otp, setOtp]     = useState('')
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
@@ -87,15 +136,8 @@ export default function OTPModal({ onVerified, onClose }) {
 
   const selectedCountry = countries.find(country => String(country.id) === String(selectedCountryId)) || null
 
-  // Filtered countries based on autocomplete query
-  const filteredCountries = useMemo(() => {
-    const raw = countryQuery.replace(/[\p{Emoji}]+/gu, '').replace(/[\(\)\+]/g, '').trim().toLowerCase()
-    if (!raw) return countries
-    return countries.filter(c =>
-      c.name.toLowerCase().includes(raw) ||
-      (c.phone_code || '').replace('+', '').includes(raw.replace('+', ''))
-    )
-  }, [countries, countryQuery])
+  // Filtered countries: match by name, ISO2, or dial code (strips + and spaces)
+  const filteredCountries = useMemo(() => searchCountries(countries, countryQuery), [countries, countryQuery])
 
   useEffect(() => {
     let ignore = false
@@ -103,16 +145,17 @@ export default function OTPModal({ onVerified, onClose }) {
       .then(res => {
         if (ignore) return
         const rows = res.data?.data || []
-        const list = rows.length > 0 ? rows : PHONE_COUNTRIES
+        const list = mergeCountryDatasets(rows, PHONE_COUNTRIES)
         setCountries(list)
-        const india = list.find(c => String(c.name || '').toLowerCase() === 'india')
+        const india = list.find(c => (c.iso2 || '').toUpperCase() === 'IN')
         setSelectedCountryId(india ? String(india.id) : String(list[0].id))
       })
       .catch(() => {
         if (!ignore) {
-          setCountries(PHONE_COUNTRIES)
-          const india = PHONE_COUNTRIES.find(c => c.iso2 === 'IN')
-          setSelectedCountryId(india ? String(india.id) : String(PHONE_COUNTRIES[0].id))
+          const list = mergeCountryDatasets([], PHONE_COUNTRIES)
+          setCountries(list)
+          const india = list.find(c => (c.iso2 || '').toUpperCase() === 'IN')
+          setSelectedCountryId(india ? String(india.id) : String(list[0].id))
         }
       })
     return () => { ignore = true }
@@ -121,9 +164,19 @@ export default function OTPModal({ onVerified, onClose }) {
   // Sync autocomplete display text when selected country changes
   useEffect(() => {
     if (selectedCountry) {
-      setCountryQuery(`${getFlagEmoji(selectedCountry.iso2)} ${selectedCountry.name} (${selectedCountry.phone_code})`)
+      setCountryQuery(formatCountryDisplay(selectedCountry))
     }
   }, [selectedCountry])
+
+  // Reset highlight when filtered list changes
+  useEffect(() => { setHighlightedIndex(-1) }, [filteredCountries])
+
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (highlightedIndex < 0 || !dropdownListRef.current) return
+    const items = dropdownListRef.current.querySelectorAll('[data-country-item]')
+    items[highlightedIndex]?.scrollIntoView({ block: 'nearest' })
+  }, [highlightedIndex])
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -131,7 +184,7 @@ export default function OTPModal({ onVerified, onClose }) {
       if (!countryContainerRef.current?.contains(e.target)) {
         setCountryDropdownOpen(false)
         if (selectedCountry) {
-          setCountryQuery(`${getFlagEmoji(selectedCountry.iso2)} ${selectedCountry.name} (${selectedCountry.phone_code})`)
+          setCountryQuery(formatCountryDisplay(selectedCountry))
         }
       }
     }
@@ -173,7 +226,9 @@ export default function OTPModal({ onVerified, onClose }) {
       setCountdown(60)
       setInfo(`OTP sent to ${email.trim()}`)
     } catch (err) {
-      setErrors({ _global: err.response?.data?.message || 'Failed to send OTP. Please try again.' })
+      const message = err.response?.data?.message || 'Failed to send OTP. Please try again.'
+      setErrors({ _global: message })
+      toast.error(message)
     } finally {
       setLoading(false)
     }
@@ -195,7 +250,9 @@ export default function OTPModal({ onVerified, onClose }) {
       setCountdown(60)
       setInfo('A new OTP has been sent to your email.')
     } catch (err) {
-      setErrors({ _global: err.response?.data?.message || 'Failed to resend OTP.' })
+      const message = err.response?.data?.message || 'Failed to resend OTP.'
+      setErrors({ _global: message })
+      toast.error(message)
     } finally {
       setLoading(false)
     }
@@ -306,37 +363,85 @@ export default function OTPModal({ onVerified, onClose }) {
                 <div ref={countryContainerRef} className="relative mb-2">
                   <input
                     className="input pr-9"
-                    placeholder="Search country (e.g. India, +91)..."
+                    placeholder="Search country (e.g. India, IN, +91)..."
                     value={countryQuery}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
                     onFocus={() => {
                       setCountryDropdownOpen(true)
                       setCountryQuery('')
+                      setHighlightedIndex(-1)
                     }}
                     onChange={e => {
                       setCountryQuery(e.target.value)
                       setCountryDropdownOpen(true)
+                      setHighlightedIndex(-1)
+                    }}
+                    onKeyDown={e => {
+                      if (!countryDropdownOpen) {
+                        if (e.key === 'ArrowDown' || e.key === 'Enter') {
+                          setCountryDropdownOpen(true)
+                          setHighlightedIndex(0)
+                          e.preventDefault()
+                        }
+                        return
+                      }
+                      if (e.key === 'ArrowDown') {
+                        setHighlightedIndex(i => Math.min(i + 1, filteredCountries.length - 1))
+                        e.preventDefault()
+                      } else if (e.key === 'ArrowUp') {
+                        setHighlightedIndex(i => Math.max(i - 1, 0))
+                        e.preventDefault()
+                      } else if (e.key === 'Enter') {
+                        e.preventDefault()
+                        const matches = searchCountries(countries, e.currentTarget.value)
+                        const pick = matches[highlightedIndex] ?? matches[0]
+                        if (pick) {
+                          setSelectedCountryId(String(pick.id))
+                          setPhone('')
+                          setErrors(er => ({ ...er, country: '', phone: '' }))
+                          setCountryDropdownOpen(false)
+                          setCountryQuery(formatCountryDisplay(pick))
+                        }
+                      } else if (e.key === 'Escape' || e.key === 'Tab') {
+                        setCountryDropdownOpen(false)
+                        if (selectedCountry) {
+                          setCountryQuery(formatCountryDisplay(selectedCountry))
+                        }
+                      }
                     }}
                   />
                   <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"/>
                   {errors.country && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11}/>{errors.country}</p>}
                   {countryDropdownOpen && (
-                    <div className="absolute left-0 right-0 top-full mt-1 z-[9999] bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden" style={{maxHeight: '220px', overflowY: 'auto'}}>
-                      {filteredCountries.length ? filteredCountries.map(c => (
+                    <div
+                      ref={dropdownListRef}
+                      className="absolute left-0 right-0 top-full mt-1 z-[9999] bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden"
+                      style={{maxHeight: '220px', overflowY: 'auto'}}
+                    >
+                      {filteredCountries.length ? filteredCountries.map((c, idx) => (
                         <button
                           key={c.id}
                           type="button"
+                          data-country-item
                           onMouseDown={e => e.preventDefault()}
+                          onMouseEnter={() => setHighlightedIndex(idx)}
                           onClick={() => {
                             setSelectedCountryId(String(c.id))
                             setPhone('')
                             setErrors(er => ({ ...er, country: '', phone: '' }))
                             setCountryDropdownOpen(false)
-                            setCountryQuery(`${getFlagEmoji(c.iso2)} ${c.name} (${c.phone_code})`)
+                            setCountryQuery(formatCountryDisplay(c))
                           }}
                           className={`w-full px-3 py-2.5 text-sm text-left flex items-center gap-2.5 transition
-                            ${String(c.id) === String(selectedCountryId)
-                              ? 'bg-primary-50 text-primary-700 font-semibold'
-                              : 'text-gray-700 hover:bg-gray-50'}`}>
+                            ${idx === highlightedIndex
+                              ? 'bg-primary-100 text-primary-800'
+                              : String(c.id) === String(selectedCountryId)
+                                ? 'bg-primary-50 text-primary-700 font-semibold'
+                                : 'text-gray-700 hover:bg-gray-50'}`}
+                        >
                           <span className="text-base w-6 text-center shrink-0">{getFlagEmoji(c.iso2)}</span>
                           <span className="flex-1 truncate">{c.name}</span>
                           <span className="text-xs text-gray-400 font-mono shrink-0">{c.phone_code}</span>

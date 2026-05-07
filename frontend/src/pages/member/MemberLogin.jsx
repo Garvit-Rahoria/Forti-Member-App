@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { useMember } from '../../contexts/MemberContext'
+import { getMemberLandingPath } from '../../utils/memberAccess'
 import {
   Mail, ShieldCheck, Loader2, AlertCircle, CheckCircle2,
   RefreshCw, ArrowLeft, LogIn
@@ -49,7 +50,7 @@ function OTPInput({ value, onChange, disabled }) {
 
 export default function MemberLogin() {
   const navigate = useNavigate()
-  const { login, member } = useMember()
+  const { login, logout, member } = useMember()
 
   const [phase, setPhase]     = useState('email') // 'email' | 'otp'
   const [email, setEmail]     = useState('')
@@ -59,9 +60,12 @@ export default function MemberLogin() {
   const [countdown, setCountdown] = useState(0)
   const [info, setInfo] = useState('')
 
+  // Clear any existing session when the login page mounts
+  // This ensures a fresh login: previous user data is fully wiped
   useEffect(() => {
-    if (member) navigate('/member/dashboard', { replace: true })
-  }, [member])
+    logout()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (countdown <= 0) return
@@ -105,8 +109,8 @@ export default function MemberLogin() {
     setLoading(true); setErrors({})
     try {
       const res = await http.post('/otp/verify', { email: email.trim(), otp, purpose: 'login' })
-      login(res.data.data.token, res.data.data.member)
-      navigate('/member/dashboard', { replace: true })
+      const memberData = await login(res.data.data.token)
+      navigate(getMemberLandingPath(memberData), { replace: true })
     } catch (err) {
       setErrors({ otp: err.response?.data?.message || 'Invalid OTP. Please try again.' })
     } finally { setLoading(false) }

@@ -32,9 +32,11 @@ import GalleryPage from './pages/public/GalleryPage'
 import ContactPage from './pages/public/ContactPage'
 import MemberLogin from './pages/member/MemberLogin'
 import MemberDashboard from './pages/member/MemberDashboard'
+import MemberStatus from './pages/member/MemberStatus'
 import TrackApplication from './pages/public/TrackApplication'
 import CurrencySettings from './pages/admin/currency/CurrencySettings'
 import ManagerReports from './pages/admin/reports/ManagerReports'
+import { getMemberLandingPath, hasMemberDashboardAccess } from './utils/memberAccess'
 
 function PrivateRoute() {
   const { token, loading } = useAuth()
@@ -52,9 +54,20 @@ function RoleRoute({ children, roles }) {
 }
 
 function MemberRoute({ children }) {
-  const { token, loading } = useMember()
+  const { token, member, loading } = useMember()
   if (loading) return <div className="flex items-center justify-center h-screen"><div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" /></div>
   if (!token) return <Navigate to="/member/login" replace />
+  if (member && !hasMemberDashboardAccess(member)) {
+    return <Navigate to={getMemberLandingPath(member)} replace />
+  }
+  return children
+}
+
+function MemberStatusRoute({ children }) {
+  const { token, member, loading } = useMember()
+  if (loading) return <div className="flex items-center justify-center h-screen"><div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" /></div>
+  if (!token) return <Navigate to="/member/login" replace />
+  if (member && hasMemberDashboardAccess(member)) return <Navigate to="/member/dashboard" replace />
   return children
 }
 
@@ -78,11 +91,13 @@ export default function App() {
             {/* ── Member Portal ── */}
             <Route path="/member/login" element={<MemberLogin />} />
             <Route path="/member/dashboard" element={<MemberRoute><MemberDashboard /></MemberRoute>} />
+            <Route path="/member/status" element={<MemberStatusRoute><MemberStatus /></MemberStatusRoute>} />
             <Route path="/track" element={<TrackApplication />} />
 
             {/* ── Admin Login ── */}
             <Route path="/login" element={<Login />} />
             <Route path="/admin/login" element={<Login />} />
+            <Route path="/reset-password/:token" element={<ResetPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
 
             {/* ── Admin Routes ── */}

@@ -6,6 +6,14 @@ import api from '../../../api/client'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../../contexts/AuthContext'
 
+const BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+
+function resolveAssetUrl(path) {
+  if (!path) return ''
+  if (path.startsWith('http://') || path.startsWith('https://')) return path
+  return `${BASE}${path.startsWith('/') ? path : `/${path}`}`
+}
+
 function fmtAmount(amount, currency) {
   if (!amount && amount !== 0) return '—'
   const sym = { INR: '₹', USD: '$', AED: 'AED ', EUR: '€', GBP: '£', SGD: 'S$' }[currency] || (currency ? currency + ' ' : '₹')
@@ -38,7 +46,7 @@ function FieldValue({ field }) {
   if (field.type === 'file' || field.file_path) {
     const path = field.file_path || field.value
     const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(path)
-    const url = path.startsWith('http') ? path : `/${path}`
+    const url = resolveAssetUrl(path)
     return isImage
       ? <a href={url} target="_blank" rel="noreferrer">
           <img src={url} alt={field.label} className="w-24 h-24 object-cover rounded-lg border border-gray-200 hover:opacity-80 transition-opacity"/>
@@ -84,7 +92,7 @@ function SectionCard({ section }) {
 /* ── Screenshot Modal ── */
 function ScreenshotModal({ src, onClose }) {
   if (!src) return null
-  const url = src.startsWith('http') ? src : `/${src}`
+  const url = resolveAssetUrl(src)
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="relative max-w-3xl w-full" onClick={e => e.stopPropagation()}>
@@ -255,8 +263,6 @@ export default function ApplicationView() {
   const [notes, setNotes] = useState('')
   const [screenshotModal, setScreenshotModal] = useState(null)
   const [confirmDialog, setConfirmDialog] = useState(null)
-  const BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
-
   const role = user?.role || ''
   const isStaff   = role === 'office_staff'
   const isBM      = role === 'branch_manager'
@@ -272,7 +278,7 @@ export default function ApplicationView() {
 
   const statusMut = useMutation({
     mutationFn: ({ status }) => api.patch(`/approvals/${id}/status`, { status, notes }),
-    onSuccess: () => { qc.invalidateQueries(['submission', id]); toast.success('Status updated'); setConfirmDialog(null) },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['submission', id] }); toast.success('Status updated'); setConfirmDialog(null) },
     onError: err => { toast.error(err.response?.data?.message || 'Error'); setConfirmDialog(null) },
   })
 
@@ -383,67 +389,22 @@ export default function ApplicationView() {
                       <p className="text-gray-900 capitalize">{sub.package.membership_type}</p>
                     </div>
                   )}
-                  {sub.package.plan_type && (
+                  {(sub.package.duration || sub.package.plan_type) && (
                     <div>
                       <p className="text-gray-500 text-xs">Duration</p>
-                      <p className="text-gray-900 capitalize">{sub.package.plan_type}</p>
+                      <p className="text-gray-900">{(() => {
+                        const raw = String(sub.package.duration || sub.package.plan_type || '').trim().toLowerCase()
+                        if (!raw) return '—'
+                        if (raw === 'lifetime') return 'Lifetime'
+                        const m = raw.match(/^(\d+)years?$/)
+                        if (m) { const y = Number(m[1]); return `${y} Year${y === 1 ? '' : 's'}` }
+                        if (raw === '1year' || raw === 'yearly') return '1 Year'
+                        if (raw === '3years' || raw === '3_years') return '3 Years'
+                        return raw.charAt(0).toUpperCase() + raw.slice(1)
+                      })()}</p>
                     </div>
                   )}
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* Payment Details card */}
-          {sub.payment && (
-            <div className="card overflow-hidden">
-              <div className="px-5 py-3 bg-green-50 border-b border-green-100 flex items-center gap-2">
-                <CreditCard size={15} className="text-green-600"/>
-                <h3 className="font-semibold text-green-800 text-sm">Payment Details</h3>
-              </div>
-              <div className="p-5 grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-gray-500 text-xs">Payment Method</p>
-                  <p className="font-medium">{sub.payment.method_name || '—'}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 text-xs">Transaction ID</p>
-                  <p className="font-mono font-medium">{sub.payment.transaction_id || '—'}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 text-xs">Fee</p>
-                  <p className="font-semibold text-green-700">{fmtAmount(sub.payment.amount, sub.package?.currency)}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 text-xs">Status</p>
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${
-                    sub.payment.status === 'verified' ? 'bg-green-100 text-green-700' :
-                    sub.payment.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                    sub.payment.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                    'bg-gray-100 text-gray-600'
-                  }`}>
-                    {sub.payment.status || '—'}
-                  </span>
-                </div>
-                {sub.payment.screenshot_path && (
-                  <div className="col-span-2">
-                    <p className="text-gray-500 text-xs mb-2">Payment Screenshot</p>
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={sub.payment.screenshot_path.startsWith('http') ? sub.payment.screenshot_path : sub.payment.screenshot_path.startsWith('/') ? `${BASE}${sub.payment.screenshot_path}` : `${BASE}/${sub.payment.screenshot_path}`}
-                        alt="Payment screenshot"
-                        className="w-20 h-20 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={() => setScreenshotModal(sub.payment.screenshot_path.startsWith('http') ? sub.payment.screenshot_path : sub.payment.screenshot_path.startsWith('/') ? `${BASE}${sub.payment.screenshot_path}` : `${BASE}/${sub.payment.screenshot_path}`)}
-                      />
-                      <button
-                        onClick={() => setScreenshotModal(sub.payment.screenshot_path.startsWith('http') ? sub.payment.screenshot_path : sub.payment.screenshot_path.startsWith('/') ? `${BASE}${sub.payment.screenshot_path}` : `${BASE}/${sub.payment.screenshot_path}`)}
-                        className="text-sm text-blue-600 hover:underline flex items-center gap-1"
-                      >
-                        <Image size={14}/> View Screenshot
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -493,13 +454,37 @@ export default function ApplicationView() {
                     <XCircle size={14}/> Reject Application
                   </button>
                 )}
+                {/* Verify Payment — office_staff + admin (only when payment is NOT yet verified) */}
+                {(isStaff || isAdmin) && sub.payment && !['verified'].includes(sub.payment.status) && sub.status !== 'payment_verified' && (
+                  <button
+                    className="w-full text-sm bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                    onClick={() => openConfirm('payment_verified', 'Verify Payment', 'Mark this payment as verified. Branch manager can then approve the application.', 'Verify Payment', 'bg-emerald-600 hover:bg-emerald-700')}
+                    disabled={statusMut.isPending}>
+                    <CheckCircle size={14}/> Verify Payment
+                  </button>
+                )}
+                {/* Payment verified badge — shown once payment is verified */}
+                {(isStaff || isAdmin) && (sub.payment?.status === 'verified' || sub.status === 'payment_verified') && (
+                  <div className="w-full text-sm bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 font-medium">
+                    <CheckCircle size={14}/> Payment Verified
+                  </div>
+                )}
+                {/* Reject Payment — office_staff + admin (only when payment is NOT yet verified) */}
+                {(isStaff || isAdmin) && sub.payment && !['verified'].includes(sub.payment.status) && sub.status !== 'payment_verified' && (
+                  <button
+                    className="w-full text-sm bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                    onClick={() => openConfirm('payment_pending', 'Reject Payment', 'Mark payment as needing resubmission. Applicant will be asked to re-upload proof.', 'Reject Payment', 'bg-orange-500 hover:bg-orange-600')}
+                    disabled={statusMut.isPending}>
+                    <XCircle size={14}/> Reject Payment
+                  </button>
+                )}
                 {/* Under Review — all review roles */}
                 <button className="btn-outline w-full text-sm" onClick={() => openConfirm('under_review', 'Mark Under Review', 'This will move the application to Under Review status. Continue?', 'Mark Under Review', 'bg-yellow-500 hover:bg-yellow-600')} disabled={statusMut.isPending}>
                   <Clock size={14}/> Mark Under Review
                 </button>
                 {/* Staff hint */}
                 {isStaff && (
-                  <p className="text-xs text-gray-400 text-center">Staff can mark Under Review. Approval requires a Manager.</p>
+                  <p className="text-xs text-gray-400 text-center">Staff can verify payments &amp; mark Under Review. Approval requires a Branch Manager.</p>
                 )}
               </div>
             </div>

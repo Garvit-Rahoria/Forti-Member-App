@@ -1,14 +1,23 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import MembershipApplicationForm from '../../components/membership/MembershipApplicationForm'
 import OTPModal from '../../components/membership/OTPModal'
+import { clearMemberApplicantSession } from '../../utils/memberSession'
+import { useMember } from '../../contexts/MemberContext'
 
 export default function MembershipPage() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { logout } = useMember()
   // Accept pre-verified OTP data from LandingPage via navigate state
   const [otpVerified, setOtpVerified] = useState(location.state?.otpData || null)
   const [showOTPModal, setShowOTPModal] = useState(!location.state?.otpData)
+
+  useEffect(() => {
+    clearMemberApplicantSession()
+    logout()
+    window.history.replaceState(null, '', window.location.pathname)
+  }, [logout])
 
   function handleOTPVerified(data) {
     setOtpVerified(data)
@@ -58,13 +67,23 @@ export default function MembershipPage() {
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Apply for Membership</h1>
               <p className="text-gray-500 mt-2 text-sm">Complete all 5 steps to submit your membership application</p>
             </div>
-            <MembershipApplicationForm prefill={otpVerified.applicant} />
+            <MembershipApplicationForm key={otpVerified.applicant?.email || otpVerified.applicant?.phone_full || 'membership-application'} prefill={otpVerified.applicant} />
           </>
         )}
       </main>
 
       <footer className="text-center text-xs text-gray-400 py-8">
         &copy; {new Date().getFullYear()} FORTI. All rights reserved.
+        <span className="mx-2">·</span>
+        Developed by{' '}
+        <a
+          href="https://kaitensoftware.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-gray-500 hover:text-primary-600 transition-colors font-medium"
+        >
+          Kaiten Software
+        </a>
       </footer>
 
       {/* OTP Modal */}

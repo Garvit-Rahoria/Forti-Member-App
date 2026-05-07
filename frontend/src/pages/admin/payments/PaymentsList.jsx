@@ -695,7 +695,7 @@ function TransactionsTab() {
       const invId = res.data.data?.id
       if (!invId) { toast.error('Invoice ID not returned'); return }
       // Download with auth token so the protected PDF route works
-      const token = localStorage.getItem('forti_token')
+      const token = sessionStorage.getItem('forti_token')
       const resp = await fetch(`${BASE}/api/invoices/${invId}/download`, {
         headers: { Authorization: `Bearer ${token}` },
       })

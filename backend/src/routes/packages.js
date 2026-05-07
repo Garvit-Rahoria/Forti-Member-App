@@ -71,14 +71,25 @@ router.post('/', requireRole('super_admin', 'admin'), async (req, res) => {
 
   try {
     // Check for duplicate combination (include country_id for overseas specifics)
+    // Only block if a manually-created (non-auto-generated) package exists for this combo.
+    // If only auto-generated packages exist, allow admin to create a real one
+    // and deactivate the auto-generated duplicates.
     const dupSql = country_id
-      ? 'SELECT id FROM portal_packages WHERE location = ? AND membership_type = ? AND duration = ? AND country_id = ? AND is_active = 1 LIMIT 1'
-      : 'SELECT id FROM portal_packages WHERE location = ? AND membership_type = ? AND duration = ? AND country_id IS NULL AND is_active = 1 LIMIT 1';
+      ? 'SELECT id, auto_generated FROM portal_packages WHERE location = ? AND membership_type = ? AND duration = ? AND country_id = ? AND is_active = 1 LIMIT 1'
+      : 'SELECT id, auto_generated FROM portal_packages WHERE location = ? AND membership_type = ? AND duration = ? AND country_id IS NULL AND is_active = 1 LIMIT 1';
     const dupParams = country_id
       ? [location, membership_type, duration, country_id]
       : [location, membership_type, duration];
     const [[dup]] = await pool.query(dupSql, dupParams);
-    if (dup) return fail(res, 'A package with this location + type + duration already exists', 409);
+    if (dup && !dup.auto_generated) return fail(res, 'A package with this location + type + duration already exists', 409);
+
+    // If auto-generated duplicates exist for this combo, deactivate them first
+    if (dup && dup.auto_generated) {
+      const deactivateSql = country_id
+        ? 'UPDATE portal_packages SET is_active = 0 WHERE location = ? AND membership_type = ? AND duration = ? AND country_id = ? AND auto_generated = 1'
+        : 'UPDATE portal_packages SET is_active = 0 WHERE location = ? AND membership_type = ? AND duration = ? AND country_id IS NULL AND auto_generated = 1';
+      await pool.query(deactivateSql, dupParams);
+    }
 
     const [r] = await pool.query(
       `INSERT INTO portal_packages
@@ -159,12 +170,12 @@ router.put('/:id', requireRole('super_admin', 'admin'), async (req, res) => {
   } catch (err) { console.error(err); return fail(res, 'Server error', 500); }
 });
 
-// DELETE /api/packages/:id  (soft-delete: sets is_active=0)
+// DELETE /api/packages/:id  (hard delete — permanently removes the package)
 router.delete('/:id', requireRole('super_admin'), async (req, res) => {
   try {
-    await pool.query('UPDATE portal_packages SET is_active = 0 WHERE id = ?', [req.params.id]);
+    await pool.query('DELETE FROM portal_packages WHERE id = ?', [req.params.id]);
     createAuditLog(req.user.id, 'DELETE_PACKAGE', 'packages', req.params.id, req.ip);
-    return ok(res, null, 'Package deactivated');
+    return ok(res, null, 'Package deleted');
   } catch (err) { return fail(res, 'Server error', 500); }
 });
 

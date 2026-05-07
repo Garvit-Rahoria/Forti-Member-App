@@ -137,8 +137,9 @@ export default function NewsPage() {
 
       {/* Footer */}
       <footer className="bg-gray-900 text-gray-400 py-8 mt-8">
-        <div className="max-w-7xl mx-auto px-4 text-center text-sm">
+        <div className="max-w-7xl mx-auto px-4 text-center text-sm space-y-1">
           <p>&copy; {new Date().getFullYear()} FORTI. All rights reserved. · <Link to="/" className="hover:text-white">Home</Link> · <Link to="/contact" className="hover:text-white">Contact</Link></p>
+          <p className="text-xs text-gray-600">Developed by <a href="https://kaitensoftware.com/" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">Kaiten Software</a></p>
         </div>
       </footer>
     </div>

@@ -10,7 +10,8 @@ import toast from 'react-hot-toast'
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
 async function downloadWithAuth(url, filename) {
-  const token = localStorage.getItem('forti_token')
+  const token = sessionStorage.getItem('forti_token')
+  if (!token) throw new Error('No token provided')
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
@@ -194,10 +195,19 @@ export default function MembersList() {
 
   const statusMut = useMutation({
     mutationFn: ({ id, status, reason }) => api.patch(`/members/${id}/status`, { status, reason }),
-    onSuccess: () => {
-      qc.invalidateQueries(['members'])
-      toast.success('Status updated')
+    onSuccess: (_, vars) => {
+      qc.getQueriesData({ queryKey: ['members'] }).forEach(([queryKey, old]) => {
+        if (!old?.data || !Array.isArray(old.data)) return
+        const filters = queryKey?.[1] || {}
+        const nextData = old.data
+          .map(row => row.id === vars.id ? { ...row, member_status: vars.status } : row)
+          .filter(row => !filters.memberStatus || row.member_status === filters.memberStatus)
+        qc.setQueryData(queryKey, { ...old, data: nextData, total: old.total })
+      })
+      qc.invalidateQueries({ queryKey: ['members'] })
+      toast.success(vars.status === 'suspended' ? 'Member suspended' : 'Member reactivated')
       setSuspendTarget(null)
+      setViewMember(current => current?.id === vars.id ? { ...current, member_status: vars.status } : current)
     },
     onError: err => toast.error(err.response?.data?.message || 'Error'),
   })
@@ -227,6 +237,15 @@ export default function MembersList() {
       toast.success('Invoice downloaded')
     } catch (err) { toast.error(err.response?.data?.message || err.message || 'Invoice failed') }
     finally { setInvoiceLoading(null) }
+  }
+
+  async function handleExportCsv() {
+    try {
+      await downloadWithAuth(`${BASE}/api/reports/export/members`, 'members.csv')
+      toast.success('CSV downloaded')
+    } catch (err) {
+      toast.error(err.message || 'Export failed')
+    }
   }
 
   const allRows    = data?.data || []
@@ -288,13 +307,13 @@ export default function MembersList() {
           <h2 className="text-2xl font-bold text-gray-900">Members</h2>
           <p className="text-gray-500 text-sm">Total: {total}</p>
         </div>
-        <a
-          href={`${BASE}/api/reports/export/members`}
-          target="_blank" rel="noreferrer"
+        <button
+          type="button"
+          onClick={handleExportCsv}
           className="btn-outline btn-sm flex items-center gap-1"
         >
           <Download size={14} /> Export CSV
-        </a>
+        </button>
       </div>
 
       {/* ── Filters ── */}
@@ -387,7 +406,7 @@ export default function MembersList() {
                     </td>
 
                     {/* Organization */}
-                    <td className="px-4 py-3 text-xs text-gray-600">{row.organisation_name || '—'}</td>
+                    <td className="px-4 py-3 text-xs text-gray-600">{row.organisation_name || row.organization_name || '—'}</td>
 
                     {/* Type */}
                     <td className="px-4 py-3">
@@ -501,7 +520,7 @@ export default function MembersList() {
                 ['Full Name',       viewMember.applicant_name],
                 ['Email',           viewMember.applicant_email],
                 ['Phone',           viewMember.applicant_phone],
-                ['Organization',    viewMember.organisation_name],
+                ['Organization',    viewMember.organisation_name || viewMember.organization_name],
                 ['Membership Type', viewMember.membership_type?.toUpperCase()],
                 ['Package',         viewMember.package_name || viewMember.form_name],
                 ['Duration',        durationLabel(viewMember)],

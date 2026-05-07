@@ -99,20 +99,39 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
     );
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
+    const resetUrl = `${frontendUrl}/reset-password/${token}`;
 
-    await sendMail({
-      to: user.email,
-      subject: 'FORTI Portal — Password Reset',
-      html: `
-        <p>Hi ${user.full_name},</p>
-        <p>A password reset was requested for your FORTI Portal account.</p>
-        <p><a href="${resetUrl}" style="background:#4F46E5;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;margin:12px 0;">Reset Password</a></p>
-        <p>This link expires in <strong>1 hour</strong>.</p>
-        <p>If you did not request this, you can safely ignore this email.</p>
-        <p style="color:#888;font-size:12px;">FORTI Membership Management System</p>
-      `,
-    }).catch(e => console.error('[forgot-password email]', e.message));
+    try {
+      await sendMail({
+        to: user.email,
+        subject: 'FORTI Portal — Password Reset',
+        html: `
+          <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:560px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb">
+            <div style="background:linear-gradient(135deg,#4c1d95,#7c3aed);padding:28px 32px;text-align:center">
+              <p style="color:#fff;font-size:28px;font-weight:900;margin:0;letter-spacing:3px">FORTI</p>
+              <p style="color:#c4b5fd;font-size:11px;margin:4px 0 0;letter-spacing:2px;text-transform:uppercase">Admin Portal</p>
+            </div>
+            <div style="padding:32px">
+              <p style="font-size:16px;font-weight:600;color:#1f2937;margin:0 0 8px">Hi ${user.full_name},</p>
+              <p style="color:#4b5563;font-size:14px;line-height:1.7;margin:0 0 20px">A password reset was requested for your FORTI Portal admin account.</p>
+              <div style="text-align:center;margin:24px 0">
+                <a href="${resetUrl}" style="display:inline-block;background:#4F46E5;color:#fff;padding:13px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;letter-spacing:.3px">Reset My Password</a>
+              </div>
+              <p style="color:#6b7280;font-size:13px;line-height:1.6;margin:0 0 12px">Or copy this link into your browser:</p>
+              <p style="background:#f3f4f6;border-radius:6px;padding:10px 14px;font-family:monospace;font-size:12px;color:#374151;word-break:break-all;margin:0 0 20px">${resetUrl}</p>
+              <p style="color:#9ca3af;font-size:13px;margin:0 0 4px">⏰ This link expires in <strong>1 hour</strong>.</p>
+              <p style="color:#9ca3af;font-size:13px;margin:0">If you did not request a password reset, you can safely ignore this email.</p>
+            </div>
+            <div style="background:#f9fafb;padding:16px 32px;text-align:center;border-top:1px solid #e5e7eb">
+              <p style="color:#9ca3af;font-size:11px;margin:0">FORTI Membership Management System</p>
+            </div>
+          </div>
+        `,
+      });
+    } catch (emailErr) {
+      console.error('[forgot-password] Email delivery failed:', emailErr.message);
+      // Still return generic success to avoid email enumeration
+    }
 
     createAuditLog(user.id, 'PASSWORD_RESET_REQUESTED', 'auth', String(user.id), req.ip);
     return ok(res, null, 'If that email exists, a reset link has been sent.');

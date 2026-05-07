@@ -176,16 +176,33 @@ async function logEmail(to, subject, template, refId, status, errorMsg = null) {
 // ── Core send helper ───────────────────────────────────────────────────────
 async function sendMail({ to, subject, html, template = null, refId = null }) {
   const cfg = await getSmtpConfig();
-  const transporter = nodemailer.createTransport({
-    host: cfg.host, port: cfg.port, secure: cfg.secure,
+
+  if (!cfg.user || !cfg.pass) {
+    const errMsg = 'SMTP credentials not configured (MAIL_USER / MAIL_PASS missing)';
+    console.error('[EMAIL ERROR]', errMsg);
+    await logEmail(to, subject, template, refId, 'failed', errMsg);
+    throw new Error(errMsg);
+  }
+
+  const transportOptions = {
+    host: cfg.host,
+    port: cfg.port,
+    secure: cfg.secure, // true for 465, false for 587/25
     auth: { user: cfg.user, pass: cfg.pass },
-  });
+    // For port 587 STARTTLS — required for Gmail App Passwords
+    ...(cfg.port === 587 ? { requireTLS: true } : {}),
+    tls: { rejectUnauthorized: false }, // allow self-signed in dev
+  };
+
+  const transporter = nodemailer.createTransport(transportOptions);
   try {
-    await transporter.sendMail({ from: cfg.from, to, subject, html });
+    const info = await transporter.sendMail({ from: cfg.from, to, subject, html });
+    console.log(`[EMAIL SENT] to=${to} messageId=${info.messageId}`);
     await logEmail(to, subject, template, refId, 'sent');
   } catch (err) {
     console.error('[EMAIL ERROR]', err.message);
     await logEmail(to, subject, template, refId, 'failed', err.message);
+    throw err; // re-throw so callers can surface the failure
   }
 }
 
@@ -221,11 +238,11 @@ async function baseTemplate(content) {
     .otp-box{background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:2px solid #7c3aed;border-radius:12px;text-align:center;padding:24px 20px;margin:24px 0}
     .otp-box .otp{font-size:40px;font-weight:800;color:#5b21b6;letter-spacing:12px;font-family:monospace}
     .otp-box .otp-hint{color:#7c3aed;font-size:12px;margin:10px 0 0;font-weight:500}
-    .info-box{background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:18px 20px;margin:18px 0}
-    .info-box .info-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f3f4f6;font-size:13px}
-    .info-box .info-row:last-child{border-bottom:none;padding-bottom:0}
-    .info-box .info-label{color:#6b7280;font-weight:500}
-    .info-box .info-value{color:#111827;font-weight:600;text-align:right;max-width:65%}
+    .info-box{background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:18px 20px;margin:18px 0;display:table;width:100%;border-collapse:collapse;box-sizing:border-box}
+    .info-box .info-row{display:table-row;font-size:13px}
+    .info-box .info-row:last-child .info-label,.info-box .info-row:last-child .info-value{border-bottom:none;padding-bottom:0}
+    .info-box .info-label{display:table-cell;color:#6b7280;font-weight:500;padding:6px 16px 6px 0;border-bottom:1px solid #f3f4f6;white-space:nowrap;width:38%;vertical-align:middle}
+    .info-box .info-value{display:table-cell;color:#111827;font-weight:600;padding:6px 0;border-bottom:1px solid #f3f4f6;vertical-align:middle}
     .badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
     .badge-review{background:#fef3c7;color:#92400e}
     .badge-active{background:#d1fae5;color:#065f46}

@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>About FORTI – Federation of Rajasthan Trade &amp; Industry</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    /* ============================================================
+       ABOUT PAGE – Modern UI
+    ============================================================ */
+
+    /* ── Hero Banner ─────────────────────────────────────────── */
+    .about-hero {
+      position: relative; height: 420px; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .about-hero-bg {
+      position: absolute; inset: 0;
+      background:
+        linear-gradient(135deg, rgba(13,27,42,.88) 0%, rgba(13,70,40,.72) 50%, rgba(13,27,42,.85) 100%),
+        url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420"><rect fill="%230d1b2a" width="1200" height="420"/><circle cx="200" cy="100" r="300" fill="%23166534" opacity=".18"/><circle cx="900" cy="320" r="250" fill="%231e3a5f" opacity=".2"/><circle cx="600" cy="210" r="180" fill="%2318a558" opacity=".07"/></svg>') center/cover no-repeat;
+    }
+    .about-hero-pattern {
+      position: absolute; inset: 0;
+      background-image:
+        radial-gradient(circle at 20% 50%, rgba(24,165,88,.12) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(30,58,95,.15) 0%, transparent 45%);
+    }
+    .about-hero-content {
+      position: relative; z-index: 2; text-align: center; padding: 0 24px;
+      animation: heroFadeIn .9s ease both;
+    }
+    @keyframes heroFadeIn {
+      from { opacity: 0; transform: translateY(28px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .about-hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-size: .72rem; font-weight: 700; letter-spacing: .14em;
+      text-transform: uppercase; color: #6ee7b7; margin-bottom: 14px;
+    }
+    .about-hero-eyebrow::before, .about-hero-eyebrow::after {
+      content: ''; display: block; width: 32px; height: 2px;
+      background: #6ee7b7; border-radius: 2px;
+    }
+    .about-hero h1 {
+      font-size: clamp(2.4rem, 6vw, 4rem); font-weight: 900; color: #fff;
+      letter-spacing: .04em; text-transform: uppercase; line-height: 1.1;
+      text-shadow: 0 4px 30px rgba(0,0,0,.4);
+    }
+    .about-hero h1 span { color: #6ee7b7; }
+    .about-hero-breadcrumb {
+      display: flex; align-items: center; justify-content: center;
+      gap: 8px; margin-top: 18px; font-size: .83rem; color: rgba(255,255,255,.55);
+    }
+    .about-hero-breadcrumb a { color: #6ee7b7; font-weight: 600; transition: opacity .2s; }
+    .about-hero-breadcrumb a:hover { opacity: .75; }
+    .hero-dot {
+      position: absolute; border-radius: 50%; pointer-events: none;
+      animation: floatDot 6s ease-in-out infinite;
+    }
+    .hero-dot-1 { width:120px; height:120px; border:2px dashed rgba(110,231,183,.15); top:15%; left:6%; }
+    .hero-dot-2 { width:70px; height:70px; background:rgba(24,165,88,.08); bottom:18%; right:8%; animation-delay:2s; border-radius:50%; }
+    .hero-dot-3 { width:40px; height:40px; background:rgba(110,231,183,.12); top:25%; right:22%; animation-delay:4s; border-radius:10px; }
+    @keyframes floatDot {
+      0%,100% { transform: translateY(0) rotate(0deg); }
+      50%      { transform: translateY(-14px) rotate(8deg); }
+    }
+
+    /* ── About Two-Column ─────────────────────────────────────── */
+    .about-section { padding: 100px 0 80px; background: #fff; }
+    .about-two-col {
+      display: grid; grid-template-columns: 1fr 1.1fr;
+      gap: 72px; align-items: start;
+    }
+    .about-img-card { position: relative; }
+    .about-img-main {
+      width: 100%; height: 500px; border-radius: 20px; overflow: hidden;
+      background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 40%, #bfdbfe 100%);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 24px 60px rgba(0,0,0,.13); position: relative;
+    }
+    .about-img-main::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(180deg, transparent 60%, rgba(13,27,42,.3) 100%); z-index: 1;
+    }
+    .about-img-placeholder { text-align: center; color: rgba(30,58,95,.35); z-index: 2; position: relative; }
+    .about-img-placeholder svg { width: 80px; height: 80px; margin: 0 auto 10px; }
+    .about-img-placeholder p { font-size: .85rem; font-weight: 500; }
+    .img-badge {
+      position: absolute; z-index: 10; background: #fff;
+      border-radius: 14px; box-shadow: 0 8px 30px rgba(0,0,0,.14);
+      display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+      animation: badgeFloat 4s ease-in-out infinite;
+    }
+    .img-badge-top    { top: -18px; right: -18px; animation-delay: .5s; }
+    .img-badge-bottom { bottom: -18px; left: -18px; animation-delay: 1.5s; }
+    @keyframes badgeFloat {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(-6px); }
+    }
+    .img-badge-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .img-badge-icon.green { background: #d1fae5; color: #065f46; }
+    .img-badge-icon.amber { background: #fef3c7; color: #92400e; }
+    .img-badge-icon svg { width: 18px; height: 18px; fill: currentColor; }
+    .img-badge-text strong { display: block; font-size: .85rem; font-weight: 700; color: #1f2937; }
+    .img-badge-text span   { font-size: .72rem; color: #6b7280; }
+    .about-img-accent {
+      position: absolute; bottom: -10px; left: -10px;
+      width: 70%; height: 70%;
+      background: linear-gradient(135deg, #18a558, #0d7a3e);
+      border-radius: 20px; z-index: -1; opacity: .12;
+    }
+
+    /* Right accordion column */
+    .about-right { padding-top: 8px; }
+    .about-eyebrow { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .about-eyebrow-bar {
+      width: 4px; height: 24px;
+      background: linear-gradient(180deg, #18a558, #0d7a3e); border-radius: 4px;
+    }
+    .about-eyebrow-text { font-size: .82rem; font-weight: 600; color: #6b7280; letter-spacing: .04em; }
+    .about-headline {
+      font-size: clamp(1.7rem, 2.8vw, 2.3rem); font-weight: 900;
+      color: #18a558; line-height: 1.15; margin-bottom: 8px;
+    }
+    .about-sub {
+      font-size: .9rem; color: #6b7280; line-height: 1.7;
+      margin-bottom: 32px; max-width: 480px;
+    }
+
+    /* ── Modern Card Accordion ────────────────────────────────── */
+    .mod-accordion { display: flex; flex-direction: column; gap: 12px; }
+    .mod-acc-item {
+      border-radius: 14px; border: 1.5px solid #e5e7eb;
+      background: #fff; overflow: hidden;
+      transition: border-color .3s, box-shadow .3s;
+    }
+    .mod-acc-item.active {
+      border-color: #18a558;
+      box-shadow: 0 6px 28px rgba(24,165,88,.12);
+    }
+    .mod-acc-trigger {
+      width: 100%; padding: 18px 20px;
+      display: flex; align-items: center; gap: 14px;
+      background: none; border: none; cursor: pointer; text-align: left;
+      transition: background .2s;
+    }
+    .mod-acc-trigger:hover { background: #f9fafb; }
+    .mod-acc-item.active .mod-acc-trigger { background: #f0faf5; }
+    .mod-acc-icon-wrap {
+      width: 40px; height: 40px; border-radius: 10px; background: #f3f4f6;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: background .3s, color .3s;
+    }
+    .mod-acc-item.active .mod-acc-icon-wrap {
+      background: linear-gradient(135deg, #18a558, #0d7a3e); color: #fff;
+    }
+    .mod-acc-icon-wrap svg { width: 18px; height: 18px; fill: currentColor; color: #6b7280; }
+    .mod-acc-item.active .mod-acc-icon-wrap svg { color: #fff; }
+    .mod-acc-label { flex: 1; font-size: .95rem; font-weight: 700; color: #1f2937; transition: color .2s; }
+    .mod-acc-item.active .mod-acc-label { color: #18a558; }
+    .mod-acc-toggle {
+      width: 28px; height: 28px; border-radius: 8px; background: #f3f4f6;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: background .3s, transform .4s;
+    }
+    .mod-acc-item.active .mod-acc-toggle { background: #18a558; transform: rotate(45deg); }
+    .mod-acc-toggle svg {
+      width: 14px; height: 14px; stroke: #6b7280; fill: none; transition: stroke .3s;
+    }
+    .mod-acc-item.active .mod-acc-toggle svg { stroke: #fff; }
+    .mod-acc-body {
+      max-height: 0; overflow: hidden;
+      transition: max-height .45s cubic-bezier(.4,0,.2,1);
+    }
+    .mod-acc-body.open { max-height: 400px; }
+    .mod-acc-body-inner {
+      padding: 0 20px 20px 74px;
+      font-size: .88rem; color: #6b7280; line-height: 1.8;
+    }
+
+    /* ── Ease-of-Business Cards ───────────────────────────────── */
+    .ease-modern {
+      padding: 100px 0;
+      background: linear-gradient(160deg, #f0faf5 0%, #f8fafc 50%, #eef2ff 100%);
+      position: relative; overflow: hidden;
+    }
+    .ease-modern::before {
+      content: ''; position: absolute; top: -80px; right: -80px;
+      width: 400px; height: 400px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(24,165,88,.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .ease-modern-header { text-align: center; margin-bottom: 64px; }
+    .ease-modern-tag {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-size: .72rem; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase; color: #18a558; margin-bottom: 12px;
+    }
+    .ease-modern-tag::before, .ease-modern-tag::after {
+      content: ''; display: block; width: 28px; height: 2px;
+      background: #18a558; border-radius: 2px;
+    }
+    .ease-modern-title {
+      font-size: clamp(1.6rem, 3vw, 2.4rem); font-weight: 900;
+      color: #1f2937; line-height: 1.2;
+    }
+    .ease-modern-title span { color: #18a558; }
+    .ease-modern-sub {
+      color: #6b7280; margin: 12px auto 0; max-width: 560px;
+      font-size: .93rem; line-height: 1.7;
+    }
+    .ease-cards-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 28px; }
+    .ease-card {
+      background: #fff; border-radius: 20px; padding: 36px 28px 32px;
+      border: 1.5px solid #e5e7eb; box-shadow: 0 4px 20px rgba(0,0,0,.06);
+      transition: transform .3s ease, box-shadow .3s ease, border-color .3s ease;
+      position: relative; overflow: hidden;
+    }
+    .ease-card::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+      height: 4px; background: linear-gradient(90deg, #18a558, #0d7a3e);
+      transform: scaleX(0); transform-origin: left; transition: transform .35s ease;
+    }
+    .ease-card:hover { transform: translateY(-8px); box-shadow: 0 20px 50px rgba(24,165,88,.14); border-color: #18a558; }
+    .ease-card:hover::after { transform: scaleX(1); }
+    .ease-card-icon-wrap {
+      width: 56px; height: 56px; border-radius: 14px;
+      background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 20px; transition: background .3s, transform .3s;
+    }
+    .ease-card:hover .ease-card-icon-wrap {
+      background: linear-gradient(135deg, #18a558, #0d7a3e);
+      transform: scale(1.1) rotate(-5deg);
+    }
+    .ease-card-icon-wrap svg { width: 26px; height: 26px; fill: #065f46; transition: fill .3s; }
+    .ease-card:hover .ease-card-icon-wrap svg { fill: #fff; }
+    .ease-card-num {
+      font-size: 3.8rem; font-weight: 900; line-height: 1;
+      background: linear-gradient(135deg, #18a558, #0d7a3e);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; margin-bottom: 16px; display: block;
+    }
+    .ease-card h3 { font-size: 1.1rem; font-weight: 800; color: #1e3a5f; margin-bottom: 12px; line-height: 1.3; }
+    .ease-card p  { font-size: .875rem; color: #6b7280; line-height: 1.75; }
+
+    /* ── Commitments ─────────────────────────────────────────── */
+    .commitments-modern { padding: 100px 0; background: #fff; }
+    .commitments-modern-header { text-align: center; margin-bottom: 60px; }
+    .commit-cards-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 28px; }
+    .commit-card {
+      border-radius: 20px; overflow: hidden;
+      box-shadow: 0 4px 24px rgba(0,0,0,.08);
+      transition: transform .3s, box-shadow .3s;
+    }
+    .commit-card:hover { transform: translateY(-8px); box-shadow: 0 20px 50px rgba(0,0,0,.14); }
+    .commit-card-head {
+      padding: 28px 24px 20px; display: flex; align-items: center;
+      gap: 16px; color: #fff;
+    }
+    .commit-card-head.green  { background: linear-gradient(135deg, #18a558, #0d7a3e); }
+    .commit-card-head.navy   { background: linear-gradient(135deg, #1e3a5f, #0f2040); }
+    .commit-card-head.purple { background: linear-gradient(135deg, #7c3aed, #5b21b6); }
+    .commit-icon {
+      width: 50px; height: 50px; border-radius: 12px;
+      background: rgba(255,255,255,.2);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .commit-icon svg { width: 24px; height: 24px; fill: #fff; }
+    .commit-card-head h3 { font-size: 1rem; font-weight: 800; }
+    .commit-card-head p  { font-size: .73rem; opacity: .8; margin-top: 2px; }
+    .commit-card-body {
+      padding: 24px; background: #fff;
+      border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 20px 20px;
+    }
+    .commit-card-body p { font-size: .87rem; color: #6b7280; line-height: 1.75; }
+
+    /* ── Women Wing ──────────────────────────────────────────── */
+    .women-modern { padding: 100px 0; background: linear-gradient(160deg, #f8fafc 0%, #f0faf5 100%); }
+    .women-feature-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 28px; }
+    .women-feat {
+      background: #fff; border-radius: 12px; padding: 16px 18px;
+      border-left: 4px solid #18a558; box-shadow: 0 2px 12px rgba(0,0,0,.06);
+      transition: transform .25s, box-shadow .25s;
+    }
+    .women-feat:hover { transform: translateX(4px); box-shadow: 0 6px 20px rgba(24,165,88,.1); }
+    .women-feat h4 { font-size: .9rem; font-weight: 700; color: #1e3a5f; }
+    .women-feat p  { font-size: .8rem; color: #6b7280; margin-top: 4px; line-height: 1.5; }
+    .women-img-card {
+      width: 100%; height: 460px; border-radius: 20px; overflow: hidden;
+      background: linear-gradient(135deg, #ede9fe, #ddd6fe, #d1fae5);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,.12); position: relative;
+    }
+    .women-img-card::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(180deg, transparent 50%, rgba(13,27,42,.25) 100%);
+    }
+    .women-img-card .img-placeholder { z-index: 1; position: relative; }
+
+    /* ── Stats Dark ──────────────────────────────────────────── */
+    .stats-modern {
+      background: linear-gradient(135deg, #1e3a5f 0%, #0d1b2a 50%, #0d3020 100%);
+      padding: 72px 0; position: relative; overflow: hidden;
+    }
+    .stats-modern::before {
+      content: ''; position: absolute; inset: 0;
+      background-image:
+        radial-gradient(circle at 20% 50%, rgba(24,165,88,.08) 0%, transparent 50%),
+        radial-gradient(circle at 80% 50%, rgba(30,58,95,.2) 0%, transparent 50%);
+    }
+    .stats-modern-grid {
+      display: grid; grid-template-columns: repeat(6,1fr);
+      gap: 20px; position: relative;
+    }
+    .stat-modern-card {
+      background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1);
+      border-radius: 16px; padding: 24px 16px; text-align: center;
+      backdrop-filter: blur(10px); transition: background .3s, transform .3s, border-color .3s;
+    }
+    .stat-modern-card:hover {
+      background: rgba(255,255,255,.12); border-color: rgba(24,165,88,.4);
+      transform: translateY(-4px);
+    }
+    .stat-modern-icon {
+      width: 42px; height: 42px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 12px;
+    }
+    .stat-modern-num { font-size: 2rem; font-weight: 900; color: #6ee7b7; line-height: 1; }
+    .stat-modern-label { font-size: .7rem; color: rgba(255,255,255,.55); margin-top: 6px; font-weight: 500; line-height: 1.3; }
+
+    /* ── Reveal ──────────────────────────────────────────────── */
+    .reveal, .reveal-left, .reveal-right {
+      opacity: 0; transform: translateY(30px);
+      transition: opacity .7s ease, transform .7s ease;
+    }
+    .reveal-left  { transform: translateX(-30px); }
+    .reveal-right { transform: translateX(30px); }
+    .reveal.visible, .reveal-left.visible, .reveal-right.visible { opacity: 1; transform: none; }
+    .delay-100 { transition-delay: .1s !important; }
+    .delay-200 { transition-delay: .2s !important; }
+    .delay-300 { transition-delay: .3s !important; }
+    .delay-400 { transition-delay: .4s !important; }
+    .delay-500 { transition-delay: .5s !important; }
+
+    /* ── Responsive ──────────────────────────────────────────── */
+    @media (max-width: 1024px) {
+      .about-two-col { grid-template-columns: 1fr; gap: 56px; }
+      .about-img-main { height: 360px; }
+      .ease-cards-grid { grid-template-columns: 1fr 1fr; }
+      .commit-cards-grid { grid-template-columns: 1fr 1fr; }
+      .stats-modern-grid { grid-template-columns: repeat(3,1fr); }
+    }
+    @media (max-width: 768px) {
+      .about-hero { height: 320px; }
+      .about-hero h1 { font-size: 2rem; }
+      .about-section { padding: 64px 0 56px; }
+      .ease-cards-grid { grid-template-columns: 1fr; }
+      .commit-cards-grid { grid-template-columns: 1fr; }
+      .women-feature-cards { grid-template-columns: 1fr; }
+      .women-modern .grid-2 { grid-template-columns: 1fr; }
+      .stats-modern-grid { grid-template-columns: repeat(2,1fr); }
+      .mod-acc-body-inner { padding-left: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Top Info Bar -->
+<div class="top-bar">
+  <div class="container">
+    <div class="top-bar-left">
+      <a href="mailto:info@forti.in"><svg class="top-bar-icon" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg> info@forti.in</a>
+      <span>|</span>
+      <span>Mon – Sat: 10:00 A.M – 6:00 P.M</span>
+    </div>
+    <div class="top-bar-right">
+      <span>Follow us:</span>
+      <div class="social-icons">
+        <a href="#" aria-label="Facebook"><svg class="top-bar-icon" viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg></a>
+        <a href="#" aria-label="Instagram"><svg class="top-bar-icon" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5"/></svg></a>
+        <a href="#" aria-label="Twitter"><svg class="top-bar-icon" viewBox="0 0 24 24"><path d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z"/></svg></a>
+        <a href="#" aria-label="LinkedIn"><svg class="top-bar-icon" viewBox="0 0 24 24"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z"/><circle cx="4" cy="4" r="2"/></svg></a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="container">
+    <a href="index.html" class="nav-logo">
+      <div class="nav-logo-icon">F</div>
+      <div class="nav-logo-text">
+        <div class="nav-logo-title">FORTI</div>
+        <div class="nav-logo-sub">Federation of Rajasthan Trade &amp; Industry</div>
+      </div>
+    </a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <div class="nav-dropdown">
+        <button class="nav-link-btn active">
+          About Us
+          <svg class="dropdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="dropdown-menu">
+          <a href="about.html" style="color:var(--green);font-weight:700">About FORTI</a>
+          <a href="history.html">History</a>
+          <a href="#commitments">Commitments</a>
+          <a href="#women-wing">FORTI Women Wing</a>
+        </div>
+      </div>
+      <a href="#">Initiatives</a>
+      <a href="#">Media</a>
+      <a href="gallery.html">Gallery</a>
+      <a href="#">Ask The Expert</a>
+      <a href="#">FAQ</a>
+    </div>
+    <div class="nav-right">
+      <span class="nav-badge">IEATE 2023</span>
+      <div class="nav-cta-group">
+        <a href="../index.html" class="btn-xs btn-xs-outline">Admin Login</a>
+        <a href="../index.html" class="btn-xs btn-xs-outline">Member Login</a>
+        <a href="../index.html" class="btn-xs btn-xs-green">Apply Now</a>
+      </div>
+      <a href="contact.html" class="btn-contact">Contact Us</a>
+    </div>
+    <button class="nav-hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+<div class="mobile-nav">
+  <div class="mobile-nav-drawer">
+    <div class="mobile-nav-header">
+      <a href="index.html" class="nav-logo"><div class="nav-logo-icon">F</div><div class="nav-logo-text"><div class="nav-logo-title">FORTI</div></div></a>
+      <button class="mobile-nav-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="mobile-nav-links">
+      <a href="index.html">Home</a>
+      <button class="mobile-sub-toggle" style="width:100%;text-align:left;padding:12px 16px;font-size:.9rem;font-weight:600;background:none;border:none;cursor:pointer;color:var(--green);display:flex;align-items:center;justify-content:space-between;font-family:inherit;">About Us <svg class="mobile-toggle-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform .3s"><polyline points="6 9 12 15 18 9"/></svg></button>
+      <div class="mobile-nav-sub" style="display:block"><a href="about.html" style="color:var(--green)">About FORTI</a><a href="history.html">History</a><a href="#commitments">Commitments</a><a href="#women-wing">Women Wing</a></div>
+      <a href="#">Initiatives</a><a href="#">Media</a><a href="gallery.html">Gallery</a><a href="#">FAQ</a>
+    </div>
+    <div class="mobile-nav-divider"></div>
+    <div class="mobile-cta">
+      <a href="../index.html" class="btn btn-outline">Member Login</a>
+      <a href="../index.html" class="btn btn-primary">Apply Now →</a>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ HERO BANNER ═══════════════════ -->
+<section class="about-hero">
+  <div class="about-hero-bg"></div>
+  <div class="about-hero-pattern"></div>
+  <div class="hero-dot hero-dot-1"></div>
+  <div class="hero-dot hero-dot-2"></div>
+  <div class="hero-dot hero-dot-3"></div>
+  <div class="about-hero-content">
+    <div class="about-hero-eyebrow">Federation of Rajasthan Trade &amp; Industry</div>
+    <h1>About <span>FORTI</span></h1>
+    <div class="about-hero-breadcrumb">
+      <a href="index.html">Home</a>
+      <span>›</span>
+      <span>About FORTI</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ ABOUT TWO-COLUMN ═══════════════════ -->
+<section class="about-section">
+  <div class="container">
+    <div class="about-two-col">
+
+      <!-- Left: Image Card -->
+      <div class="about-img-card reveal-left">
+        <div class="about-img-main">
+          <div class="about-img-placeholder">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+              <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+            </svg>
+            <p>FORTI Headquarters – Jaipur</p>
+          </div>
+        </div>
+        <div class="img-badge img-badge-top">
+          <div class="img-badge-icon green">
+            <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 3-1.34 3-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zM8 11c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+          </div>
+          <div class="img-badge-text"><strong>15,000+</strong><span>Direct Members</span></div>
+        </div>
+        <div class="img-badge img-badge-bottom">
+          <div class="img-badge-icon amber">
+            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg>
+          </div>
+          <div class="img-badge-text"><strong>Est. 1965</strong><span>60 years of legacy</span></div>
+        </div>
+        <div class="about-img-accent"></div>
+      </div>
+
+      <!-- Right: Modern Accordion -->
+      <div class="about-right reveal-right">
+        <div class="about-eyebrow">
+          <div class="about-eyebrow-bar"></div>
+          <span class="about-eyebrow-text">A place of belonging for everyone</span>
+        </div>
+        <h2 class="about-headline">About FORTI</h2>
+        <p class="about-sub">Learn about the apex chamber of Trade &amp; Industry in Rajasthan — our purpose, vision, mission and what drives us forward.</p>
+
+        <div class="mod-accordion" id="aboutAccordion">
+
+          <div class="mod-acc-item active">
+            <button class="mod-acc-trigger" aria-expanded="true">
+              <div class="mod-acc-icon-wrap">
+                <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+              </div>
+              <span class="mod-acc-label">About</span>
+              <div class="mod-acc-toggle"><svg viewBox="0 0 24 24" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+            </button>
+            <div class="mod-acc-body open">
+              <div class="mod-acc-body-inner">
+                Federation of Rajasthan Trade and Industry, abbreviated as FORTI, is a registered body with the Registrar of Non-Trading Companies and is the apex chamber of Trade and Industry in Rajasthan. FORTI acts as a bridge between the Government of India at the National Level and the Government of Rajasthan at the state level for its members. It carries out its responsibilities as an intermediary between the government and its members for policy advocacy and dissemination of information.
+                <br/><br/>
+                FORTI intends to make cohesive, streamlined, and systematic efforts to enhance international business in identified countries with favorable business opportunities and more significant synergies regarding the business environment, development needs, potential markets, and development needs in a liberalizing economy.
+              </div>
+            </div>
+          </div>
+
+          <div class="mod-acc-item">
+            <button class="mod-acc-trigger" aria-expanded="false">
+              <div class="mod-acc-icon-wrap">
+                <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+              </div>
+              <span class="mod-acc-label">Objectives</span>
+              <div class="mod-acc-toggle"><svg viewBox="0 0 24 24" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+            </button>
+            <div class="mod-acc-body">
+              <div class="mod-acc-body-inner">
+                To facilitate discussions and seminars to enhance international business in identified countries with favorable business opportunities, and more significant synergies regarding the business environment, development needs, potential markets, and development needs in a liberalizing economy. FORTI works to bridge the gap between industry needs and government policy to create a conducive environment for all businesses in Rajasthan.
+              </div>
+            </div>
+          </div>
+
+          <div class="mod-acc-item">
+            <button class="mod-acc-trigger" aria-expanded="false">
+              <div class="mod-acc-icon-wrap">
+                <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+              </div>
+              <span class="mod-acc-label">Vision</span>
+              <div class="mod-acc-toggle"><svg viewBox="0 0 24 24" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+            </button>
+            <div class="mod-acc-body">
+              <div class="mod-acc-body-inner">
+                To enhance the efficiency and global competitiveness of the Indian industry and expand business opportunities in domestic and foreign markets through a range of specialised services and international linkages while also ensuring the businesses have the right to business ethics.
+              </div>
+            </div>
+          </div>
+
+          <div class="mod-acc-item">
+            <button class="mod-acc-trigger" aria-expanded="false">
+              <div class="mod-acc-icon-wrap">
+                <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+              </div>
+              <span class="mod-acc-label">Mission</span>
+              <div class="mod-acc-toggle"><svg viewBox="0 0 24 24" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+            </button>
+            <div class="mod-acc-body">
+              <div class="mod-acc-body-inner">
+                FORTI's mission is to promote the culture and business of Rajasthan globally by collaborating with partners, hosting exhibitions, providing employment opportunities to women, creating favorable policies, establishing Jaipur Night Bazaars, organizing award shows, and providing a platform for start-ups.
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /mod-accordion -->
+      </div><!-- /about-right -->
+    </div><!-- /about-two-col -->
+  </div>
+</section>
+
+<!-- ═══════════════════ EASE OF BUSINESS ═══════════════════ -->
+<section class="ease-modern">
+  <div class="container">
+    <div class="ease-modern-header reveal">
+      <div class="ease-modern-tag">What We Do</div>
+      <h2 class="ease-modern-title">Ensuring the <span>Ease of Business</span> and Trade</h2>
+      <p class="ease-modern-sub">FORTI bridges the gap between government, industry, and international markets — making business simpler and stronger for all members.</p>
+    </div>
+    <div class="ease-cards-grid">
+      <div class="ease-card reveal delay-100">
+        <div class="ease-card-icon-wrap">
+          <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+        </div>
+        <span class="ease-card-num">01</span>
+        <h3>Facilitates Discussions</h3>
+        <p>FORTI regularly hosts conversations and facilitates discussions between the government, industries, and traders, ensuring the ease of business in accordance with government rules, laws, and regulations.</p>
+      </div>
+      <div class="ease-card reveal delay-200">
+        <div class="ease-card-icon-wrap">
+          <svg viewBox="0 0 24 24"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>
+        </div>
+        <span class="ease-card-num">02</span>
+        <h3>Hosts Seminars</h3>
+        <p>FORTI also hosts seminars periodically to hold discussions with businessmen, industrialists, and traders, discussing their plans and needs to build a stronger business community.</p>
+      </div>
+      <div class="ease-card reveal delay-300">
+        <div class="ease-card-icon-wrap">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+        </div>
+        <span class="ease-card-num">03</span>
+        <h3>Strong International Network</h3>
+        <p>FORTI's presence is not only limited to India, and now has 8 international branches, helping Indian traders and businessmen in foreign countries leverage a strong global network.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ COMMITMENTS ═══════════════════ -->
+<section class="commitments-modern" id="commitments">
+  <div class="container">
+    <div class="commitments-modern-header reveal">
+      <div class="tag" style="justify-content:center;margin-bottom:10px">Our Commitments</div>
+      <h2 class="section-title">What FORTI <span style="color:var(--green)">Stands For</span></h2>
+      <p class="section-sub center">Rooted in advocacy, networking, and knowledge — FORTI empowers every member to thrive.</p>
+    </div>
+    <div class="commit-cards-grid">
+      <div class="commit-card reveal delay-100">
+        <div class="commit-card-head green">
+          <div class="commit-icon"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg></div>
+          <div><h3>Advocacy</h3><p>Policy representation</p></div>
+        </div>
+        <div class="commit-card-body"><p>FORTI advocates for business-friendly policies at state and national levels, ensuring the voices of traders and industrialists are heard by the government.</p></div>
+      </div>
+      <div class="commit-card reveal delay-200">
+        <div class="commit-card-head navy">
+          <div class="commit-icon"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zM8 11c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></div>
+          <div><h3>Networking</h3><p>Building connections</p></div>
+        </div>
+        <div class="commit-card-body"><p>Connecting over 15,000 direct members across Rajasthan, India, and 8 international branches to create powerful business networks and opportunities.</p></div>
+      </div>
+      <div class="commit-card reveal delay-300">
+        <div class="commit-card-head purple">
+          <div class="commit-icon"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+          <div><h3>Education</h3><p>Knowledge sharing</p></div>
+        </div>
+        <div class="commit-card-body"><p>Organizing seminars, workshops, and training programs to keep our members informed about the latest developments in trade, industry, and government policies.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ WOMEN WING ═══════════════════ -->
+<section class="women-modern" id="women-wing">
+  <div class="container">
+    <div class="grid-2" style="gap:72px">
+      <div class="reveal-left">
+        <div class="tag" style="margin-bottom:12px">Empowerment &amp; Growth</div>
+        <h2 class="section-title">FORTI <span style="color:var(--green)">Women Wing</span></h2>
+        <p style="color:var(--text-muted);margin-top:16px;line-height:1.8;font-size:.93rem">FORTI Women Wing is dedicated to empowering women entrepreneurs and businesswomen across Rajasthan. Through networking events, training programs, and policy advocacy, we create a supportive ecosystem where women can grow their businesses.</p>
+        <div class="women-feature-cards">
+          <div class="women-feat"><h4>Networking Events</h4><p>Connect with women leaders across industries</p></div>
+          <div class="women-feat"><h4>Training Programs</h4><p>Skill development &amp; business education</p></div>
+          <div class="women-feat"><h4>Policy Advocacy</h4><p>Fighting for women-friendly business policies</p></div>
+          <div class="women-feat"><h4>Jaipur Night Bazaars</h4><p>Platform for women entrepreneurs</p></div>
+        </div>
+        <div style="margin-top:32px">
+          <a href="contact.html" class="btn btn-primary">Join Women Wing →</a>
+        </div>
+      </div>
+      <div class="women-img-card reveal-right">
+        <div class="about-img-placeholder">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 10-16 0"/></svg>
+          <p>FORTI Women Wing Event</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ STATS DARK ═══════════════════ -->
+<section class="stats-modern">
+  <div class="container">
+    <div class="stats-modern-grid">
+      <div class="stat-modern-card reveal">
+        <div class="stat-modern-icon" style="background:rgba(251,191,36,.12);color:#fbbf24"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zM8 11c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></div>
+        <div class="stat-modern-num">15K</div>
+        <div class="stat-modern-label">Direct Members</div>
+      </div>
+      <div class="stat-modern-card reveal delay-100">
+        <div class="stat-modern-icon" style="background:rgba(167,139,250,.12);color:#a78bfa"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg></div>
+        <div class="stat-modern-num">2L</div>
+        <div class="stat-modern-label">Indirect Members</div>
+      </div>
+      <div class="stat-modern-card reveal delay-200">
+        <div class="stat-modern-icon" style="background:rgba(110,231,183,.12);color:#6ee7b7"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 7V3H2v18h20V7H12z"/></svg></div>
+        <div class="stat-modern-num">500</div>
+        <div class="stat-modern-label">Associations</div>
+      </div>
+      <div class="stat-modern-card reveal delay-300">
+        <div class="stat-modern-icon" style="background:rgba(96,165,250,.12);color:#60a5fa"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg></div>
+        <div class="stat-modern-num">8</div>
+        <div class="stat-modern-label">International Branches</div>
+      </div>
+      <div class="stat-modern-card reveal delay-400">
+        <div class="stat-modern-icon" style="background:rgba(249,168,212,.12);color:#f9a8d4"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2z"/></svg></div>
+        <div class="stat-modern-num">17</div>
+        <div class="stat-modern-label">National Branches</div>
+      </div>
+      <div class="stat-modern-card reveal delay-500">
+        <div class="stat-modern-icon" style="background:rgba(110,231,183,.12);color:#6ee7b7"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg></div>
+        <div class="stat-modern-num">29</div>
+        <div class="stat-modern-label">Rajasthan Branches</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-bg"></div><div class="footer-bg-overlay"></div>
+  <div class="footer-main">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <div class="footer-logo"><div class="footer-logo-icon">F</div><span class="footer-logo-text">FORTI</span></div>
+          <h4>About Us</h4>
+          <p>FORTI is an apex chamber of trade and industry that acts as a bridge between the Government of India at National Level and Government of Rajasthan at State level for policy advocacy and dissemination of information amongst its members.</p>
+          <div class="footer-social">
+            <a href="#"><svg viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg></a>
+            <a href="#"><svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/></svg></a>
+            <a href="#"><svg viewBox="0 0 24 24"><path d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5z"/></svg></a>
+            <a href="#"><svg viewBox="0 0 24 24"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z"/><circle cx="4" cy="4" r="2"/></svg></a>
+          </div>
+        </div>
+        <div>
+          <h4>All Contacts</h4>
+          <div class="footer-contact-item"><svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg><span>A-7 Second Floor, Ganpati Enclave, Civil Lines, Jaipur – 302006</span></div>
+          <div class="footer-contact-item"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.72A2 2 0 012.18 1h3a2 2 0 012 1.72 19.79 19.79 0 00.7 2.81 2 2 0 01-.45 2.11L6.91 8.15a16 16 0 006.94 6.94l1.51-1.52a2 2 0 012.11-.45 19.79 19.79 0 002.81.7A2 2 0 0122 16.92z"/></svg><a href="tel:+919214007205">+91 9214007205</a></div>
+          <div class="footer-contact-item"><svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg><a href="mailto:info@forti.in">info@forti.in</a></div>
+          <div class="footer-contact-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Mon – Sat: 10:00 A.M – 6:00 P.M</span></div>
+        </div>
+        <div>
+          <h4>Subscribe</h4>
+          <p class="footer-subscribe-text">Subscribe to receive our monthly newsletter to stay updated on our announcements, events, and projects.</p>
+          <form class="footer-subscribe-form" onsubmit="return false"><input type="email" placeholder="Insert Your Email" required/><button class="btn-subscribe" type="submit">Subscribe</button></form>
+        </div>
+        <div>
+          <h4>Gallery</h4>
+          <div class="footer-gallery-grid">
+            <div class="footer-gallery-item" style="background:rgba(24,165,88,.2)"><svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg></div>
+            <div class="footer-gallery-item" style="background:rgba(99,102,241,.2)"><svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg></div>
+            <div class="footer-gallery-item" style="background:rgba(245,158,11,.2)"><svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg></div>
+            <div class="footer-gallery-item" style="background:rgba(239,68,68,.2)"><svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg></div>
+            <div class="footer-gallery-item" style="background:rgba(16,185,129,.2)"><svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg></div>
+            <div class="footer-gallery-item" style="background:rgba(139,92,246,.2)"><svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg></div>
+            <div class="footer-gallery-item" style="background:rgba(59,130,246,.2)"><svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg></div>
+            <div class="footer-gallery-item" style="background:rgba(251,113,133,.2)"><svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg></div>
+            <div class="footer-gallery-item" style="background:rgba(52,211,153,.2)"><svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg></div>
+          </div>
+          <a href="gallery.html" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:10px;font-size:.82rem;padding:9px">View More</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="container">
+    <div class="footer-bottom">
+      <p>© Copyright 2025 | All rights reserved by FORTI | Powered by Kaiten Software</p>
+      <div class="footer-bottom-links"><a href="#">Privacy Policy</a><a href="#">Terms of Use</a><a href="contact.html">Contact</a></div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/main.js"></script>
+<script>
+/* ── Modern Accordion ──────────────────────────────────────── */
+(function () {
+  const items = document.querySelectorAll('.mod-acc-item');
+  items.forEach(item => {
+    const trigger = item.querySelector('.mod-acc-trigger');
+    const body    = item.querySelector('.mod-acc-body');
+    if (!trigger || !body) return;
+    trigger.addEventListener('click', () => {
+      const isActive = item.classList.contains('active');
+      items.forEach(i => {
+        i.classList.remove('active');
+        const b = i.querySelector('.mod-acc-body');
+        const t = i.querySelector('.mod-acc-trigger');
+        if (b) b.classList.remove('open');
+        if (t) t.setAttribute('aria-expanded', 'false');
+      });
+      if (!isActive) {
+        item.classList.add('active');
+        body.classList.add('open');
+        trigger.setAttribute('aria-expanded', 'true');
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>

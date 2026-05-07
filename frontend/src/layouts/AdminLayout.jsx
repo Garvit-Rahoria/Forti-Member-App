@@ -122,13 +122,19 @@ export default function AdminLayout() {
   const panelLabel = PANEL_LABEL[role] || 'Admin Panel'
   const roleBadge = ROLE_BADGE[role] || { label: role, cls: 'bg-gray-100 text-gray-600' }
 
-  const handleLogout = () => { logout(); navigate('/login') }
+  const handleLogout = () => {
+    // Clear all auth data from storage
+    sessionStorage.clear()
+    localStorage.clear()
+    logout()
+    navigate('/', { replace: true })
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       {/* Sidebar */}
       {sidebarOpen && (
-      <aside className="w-64 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col transition-all duration-200 z-20">
+      <aside className="w-64 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col transition-all duration-200">
         {/* Logo + close */}
         <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-primary-500 flex items-center justify-center text-white font-bold text-sm">
@@ -145,20 +151,38 @@ export default function AdminLayout() {
           {navItems.map(item => <NavItem key={item.label} item={item} />)}
         </nav>
 
-        {/* User info */}
+        {/* User info + Logout + Branding */}
         <div className="px-4 py-3 border-t border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold">
+          {/* User profile row */}
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold shrink-0">
               {(user?.full_name || user?.name)?.[0]?.toUpperCase() || 'A'}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate">{user?.full_name || user?.name}</p>
               <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${roleBadge.cls}`}>{roleBadge.label}</span>
             </div>
-            <button onClick={handleLogout} title="Logout" className="text-gray-400 hover:text-red-500 transition-colors">
-              <LogOut size={16} />
-            </button>
           </div>
+          {/* Logout button */}
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 border border-red-100 hover:border-red-200 transition-colors mb-2.5"
+          >
+            <LogOut size={14} />
+            Logout
+          </button>
+          {/* Kaiten Software branding */}
+          <p className="text-center text-xs text-gray-400">
+            Developed by{' '}
+            <a
+              href="https://kaitensoftware.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-500 hover:text-primary-600 transition-colors font-medium underline-offset-2 hover:underline"
+            >
+              Kaiten Software
+            </a>
+          </p>
         </div>
       </aside>
       )}
@@ -177,9 +201,10 @@ export default function AdminLayout() {
               {regionData.region_name}
             </span>
           )}
-          <div className="ml-auto flex items-center gap-2 text-xs text-gray-400">
-            <span className="w-2 h-2 bg-green-400 rounded-full inline-block" />
-            Live
+          <div className="ml-auto flex items-center gap-3 text-xs text-gray-400">
+            <button onClick={handleLogout} title="Logout" className="ml-1 flex items-center gap-1 text-gray-400 hover:text-red-500 transition-colors">
+              <LogOut size={15} />
+            </button>
           </div>
         </header>
 
