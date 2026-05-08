@@ -2,13 +2,15 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Edit, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
 import api from '../../../api/client'
+import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from 'react-hot-toast'
 
 function GroupModal({ group, onClose, onSave }) {
   const [d, setD] = useState(group || { name: '', slug: '', description: '' })
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="card w-full max-w-md" onClick={e => e.stopPropagation()}>
+    <AdminModalPortal>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={onClose}>
+        <div className="card w-full max-w-md" onClick={e => e.stopPropagation()}>
         <div className="card-header"><h3 className="font-semibold">{group ? 'Edit Group' : 'New Dropdown Group'}</h3><button onClick={onClose} className="text-gray-400">✕</button></div>
         <form className="card-body space-y-3" onSubmit={e => { e.preventDefault(); onSave(d) }}>
           <div><label className="label">Name *</label><input className="input" value={d.name} required onChange={e => setD(x=>({...x,name:e.target.value,slug:x.slug||e.target.value.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'')}))} /></div>
@@ -18,9 +20,10 @@ function GroupModal({ group, onClose, onSave }) {
             <button type="submit" className="btn-primary flex-1">Save</button>
             <button type="button" className="btn-outline" onClick={onClose}>Cancel</button>
           </div>
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
+    </AdminModalPortal>
   )
 }
 

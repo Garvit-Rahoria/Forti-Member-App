@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../api/client'
@@ -68,6 +68,17 @@ const ROLE_BADGE = {
 
 function NavItem({ item }) {
   const [open, setOpen] = useState(false)
+  const location = useLocation()
+
+  const normalizePath = value => {
+    if (!value) return '/'
+    return value !== '/' && value.endsWith('/') ? value.slice(0, -1) : value
+  }
+
+  const currentPath = normalizePath(location.pathname)
+  const itemPath = normalizePath(item.to)
+  const isItemActive = currentPath === itemPath || currentPath.startsWith(`${itemPath}/`)
+
   if (item.children) {
     return (
       <div>
@@ -96,9 +107,7 @@ function NavItem({ item }) {
     )
   }
   return (
-    <NavLink to={item.to} className={({ isActive }) =>
-      `sidebar-link ${isActive ? 'active' : ''}`
-    }>
+    <NavLink to={item.to} className={`sidebar-link ${isItemActive ? 'active' : ''}`}>
       <item.icon size={18} />
       {item.label}
     </NavLink>
@@ -136,7 +145,7 @@ export default function AdminLayout() {
       {sidebarOpen && (
       <aside className="w-64 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col transition-all duration-200">
         {/* Logo + close */}
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-3">
+        <div className="px-5 py-3.5 border-b border-gray-200 flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-primary-500 flex items-center justify-center text-white font-bold text-sm">
             F
           </div>
@@ -146,39 +155,44 @@ export default function AdminLayout() {
           </button>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {navItems.map(item => <NavItem key={item.label} item={item} />)}
-        </nav>
-
-        {/* User info + Logout + Branding */}
-        <div className="px-4 py-3 border-t border-gray-200">
-          {/* User profile row */}
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold shrink-0">
-              {(user?.full_name || user?.name)?.[0]?.toUpperCase() || 'A'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{user?.full_name || user?.name}</p>
-              <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${roleBadge.cls}`}>{roleBadge.label}</span>
+        {/* User profile */}
+        <div className="px-3.5 pt-3 pb-2.5 border-b border-gray-100">
+          <div className="rounded-xl border border-gray-200 bg-gray-50/70 px-3 py-2.5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold shrink-0">
+                {(user?.full_name || user?.name)?.[0]?.toUpperCase() || 'A'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">{user?.full_name || user?.name}</p>
+                <span className={`inline-flex mt-0.5 text-[11px] font-semibold px-2 py-0.5 rounded-full ${roleBadge.cls}`}>{roleBadge.label}</span>
+              </div>
             </div>
           </div>
-          {/* Logout button */}
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 min-h-0 px-2.5 py-3 flex flex-col">
+          <div className="space-y-0.5">
+          {navItems.map(item => <NavItem key={item.label} item={item} />)}
+          </div>
           <button
+            type="button"
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 border border-red-100 hover:border-red-200 transition-colors mb-2.5"
+            className="sidebar-link w-full mt-auto"
           >
-            <LogOut size={14} />
+            <LogOut size={18} />
             Logout
           </button>
-          {/* Kaiten Software branding */}
-          <p className="text-center text-xs text-gray-400">
+        </nav>
+
+        <div className="px-4 pb-3 pt-1">
+          <p className="text-center text-[10px] leading-4 text-gray-400/80">
             Developed by{' '}
             <a
               href="https://kaitensoftware.com/"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-gray-500 hover:text-primary-600 transition-colors font-medium underline-offset-2 hover:underline"
+              className="font-medium text-gray-500/80 transition-colors underline-offset-2 hover:text-primary-600 hover:underline"
             >
               Kaiten Software
             </a>

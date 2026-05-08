@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Edit, Key, Shield, X, Loader2, Search } from 'lucide-react'
 import api from '../../../api/client'
+import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from 'react-hot-toast'
 
 // ── Role configuration ────────────────────────────────────────────────────────
@@ -20,6 +21,34 @@ const ROLE_ALIAS = {
 function resolveRole(raw) {
   const key = ROLE_ALIAS[raw] || raw
   return ROLE_MAP[key] || { value: raw, label: raw, badge: 'bg-red-100 text-red-600' }
+}
+
+function normalizeStateSearch(value) {
+  return String(value || '').trim().toLowerCase()
+}
+
+function rankStateMatch(label, query) {
+  const normalizedLabel = normalizeStateSearch(label)
+  if (!normalizedLabel || !query) return null
+
+  if (normalizedLabel === query) return { score: 0, index: 0 }
+
+  if (normalizedLabel.startsWith(query)) {
+    return { score: 1, index: 0 }
+  }
+
+  const words = normalizedLabel.split(/\s+/)
+  const wordIndex = words.findIndex(word => word.startsWith(query))
+  if (wordIndex !== -1) {
+    return { score: 2, index: normalizedLabel.indexOf(query) }
+  }
+
+  const substringIndex = normalizedLabel.indexOf(query)
+  if (substringIndex !== -1) {
+    return { score: 3, index: substringIndex }
+  }
+
+  return null
 }
 
 // ── User create / edit modal ──────────────────────────────────────────────────
@@ -65,9 +94,26 @@ function UserModal({ user, onClose, onSave, saving }) {
   }, [selectedState])
 
   const filteredStates = useMemo(() => {
-    const query = stateQuery.trim().toLowerCase()
+    const query = normalizeStateSearch(stateQuery)
     if (!query) return []
-    return states.filter(option => option.label.toLowerCase().includes(query))
+
+    return states
+      .map((option) => {
+        const match = rankStateMatch(option.label, query)
+        if (!match) return null
+
+        return {
+          ...option,
+          _matchScore: match.score,
+          _matchIndex: match.index,
+        }
+      })
+      .filter(Boolean)
+      .sort((left, right) => {
+        if (left._matchScore !== right._matchScore) return left._matchScore - right._matchScore
+        if (left._matchIndex !== right._matchIndex) return left._matchIndex - right._matchIndex
+        return left.label.localeCompare(right.label)
+      })
   }, [stateQuery, states])
 
   const showStateError =
@@ -93,8 +139,9 @@ function UserModal({ user, onClose, onSave, saving }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="card w-full max-w-md" onClick={e => e.stopPropagation()}>
+    <AdminModalPortal>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={onClose}>
+        <div className="card w-full max-w-md" onClick={e => e.stopPropagation()}>
         <div className="card-header">
           <h3 className="font-semibold">{user ? 'Edit User' : 'New Admin User'}</h3>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
@@ -200,9 +247,10 @@ function UserModal({ user, onClose, onSave, saving }) {
             </button>
             <button type="button" className="btn-outline" onClick={onClose}>Cancel</button>
           </div>
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
+    </AdminModalPortal>
   )
 }
 
@@ -216,8 +264,9 @@ function ResetPwModal({ user, onClose, onSend, sending }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="card w-full max-w-sm" onClick={e => e.stopPropagation()}>
+    <AdminModalPortal>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={onClose}>
+        <div className="card w-full max-w-sm" onClick={e => e.stopPropagation()}>
         <div className="card-header">
           <h3 className="font-semibold">Reset Password</h3>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
@@ -253,9 +302,10 @@ function ResetPwModal({ user, onClose, onSend, sending }) {
               </div>
             </>
           )}
+          </div>
         </div>
       </div>
-    </div>
+    </AdminModalPortal>
   )
 }
 
@@ -289,9 +339,9 @@ export default function UsersList() {
     mutationFn: ({ id }) => api.post(`/users/${id}/send-reset`),
     onSuccess: (res) => {
       const email = res.data?.data?.email || ''
-      toast.success(`Reset link sent to ${email}`)
+      toast.success(res.data?.message || `Reset link sent to ${email}`)
     },
-    onError: err => toast.error(err.response?.data?.message || 'Failed to send reset link'),
+    onError: err => toast.error(err.response?.data?.message || err.message || 'Failed to send reset link'),
   })
 
   const toggleActiveMut = useMutation({

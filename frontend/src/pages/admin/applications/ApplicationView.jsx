@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, CheckCircle, XCircle, Clock, Package, CreditCard, User, MapPin, FileText, ExternalLink, Receipt, X, Image, AlertCircle, Loader2, MessageSquare, Send, Trash2, Edit2, Save } from 'lucide-react'
 import api from '../../../api/client'
+import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../../contexts/AuthContext'
 
@@ -94,38 +95,42 @@ function ScreenshotModal({ src, onClose }) {
   if (!src) return null
   const url = resolveAssetUrl(src)
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="relative max-w-3xl w-full" onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute -top-3 -right-3 bg-white rounded-full p-1 shadow-lg hover:bg-gray-100 z-10">
-          <X size={18} className="text-gray-600"/>
-        </button>
-        <img src={url} alt="Payment Screenshot" className="w-full max-h-[80vh] object-contain rounded-xl shadow-2xl bg-white"/>
+    <AdminModalPortal>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-[2px]" onClick={onClose}>
+        <div className="relative max-w-3xl w-full" onClick={e => e.stopPropagation()}>
+          <button onClick={onClose} className="absolute -top-3 -right-3 bg-white rounded-full p-1 shadow-lg hover:bg-gray-100 z-10">
+            <X size={18} className="text-gray-600"/>
+          </button>
+          <img src={url} alt="Payment Screenshot" className="w-full max-h-[80vh] object-contain rounded-xl shadow-2xl bg-white"/>
+        </div>
       </div>
-    </div>
+    </AdminModalPortal>
   )
 }
 
 /* ── Confirm Dialog ── */
 function ConfirmDialog({ title, message, confirmLabel, confirmColor, onConfirm, onCancel, pending }) {
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onCancel}>
-      <div className="card w-full max-w-sm" onClick={e => e.stopPropagation()}>
-        <div className="p-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <AlertCircle size={18} className="text-gray-500"/>
-            <h3 className="font-semibold text-gray-900">{title}</h3>
-          </div>
-          <p className="text-sm text-gray-600">{message}</p>
-          <div className="flex gap-3 pt-1">
-            <button className={`px-4 py-2 rounded-lg text-sm font-medium text-white flex items-center gap-2 ${confirmColor}`} disabled={pending} onClick={onConfirm}>
-              {pending && <Loader2 size={14} className="animate-spin"/>}
-              {confirmLabel}
-            </button>
-            <button className="btn-outline text-sm" onClick={onCancel}>Cancel</button>
+    <AdminModalPortal>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={onCancel}>
+        <div className="card w-full max-w-sm" onClick={e => e.stopPropagation()}>
+          <div className="p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <AlertCircle size={18} className="text-gray-500"/>
+              <h3 className="font-semibold text-gray-900">{title}</h3>
+            </div>
+            <p className="text-sm text-gray-600">{message}</p>
+            <div className="flex gap-3 pt-1">
+              <button className={`px-4 py-2 rounded-lg text-sm font-medium text-white flex items-center gap-2 ${confirmColor}`} disabled={pending} onClick={onConfirm}>
+                {pending && <Loader2 size={14} className="animate-spin"/>}
+                {confirmLabel}
+              </button>
+              <button className="btn-outline text-sm" onClick={onCancel}>Cancel</button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </AdminModalPortal>
   )
 }
 

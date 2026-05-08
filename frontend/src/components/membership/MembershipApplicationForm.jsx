@@ -128,6 +128,57 @@ const INTERNATIONAL_ID_TYPE_OPTIONS = [
   { value: 'national_id', label: 'Government Issued ID' },
 ]
 
+function isIndianCountryName(countryName) {
+  return String(countryName || 'India').trim().toLowerCase() === 'india'
+}
+
+function getIdTypeOptionsForCountry(countryName) {
+  return isIndianCountryName(countryName) ? INDIAN_ID_TYPE_OPTIONS : INTERNATIONAL_ID_TYPE_OPTIONS
+}
+
+function getDefaultIdType(countryName) {
+  return isIndianCountryName(countryName) ? 'aadhaar' : 'passport'
+}
+
+function getIdentityFieldConfig(idType) {
+  switch (idType) {
+    case 'aadhaar':
+      return {
+        field: 'aadhaar_number',
+        label: 'Aadhaar Number',
+        placeholder: 'Enter Aadhaar number',
+        inputMode: 'numeric',
+        maxLength: 12,
+        transform: value => String(value || '').replace(/\D/g, '').slice(0, 12),
+        validate: value => /^\d{12}$/.test(String(value || '')),
+        error: 'Aadhaar number must be exactly 12 digits',
+      }
+    case 'national_id':
+      return {
+        field: 'national_id_number',
+        label: 'Government ID Number',
+        placeholder: 'Enter government ID number',
+        inputMode: 'text',
+        maxLength: 20,
+        transform: value => String(value || '').replace(/[^A-Za-z0-9 -]/g, '').toUpperCase().slice(0, 20),
+        validate: value => /^[A-Za-z0-9][A-Za-z0-9 -]{4,19}$/.test(String(value || '').trim()),
+        error: 'Government ID number must be 5 to 20 alphanumeric characters',
+      }
+    case 'passport':
+    default:
+      return {
+        field: 'passport_number',
+        label: 'Passport Number',
+        placeholder: 'Enter passport number',
+        inputMode: 'text',
+        maxLength: 9,
+        transform: value => String(value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 9),
+        validate: value => /^[A-Za-z0-9]{6,9}$/.test(String(value || '')),
+        error: 'Passport number must be 6 to 9 alphanumeric characters',
+      }
+  }
+}
+
 const SOCIAL_PLATFORMS = [
   { value: 'linkedin',  label: 'LinkedIn',  placeholder: 'https://linkedin.com/in/yourname' },
   { value: 'website',   label: 'Website',   placeholder: 'https://yourwebsite.com' },
@@ -138,6 +189,32 @@ const SOCIAL_PLATFORMS = [
   { value: 'google',    label: 'Google Business', placeholder: 'https://g.co/yourprofile' },
   { value: 'other',     label: 'Other',     placeholder: 'https://...' },
 ]
+
+const STEP_VALIDATION_FIELDS = {
+  0: ['full_name', 'email', 'phone', 'gender', 'id_type', 'aadhaar_number', 'passport_number', 'national_id_number', 'pin_code', 'organisation_name', 'organisation_type', 'organisation_type_other'],
+  1: ['location_type', 'state_id', 'city_id', 'country_id'],
+  2: ['membership_type'],
+  3: ['plan_type', 'package_id'],
+  4: ['payment_method', 'payment_confirmed', 'payment_screenshot'],
+}
+
+const FIELD_SELECTOR_MAP = {
+  full_name: '[data-field="full_name"]',
+  email: '[data-field="email"]',
+  phone: '[data-field="phone"]',
+  gender: '[data-field="gender"]',
+  id_type: '[data-field="id_type"]',
+  aadhaar_number: '[data-field="aadhaar_number"]',
+  passport_number: '[data-field="passport_number"]',
+  national_id_number: '[data-field="national_id_number"]',
+  pin_code: '[data-field="pin_code"]',
+  organisation_name: '[data-field="organisation_name"]',
+  organisation_type: '[data-field="organisation_type"]',
+  organisation_type_other: '[data-field="organisation_type_other"]',
+  country_id: '[data-field="country_id"]',
+}
+
+const REQUIRED_FIELD_MESSAGE = 'This field is required'
 
 /* ─── Helpers ───────────────────────────────────────────────────────── */
 function FieldError({ msg }) {
@@ -172,6 +249,7 @@ function SearchableSelect({
   options,
   value,
   onChange,
+  onBlur,
   placeholder,
   disabled = false,
   className = '',
@@ -186,6 +264,8 @@ function SearchableSelect({
   getSearchText,
   renderOption,
   getDisplayValue,
+  inputAriaInvalid = false,
+  dataField,
 }) {
   const rootRef = useRef(null)
   const optionRefs = useRef([])
@@ -314,6 +394,7 @@ function SearchableSelect({
         className={`input pr-10 ${inputClassName}`}
         value={query}
         name={inputName}
+        data-field={dataField}
         disabled={disabled}
         placeholder={placeholder}
         autoComplete={autoComplete}
@@ -325,12 +406,14 @@ function SearchableSelect({
         role="combobox"
         aria-autocomplete="list"
         aria-expanded={open}
+        aria-invalid={inputAriaInvalid}
         onFocus={handleOpen}
         onClick={handleOpen}
         onChange={event => {
           setQuery(event.target.value)
           setOpen(event.target.value.trim().length >= minQueryLength || minQueryLength === 0)
         }}
+        onBlur={onBlur}
         onKeyDown={handleKeyDown}
       />
       {minQueryLength === 0 && <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"/>}
@@ -414,11 +497,16 @@ export default function MembershipApplicationForm({ prefill = {} }) {
     payment_method: '',
     payment_screenshot: null,
   })
+  const formRef = useRef(form)
+  useEffect(() => {
+    formRef.current = form
+  }, [form])
 
   /* Social links: array of { platform, url } */
   const [socialLinks, setSocialLinks] = useState([{ platform: '', url: '' }])
 
   const [errors, setErrors]       = useState({})
+  const [touched, setTouched]     = useState({})
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted]   = useState(null)
 
@@ -454,72 +542,243 @@ export default function MembershipApplicationForm({ prefill = {} }) {
   // Stable reference ID generated once per form session
   const referenceId = useMemo(() => `FORTI-${Math.floor(100000 + Math.random() * 900000)}`, [])
   const normalizedCountryName = String(form.country_name || 'India').trim()
-  const isIndianApplicant = normalizedCountryName.toLowerCase() === 'india'
-  const idTypeOptions = useMemo(
-    () => (isIndianApplicant ? INDIAN_ID_TYPE_OPTIONS : INTERNATIONAL_ID_TYPE_OPTIONS),
-    [isIndianApplicant],
-  )
-  const defaultIdType = isIndianApplicant ? 'aadhaar' : 'passport'
+  const isIndianApplicant = isIndianCountryName(normalizedCountryName)
+  const idTypeOptions = useMemo(() => getIdTypeOptionsForCountry(normalizedCountryName), [normalizedCountryName])
+  const defaultIdType = getDefaultIdType(normalizedCountryName)
   const activeIdType = idTypeOptions.some(option => option.value === form.id_type) ? form.id_type : defaultIdType
-  const identityFieldConfig = useMemo(() => {
-    switch (activeIdType) {
-      case 'aadhaar':
-        return {
-          field: 'aadhaar_number',
-          label: 'Aadhaar Number',
-          placeholder: 'Enter Aadhaar number',
-          inputMode: 'numeric',
-          maxLength: 12,
-          transform: value => String(value || '').replace(/\D/g, '').slice(0, 12),
-          validate: value => /^\d{12}$/.test(String(value || '')),
-          error: 'Aadhaar number must be exactly 12 digits',
-        }
-      case 'national_id':
-        return {
-          field: 'national_id_number',
-          label: 'Government ID Number',
-          placeholder: 'Enter government ID number',
-          inputMode: 'text',
-          maxLength: 20,
-          transform: value => String(value || '').replace(/[^A-Za-z0-9 -]/g, '').toUpperCase().slice(0, 20),
-          validate: value => /^[A-Za-z0-9][A-Za-z0-9 -]{4,19}$/.test(String(value || '').trim()),
-          error: 'Government ID number must be 5 to 20 alphanumeric characters',
-        }
-      case 'passport':
-      default:
-        return {
-          field: 'passport_number',
-          label: 'Passport Number',
-          placeholder: 'Enter passport number',
-          inputMode: 'text',
-          maxLength: 9,
-          transform: value => String(value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 9),
-          validate: value => /^[A-Za-z0-9]{6,9}$/.test(String(value || '')),
-          error: 'Passport number must be 6 to 9 alphanumeric characters',
-        }
-    }
-  }, [activeIdType])
+  const identityFieldConfig = useMemo(() => getIdentityFieldConfig(activeIdType), [activeIdType])
   const formCurrency = getFixedCurrencyByCountry(normalizedCountryName)
   const supportPhoneDigits = String(paymentSettings.support_whatsapp || paymentSettings.support_phone || '916367063168')
     .replace(/\D/g, '')
   const whatsappLink = supportPhoneDigits ? `https://wa.me/${supportPhoneDigits}` : ''
 
+  function getInputClassName(fieldName, baseClassName = 'input') {
+    return errors[fieldName]
+      ? `${baseClassName} border-red-300 focus:border-red-500 focus:ring-red-200 bg-red-50/30`
+      : baseClassName
+  }
+
+  function focusField(fieldName) {
+    const selector = FIELD_SELECTOR_MAP[fieldName]
+    if (!selector) return
+    const element = document.querySelector(selector)
+    if (!element) return
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    window.setTimeout(() => {
+      if (typeof element.focus === 'function') {
+        element.focus({ preventScroll: true })
+      }
+    }, 120)
+  }
+
   function set(key, value) {
-    setForm(f => ({ ...f, [key]: value }))
+    const nextForm = { ...formRef.current, [key]: value }
+    formRef.current = nextForm
+    setForm(nextForm)
     setErrors(e => ({ ...e, [key]: '' }))
+  }
+
+  function markTouched(...fieldNames) {
+    if (!fieldNames.length) return
+    setTouched(current => {
+      let changed = false
+      const next = { ...current }
+      fieldNames.forEach(fieldName => {
+        if (!next[fieldName]) {
+          next[fieldName] = true
+          changed = true
+        }
+      })
+      return changed ? next : current
+    })
+  }
+
+  function setFieldError(fieldName, message) {
+    setErrors(current => {
+      if (!message && !current[fieldName]) return current
+      if (message && current[fieldName] === message) return current
+      const next = { ...current }
+      if (message) next[fieldName] = message
+      else delete next[fieldName]
+      return next
+    })
+  }
+
+  function getFieldError(fieldName, currentForm = formRef.current, stepIndex = step) {
+    const currentCountryName = String(currentForm.country_name || 'India').trim()
+    const currentIsIndianApplicant = isIndianCountryName(currentCountryName)
+    const currentIdTypeOptions = getIdTypeOptionsForCountry(currentCountryName)
+    const currentDefaultIdType = getDefaultIdType(currentCountryName)
+    const currentActiveIdType = currentIdTypeOptions.some(option => option.value === currentForm.id_type)
+      ? currentForm.id_type
+      : currentDefaultIdType
+    const currentIdentityFieldConfig = getIdentityFieldConfig(currentActiveIdType)
+    if (stepIndex === 0) {
+      switch (fieldName) {
+        case 'full_name':
+          return currentForm.full_name?.trim() ? '' : 'Full name is required'
+        case 'email':
+          if (!currentForm.email?.trim()) return REQUIRED_FIELD_MESSAGE
+          return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(currentForm.email)
+            ? ''
+            : 'Valid email is required'
+        case 'phone': {
+          if (!String(currentForm.phone || '').trim()) return REQUIRED_FIELD_MESSAGE
+          return validatePhoneNumber(currentForm.phone, selectedPhoneCountry) || ''
+        }
+        case 'gender':
+          return currentForm.gender ? '' : REQUIRED_FIELD_MESSAGE
+        case 'id_type':
+          return currentActiveIdType ? '' : REQUIRED_FIELD_MESSAGE
+        case 'aadhaar_number':
+        case 'passport_number':
+        case 'national_id_number':
+          if (fieldName !== currentIdentityFieldConfig.field) return ''
+          if (!String(currentForm[currentIdentityFieldConfig.field] || '').trim()) return REQUIRED_FIELD_MESSAGE
+          return currentIdentityFieldConfig.validate(currentForm[currentIdentityFieldConfig.field])
+            ? ''
+            : currentIdentityFieldConfig.error
+        case 'organisation_name':
+          return currentForm.organisation_name?.trim() ? '' : REQUIRED_FIELD_MESSAGE
+        case 'pin_code':
+          if (currentIsIndianApplicant) {
+            if (!String(currentForm.pin_code || '').trim()) return REQUIRED_FIELD_MESSAGE
+            return /^\d{6}$/.test(currentForm.pin_code || '') ? '' : 'Valid 6-digit PIN code is required'
+          }
+          return currentForm.pin_code?.trim() ? '' : REQUIRED_FIELD_MESSAGE
+        case 'organisation_type':
+          return currentForm.organisation_type?.trim() ? '' : REQUIRED_FIELD_MESSAGE
+        case 'organisation_type_other':
+          return currentForm.organisation_type === 'Other' && !currentForm.organisation_type_other?.trim()
+            ? REQUIRED_FIELD_MESSAGE
+            : ''
+        default:
+          return ''
+      }
+    }
+
+    if (stepIndex === 1) {
+      switch (fieldName) {
+        case 'location_type':
+          return currentForm.location_type ? '' : REQUIRED_FIELD_MESSAGE
+        case 'state_id':
+          return currentForm.location_type === 'other_states' && !currentForm.state_id ? REQUIRED_FIELD_MESSAGE : ''
+        case 'city_id':
+          if (currentForm.location_type === 'rajasthan' && !currentForm.city_id) return REQUIRED_FIELD_MESSAGE
+          if (currentForm.location_type === 'other_states' && !currentForm.city_id) return REQUIRED_FIELD_MESSAGE
+          return ''
+        case 'country_id':
+          return currentForm.location_type === 'overseas' && !currentForm.country_id && !currentForm.country_name?.trim()
+            ? REQUIRED_FIELD_MESSAGE
+            : ''
+        default:
+          return ''
+      }
+    }
+
+    if (stepIndex === 2) {
+      return fieldName === 'membership_type' && !currentForm.membership_type ? REQUIRED_FIELD_MESSAGE : ''
+    }
+
+    if (stepIndex === 3) {
+      if (fieldName === 'plan_type') return currentForm.plan_type ? '' : REQUIRED_FIELD_MESSAGE
+      if (fieldName === 'package_id') {
+        if (pkgLoading) return 'Please wait while the package loads'
+        if (pkgError) return 'No package available for this selection. Please contact admin.'
+        return currentForm.package_id && pkg ? '' : 'No package found for this selection'
+      }
+      return ''
+    }
+
+    if (stepIndex === 4) {
+      if (fieldName === 'payment_method') return currentForm.payment_method ? '' : REQUIRED_FIELD_MESSAGE
+      if (fieldName === 'payment_confirmed') {
+        const selMethod = methods.find(m => String(m.id) === String(currentForm.payment_method))
+        const isManualMethod = selMethod && ['bank_transfer', 'international_wire', 'cash', 'cheque', 'other'].includes(selMethod.type)
+        return isManualMethod && !paymentConfirmed ? 'Please confirm you have completed the payment before uploading proof' : ''
+      }
+      if (fieldName === 'payment_screenshot') return currentForm.payment_screenshot ? '' : REQUIRED_FIELD_MESSAGE
+    }
+
+    return ''
+  }
+
+  function getStepErrors(stepIndex, currentForm = formRef.current) {
+    const nextErrors = {}
+    ;(STEP_VALIDATION_FIELDS[stepIndex] || []).forEach(fieldName => {
+      const message = getFieldError(fieldName, currentForm, stepIndex)
+      if (message) nextErrors[fieldName] = message
+    })
+    return nextErrors
+  }
+
+  function updateFieldErrors(fieldNames, nextForm = formRef.current, stepIndex = step) {
+    if (!fieldNames.length) return
+    setErrors(current => {
+      const next = { ...current }
+      let changed = false
+      fieldNames.forEach(fieldName => {
+        const nextMessage = getFieldError(fieldName, nextForm, stepIndex)
+        if (nextMessage) {
+          if (next[fieldName] !== nextMessage) {
+            next[fieldName] = nextMessage
+            changed = true
+          }
+        } else if (next[fieldName]) {
+          delete next[fieldName]
+          changed = true
+        }
+      })
+      return changed ? next : current
+    })
+  }
+
+  function handleFieldChange(fieldName, value, options = {}) {
+    const relatedFields = options.relatedFields || [fieldName]
+    const nextForm = { ...formRef.current, [fieldName]: value }
+    formRef.current = nextForm
+    setForm(nextForm)
+    if (errors._global) {
+      setErrors(current => ({ ...current, _global: '' }))
+    }
+    const shouldValidate = relatedFields.some(name => touched[name] || errors[name])
+    if (shouldValidate) {
+      updateFieldErrors(relatedFields, nextForm)
+      return
+    }
+    setErrors(current => {
+      const next = { ...current }
+      let changed = false
+      relatedFields.forEach(name => {
+        if (next[name]) {
+          delete next[name]
+          changed = true
+        }
+      })
+      return changed ? next : current
+    })
+  }
+
+  function validateField(fieldName, options = {}) {
+    const relatedFields = options.relatedFields || [fieldName]
+    const nextForm = options.nextForm || formRef.current
+    markTouched(...relatedFields)
+    updateFieldErrors(relatedFields, nextForm)
   }
 
   function applyCountrySelection(countryLike) {
     const country = normalizeCountryRecord(countryLike)
     if (!country) return
 
-    setForm(current => ({
-      ...current,
-      country_name: country.name || current.country_name,
+    const nextForm = {
+      ...formRef.current,
+      country_name: country.name || formRef.current.country_name,
       country_id: country.id ? String(country.id) : '',
-      phone_country_iso2: country.iso2 || current.phone_country_iso2,
-      phone_country_code: country.phone_code || current.phone_country_code,
-    }))
+      phone_country_iso2: country.iso2 || formRef.current.phone_country_iso2,
+      phone_country_code: country.phone_code || formRef.current.phone_country_code,
+    }
+    formRef.current = nextForm
+    setForm(nextForm)
 
     setErrors(current => ({
       ...current,
@@ -812,76 +1071,18 @@ export default function MembershipApplicationForm({ prefill = {} }) {
 
   /* ── Validations ────────────────────────────────────────────────── */
   function validateStep(s) {
-    const e = {}
-    if (s === 0) {
-      if (!form.full_name?.trim()) e.full_name = 'Full name is required'
-      if (!form.email?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
-        e.email = 'Valid email is required'
-      const phoneError = validatePhoneNumber(form.phone, selectedPhoneCountry)
-      if (phoneError) e.phone = phoneError
-      if (!form.gender) e.gender = 'Please select your gender'
-      if (!activeIdType) {
-        e.id_type = 'Please select an ID type'
-      } else if (!identityFieldConfig.validate(form[identityFieldConfig.field])) {
-        e[identityFieldConfig.field] = identityFieldConfig.error
-      }
-      if (!form.organisation_name?.trim()) e.organisation_name = 'Organisation name is required'
-      if (isIndianApplicant) {
-        if (!/^\d{6}$/.test(form.pin_code || '')) e.pin_code = 'Valid 6-digit PIN code is required'
-      } else if (!form.pin_code?.trim()) {
-        e.pin_code = 'Postal code is required'
-      }
-      if (!form.organisation_type?.trim()) e.organisation_type = 'Please select an organization type'
-      if (form.organisation_type === 'Other' && !form.organisation_type_other?.trim()) {
-        e.organisation_type_other = 'Please specify your organization type'
-      }
-    }
-    if (s === 1) {
-      if (!form.location_type) e.location_type = 'Please select your location'
-      if (form.location_type === 'rajasthan' && !form.city_id) e.city_id = 'Please select your city'
-      if (form.location_type === 'other_states' && !form.state_id) e.state_id = 'Please select your state'
-      if (form.location_type === 'other_states' && !form.city_id) e.city_id = 'Please select your city'
-      if (form.location_type === 'overseas' && !form.country_id && !form.country_name?.trim()) e.country_id = 'Country is required'
-    }
-    if (s === 2) {
-      if (!form.membership_type) e.membership_type = 'Please select membership type'
-    }
-    if (s === 3) {
-      if (!form.plan_type) e.plan_type = 'Please select plan duration'
-      if (pkgLoading) e.package_id = 'Please wait while the package loads'
-      else if (pkgError) e.package_id = 'No package available for this selection. Please contact admin.'
-      else if (!form.package_id || !pkg) e.package_id = 'No package found for this selection'
-    }
-    if (s === 4) {
-      if (!form.payment_method) e.payment_method = 'Please select payment method'
-      const selMethod = methods.find(m => String(m.id) === String(form.payment_method))
-      const isManual = selMethod && ['bank_transfer', 'international_wire', 'cash', 'cheque', 'other'].includes(selMethod.type)
-      if (isManual && !paymentConfirmed) e.payment_confirmed = 'Please confirm you have completed the payment before uploading proof'
-      if (!form.payment_screenshot) e.payment_screenshot = 'Payment screenshot is required'
+    const e = getStepErrors(s)
+    if (Object.keys(e).length > 0) {
+      markTouched(...(STEP_VALIDATION_FIELDS[s] || []))
+      toast.error('Please complete all required fields before continuing.', { id: `membership-step-${s}-validation` })
+      focusField(Object.keys(e)[0])
     }
     setErrors(e)
     return Object.keys(e).length === 0
   }
 
   function isStepComplete(stepIndex) {
-    const currentErrors = {}
-    if (stepIndex === 0) {
-      currentErrors.full_name = !form.full_name?.trim()
-      currentErrors.email = !form.email?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)
-      currentErrors.phone = !!validatePhoneNumber(form.phone, selectedPhoneCountry)
-      currentErrors.document = !activeIdType || !identityFieldConfig.validate(form[identityFieldConfig.field])
-      currentErrors.organisation_name = !form.organisation_name?.trim()
-      currentErrors.pin_code = isIndianApplicant
-        ? !/^\d{6}$/.test(form.pin_code || '')
-        : !form.pin_code?.trim()
-      currentErrors.organisation_type = !form.organisation_type?.trim() || (form.organisation_type === 'Other' && !form.organisation_type_other?.trim())
-    }
-    if (stepIndex === 4) {
-      const selMethod = methods.find(m => String(m.id) === String(form.payment_method))
-      const isManual = selMethod && ['bank_transfer', 'international_wire', 'cash', 'cheque', 'other'].includes(selMethod.type)
-      currentErrors.payment = !form.payment_method || (isManual && !paymentConfirmed) || !form.payment_screenshot
-    }
-    return !Object.values(currentErrors).some(Boolean)
+    return Object.keys(getStepErrors(stepIndex)).length === 0
   }
 
   function handleNext() {
@@ -943,7 +1144,15 @@ export default function MembershipApplicationForm({ prefill = {} }) {
         state: { application: resData },
       })
     } catch (err) {
-      setErrors({ _global: err.response?.data?.message || 'Submission failed. Please try again.' })
+      const message = err.response?.data?.message || 'Submission failed. Please try again.'
+      if (/aadhaar number must be exactly 12 digits/i.test(message)) {
+        setStep(0)
+        markTouched('id_type', 'aadhaar_number')
+        setFieldError('aadhaar_number', 'Aadhaar number must be exactly 12 digits')
+        topRef.current?.scrollIntoView({ behavior: 'smooth' })
+      } else {
+        setErrors({ _global: message })
+      }
     } finally { setSubmitting(false) }
   }
 
@@ -1137,42 +1346,62 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                 onChange={(_, option) => applyCountrySelection(option?.raw)}
                 inputClassName="text-sm"
               />
-              <input className="input" type="tel" inputMode="numeric" placeholder={getPhonePlaceholder(selectedPhoneCountry)}
+              <input className={getInputClassName('phone')} type="tel" inputMode="numeric" placeholder={getPhonePlaceholder(selectedPhoneCountry)}
+                data-field="phone"
+                aria-invalid={!!errors.phone}
                 value={form.phone}
-                onChange={e => set('phone', String(e.target.value || '').replace(/\D/g, '').slice(0, 15))} />
+                onChange={e => handleFieldChange('phone', String(e.target.value || '').replace(/\D/g, '').slice(0, 15))}
+                onBlur={() => validateField('phone')} />
             </div>
             <FieldError msg={errors.phone} />
           </div>
           <div className="space-y-1.5">
             <label className="label">ID Type *</label>
             <select
-              className="input"
+              className={getInputClassName('id_type')}
               value={activeIdType}
+              data-field="id_type"
+              aria-invalid={!!errors.id_type}
               name="membership_identity_type"
               autoComplete="off"
               data-lpignore="true"
               data-1p-ignore="true"
               data-form-type="other"
-              onChange={e => set('id_type', e.target.value)}>
+              onChange={e => handleFieldChange('id_type', e.target.value, { relatedFields: ['id_type', identityFieldConfig.field] })}
+              onBlur={() => validateField('id_type', { relatedFields: ['id_type', identityFieldConfig.field] })}>
               {idTypeOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
             <FieldError msg={errors.id_type} />
           </div>
           <div className="space-y-1.5">
             <label className="label">Full Name *</label>
-            <input className="input" placeholder="Enter your full name"
-              value={form.full_name} onChange={e => set('full_name', e.target.value)} />
+            <input className={getInputClassName('full_name')} placeholder="Enter your full name"
+              data-field="full_name"
+              aria-invalid={!!errors.full_name}
+              value={form.full_name}
+              onChange={e => handleFieldChange('full_name', e.target.value)}
+              onBlur={() => validateField('full_name')} />
             <FieldError msg={errors.full_name} />
           </div>
           <div className="space-y-1.5">
             <label className="label">Email Address *</label>
-            <input className="input" type="email" placeholder="email@example.com"
-              value={form.email} onChange={e => set('email', e.target.value)} />
+            <input className={getInputClassName('email')} type="email" placeholder="email@example.com"
+              data-field="email"
+              aria-invalid={!!errors.email}
+              value={form.email}
+              onChange={e => handleFieldChange('email', e.target.value)}
+              onBlur={() => validateField('email')} />
             <FieldError msg={errors.email} />
           </div>
           <div className="space-y-1.5">
             <label className="label">Gender *</label>
-            <select className="input" value={form.gender} onChange={e => set('gender', e.target.value)}>
+            <select
+              className={getInputClassName('gender')}
+              value={form.gender}
+              data-field="gender"
+              aria-invalid={!!errors.gender}
+              onChange={e => handleFieldChange('gender', e.target.value)}
+              onBlur={() => validateField('gender')}>
               <option value="">Select gender</option>
               {GENDER_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
             </select>
@@ -1181,32 +1410,45 @@ export default function MembershipApplicationForm({ prefill = {} }) {
           <div className="space-y-1.5">
             <label className="label">{identityFieldConfig.label} *</label>
             <input
-              className="input"
+              className={getInputClassName(identityFieldConfig.field)}
               placeholder={identityFieldConfig.placeholder}
+              data-field={identityFieldConfig.field}
+              aria-invalid={!!errors[identityFieldConfig.field]}
               inputMode={identityFieldConfig.inputMode}
               maxLength={identityFieldConfig.maxLength}
               value={form[identityFieldConfig.field] || ''}
-              onChange={e => set(identityFieldConfig.field, identityFieldConfig.transform(e.target.value))}
+              onChange={e => handleFieldChange(identityFieldConfig.field, identityFieldConfig.transform(e.target.value))}
+              onBlur={() => validateField(identityFieldConfig.field)}
             />
             <FieldError msg={errors[identityFieldConfig.field]} />
           </div>
           <div className="space-y-1.5">
             <label className="label">{isIndianApplicant ? 'PIN Code *' : 'Postal Code *'}</label>
             {isIndianApplicant ? (
-              <input className="input" placeholder="6-digit PIN code" maxLength={6}
+              <input className={getInputClassName('pin_code')} placeholder="6-digit PIN code" maxLength={6}
+                data-field="pin_code"
+                aria-invalid={!!errors.pin_code}
                 value={form.pin_code}
-                onChange={e => set('pin_code', e.target.value.replace(/\D/g, '').slice(0, 6))} />
+                onChange={e => handleFieldChange('pin_code', e.target.value.replace(/\D/g, '').slice(0, 6))}
+                onBlur={() => validateField('pin_code')} />
             ) : (
-              <input className="input" placeholder="Enter postal / zip code" maxLength={20}
+              <input className={getInputClassName('pin_code')} placeholder="Enter postal / zip code" maxLength={20}
+                data-field="pin_code"
+                aria-invalid={!!errors.pin_code}
                 value={form.pin_code}
-                onChange={e => set('pin_code', e.target.value.replace(/[^A-Za-z0-9 -]/g, '').slice(0, 20))} />
+                onChange={e => handleFieldChange('pin_code', e.target.value.replace(/[^A-Za-z0-9 -]/g, '').slice(0, 20))}
+                onBlur={() => validateField('pin_code')} />
             )}
             <FieldError msg={errors.pin_code} />
           </div>
           <div className="space-y-1.5">
             <label className="label">Organisation Name *</label>
-            <input className="input" placeholder="Company / Organisation name"
-              value={form.organisation_name} onChange={e => set('organisation_name', e.target.value)} />
+            <input className={getInputClassName('organisation_name')} placeholder="Company / Organisation name"
+              data-field="organisation_name"
+              aria-invalid={!!errors.organisation_name}
+              value={form.organisation_name}
+              onChange={e => handleFieldChange('organisation_name', e.target.value)}
+              onBlur={() => validateField('organisation_name')} />
             <FieldError msg={errors.organisation_name} />
           </div>
           <div className="space-y-1.5">
@@ -1214,11 +1456,15 @@ export default function MembershipApplicationForm({ prefill = {} }) {
             <SearchableSelect
               options={organisationTypeOptions}
               value={form.organisation_type}
-              onChange={v => set('organisation_type', v)}
+              onChange={v => handleFieldChange('organisation_type', v, { relatedFields: ['organisation_type', 'organisation_type_other'] })}
               placeholder={orgTypesLoading ? 'Loading organization types…' : 'Select type'}
               minQueryLength={0}
               loading={orgTypesLoading}
               inputName="organization-type-search"
+              dataField="organisation_type"
+              inputAriaInvalid={!!errors.organisation_type}
+              inputClassName={errors.organisation_type ? 'border-red-300 focus:border-red-500 focus:ring-red-200 bg-red-50/30' : ''}
+              onBlur={() => validateField('organisation_type', { relatedFields: ['organisation_type', 'organisation_type_other'] })}
               autoComplete="new-password"
               getSearchText={option => option.searchText}
               renderOption={renderOrgTypeOption}
@@ -1231,10 +1477,13 @@ export default function MembershipApplicationForm({ prefill = {} }) {
             <div className="sm:col-span-2">
               <label className="label">Specify your organization type</label>
               <input
-                className="input"
+                className={getInputClassName('organisation_type_other')}
                 placeholder="Enter your organization type"
+                data-field="organisation_type_other"
+                aria-invalid={!!errors.organisation_type_other}
                 value={form.organisation_type_other}
-                onChange={e => set('organisation_type_other', e.target.value)}
+                onChange={e => handleFieldChange('organisation_type_other', e.target.value)}
+                onBlur={() => validateField('organisation_type_other')}
               />
               <FieldError msg={errors.organisation_type_other} />
             </div>
@@ -1539,6 +1788,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
         .filter(Boolean)
         .filter(benefit => !hiddenBenefits.has(String(benefit).trim().toLowerCase()))
       : []
+    const showPackageBenefits = form.membership_type !== 'corporate' && benefits.length > 0
     const durMonths = pkg?.duration_months ?? 0
     const durationLabel = pkg?.duration === 'lifetime' ? 'Lifetime (valid forever)'
       : durMonths >= 36 ? `${Math.round(durMonths / 12)} Years`
@@ -1635,7 +1885,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
             )}
 
             {/* Benefits list */}
-            {benefits.length > 0 && (
+            {showPackageBenefits && (
               <div className="mt-3 pt-3 border-t border-primary-100">
                 <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                   {benefits.map((benefit, idx) => (
@@ -2166,8 +2416,9 @@ export default function MembershipApplicationForm({ prefill = {} }) {
         )}
 
         {step < STEPS.length - 1 ? (
-          <button type="button" onClick={handleNext}
-            className="btn-primary flex items-center gap-2 shadow-md shadow-primary-200 hover:shadow-lg">
+          <button type="button" onClick={handleNext} disabled={submitting}
+            className="btn-primary flex items-center gap-2 shadow-md shadow-primary-200 hover:shadow-lg disabled:opacity-60 disabled:shadow-none"
+            aria-disabled={submitting}>
             Save & Next <ChevronRight size={16}/>
           </button>
         ) : (

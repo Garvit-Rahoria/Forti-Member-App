@@ -6,6 +6,7 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import api from "../../../api/client"
+import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from "react-hot-toast"
 import { useAuth } from "../../../contexts/AuthContext"
 
@@ -118,8 +119,9 @@ function ActionModal({ row, action, onClose, onConfirm, pending }) {
   const cfg = CONFIG[action] || { title: action, label: action, btn: "btn-primary" }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="card w-full max-w-md" onClick={e => e.stopPropagation()}>
+    <AdminModalPortal>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={onClose}>
+        <div className="card w-full max-w-md" onClick={e => e.stopPropagation()}>
         <div className="card-header">
           <div className="flex items-center gap-2">
             {cfg.icon}
@@ -213,9 +215,10 @@ function ActionModal({ row, action, onClose, onConfirm, pending }) {
             </button>
             <button type="button" className="btn-outline" onClick={onClose}>Cancel</button>
           </div>
+          </div>
         </div>
       </div>
-    </div>
+    </AdminModalPortal>
   )
 }
 
@@ -224,14 +227,16 @@ function ScreenshotModal({ src, onClose }) {
   if (!src) return null
   const url = src.startsWith('http') ? src : src.startsWith('/') ? src : `/${src}`
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="relative max-w-3xl w-full" onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute -top-3 -right-3 bg-white rounded-full p-1 shadow-lg hover:bg-gray-100 z-10">
-          <X size={18} className="text-gray-600" />
-        </button>
-        <img src={url} alt="Payment Screenshot" className="w-full max-h-[80vh] object-contain rounded-xl shadow-2xl bg-white" />
+    <AdminModalPortal>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-[2px]" onClick={onClose}>
+        <div className="relative max-w-3xl w-full" onClick={e => e.stopPropagation()}>
+          <button onClick={onClose} className="absolute -top-3 -right-3 bg-white rounded-full p-1 shadow-lg hover:bg-gray-100 z-10">
+            <X size={18} className="text-gray-600" />
+          </button>
+          <img src={url} alt="Payment Screenshot" className="w-full max-h-[80vh] object-contain rounded-xl shadow-2xl bg-white" />
+        </div>
       </div>
-    </div>
+    </AdminModalPortal>
   )
 }
 

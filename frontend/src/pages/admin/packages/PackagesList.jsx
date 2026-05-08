@@ -5,6 +5,7 @@ import {
   DollarSign, Save, ChevronDown, ChevronUp, Globe2,
 } from 'lucide-react'
 import api from '../../../api/client'
+import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from 'react-hot-toast'
 import { getCurrencySymbol } from '../../../utils/currency'
 
@@ -167,9 +168,10 @@ function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries, du
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 overflow-y-auto" onClick={onClose}>
-      <div className="min-h-full flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+    <AdminModalPortal>
+      <div className="fixed inset-0 z-[1000] overflow-y-auto bg-slate-950/55 backdrop-blur-[2px]" onClick={onClose}>
+        <div className="min-h-full flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
           <h3 className="font-semibold text-gray-900">{isEdit ? 'Edit Package' : 'New Membership Package'}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
@@ -306,9 +308,10 @@ function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries, du
             <button type="button" className="btn-outline" onClick={onClose}>Cancel</button>
           </div>
         </form>
+        </div>
+        </div>
       </div>
-      </div>
-    </div>
+    </AdminModalPortal>
   )
 }
 

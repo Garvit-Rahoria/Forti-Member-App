@@ -4,9 +4,34 @@ const { pool } = require('../config/database');
 const { authMiddleware, requireRole } = require('../middleware/auth');
 const { ok, fail, paginate } = require('../utils/helpers');
 const { createAuditLog } = require('../utils/auditLog');
+const { sendMail, verifyEmailService } = require('../utils/email');
+const { ensurePasswordResetSchema } = require('../utils/passwordReset');
 
 const router = express.Router();
 router.use(authMiddleware);
+
+function resolveFrontendResetBaseUrl() {
+  const candidates = [
+    process.env.FRONTEND_URL,
+    process.env.FRONTEND_PUBLIC_URL,
+    process.env.PUBLIC_FRONTEND_URL,
+    'http://localhost:3000',
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = new URL(String(candidate).trim());
+      return parsed.toString().replace(/\/+$/, '');
+    } catch {
+      // Try the next candidate.
+    }
+  }
+
+  const err = new Error('No valid frontend URL configured for password reset emails');
+  err.statusCode = 500;
+  err.publicMessage = 'Password reset is unavailable because the frontend URL is not configured correctly.';
+  throw err;
+}
 
 // GET /api/users  List admin users
 router.get('/', requireRole('super_admin'), async (req, res) => {
@@ -119,29 +144,81 @@ router.patch('/me/password', async (req, res) => {
 
 // POST /api/users/:id/send-reset  Send password reset email using latest DB email
 router.post('/:id/send-reset', requireRole('super_admin'), async (req, res) => {
+  const userId = Number(req.params.id);
+  if (!Number.isInteger(userId) || userId <= 0) {
+    return fail(res, 'Invalid user ID', 422);
+  }
+
   try {
+    await ensurePasswordResetSchema();
+
     // Always fetch fresh email from DB — never trust cached/request data
     const [[user]] = await pool.query(
       'SELECT id, full_name, email FROM portal_admin_users WHERE id=? AND is_active=1 LIMIT 1',
-      [req.params.id]
+      [userId]
     );
     if (!user) return fail(res, 'User not found or inactive', 404);
-    console.log(`[send-reset] Sending reset to DB email: ${user.email} for user ID: ${user.id}`);
+    if (!user.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(user.email).trim())) {
+      return fail(res, 'Selected user does not have a valid email address', 422);
+    }
+
+    console.info(`[send-reset] Requested by admin=${req.user.id} target=${user.id} email=${user.email}`);
 
     const crypto = require('crypto');
-    const token = crypto.randomBytes(32).toString('hex');
+    let token;
+    try {
+      token = crypto.randomBytes(32).toString('hex');
+    } catch (tokenErr) {
+      console.error('[send-reset] Token generation failed:', tokenErr.message);
+      return fail(res, 'Failed to generate reset token', 500);
+    }
+
     const expires = new Date(Date.now() + 60 * 60 * 1000);
-    await pool.query(
-      'UPDATE portal_admin_users SET reset_token=?, reset_token_expires=? WHERE id=?',
-      [token, expires, user.id]
-    );
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const resetUrl = `${frontendUrl}/reset-password/${token}`;
-    const { sendMail } = require('../utils/email');
+
+    try {
+      const [result] = await pool.query(
+        'UPDATE portal_admin_users SET reset_token=?, reset_token_expires=? WHERE id=?',
+        [token, expires, user.id]
+      );
+
+      if (!result.affectedRows) {
+        console.error('[send-reset] No rows updated while persisting reset token for user:', user.id);
+        return fail(res, 'User account not found while preparing reset request', 404);
+      }
+    } catch (dbErr) {
+      console.error('[send-reset] Failed to persist reset token:', dbErr.message);
+      return fail(res, 'Failed to prepare password reset request', 500, {
+        code: dbErr.code || 'RESET_TOKEN_PERSIST_FAILED',
+      });
+    }
+
+    let resetUrl;
+    try {
+      const frontendUrl = resolveFrontendResetBaseUrl();
+      resetUrl = `${frontendUrl}/reset-password/${token}`;
+    } catch (urlErr) {
+      console.error('[send-reset] Reset URL configuration failed:', urlErr.message);
+      return fail(res, urlErr.publicMessage || 'Password reset URL is not configured correctly', urlErr.statusCode || 500);
+    }
+
+    try {
+      await verifyEmailService();
+    } catch (emailServiceErr) {
+      console.error('[send-reset] Email service unavailable:', emailServiceErr.message);
+      return fail(
+        res,
+        emailServiceErr.publicMessage || 'Email service unavailable.',
+        emailServiceErr.statusCode || 503,
+        { code: emailServiceErr.code || 'EMAIL_SERVICE_UNAVAILABLE' }
+      );
+    }
+
     try {
       await sendMail({
         to: user.email,
         subject: 'FORTI Portal — Password Reset',
+        template: 'password_reset_admin',
+        refId: String(user.id),
         html: `
           <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:560px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb">
             <div style="background:linear-gradient(135deg,#4c1d95,#7c3aed);padding:28px 32px;text-align:center">
@@ -165,14 +242,22 @@ router.post('/:id/send-reset', requireRole('super_admin'), async (req, res) => {
           </div>
         `,
       });
-      console.log(`[send-reset] Email delivered to ${user.email}`);
+      console.info(`[send-reset] Reset email delivered to ${user.email}`);
     } catch (emailErr) {
       console.error('[send-reset] Email delivery failed:', emailErr.message);
-      return fail(res, `User updated but email delivery failed: ${emailErr.message}`, 502);
+      return fail(
+        res,
+        emailErr.publicMessage || 'Failed to send reset email.',
+        emailErr.statusCode || 502,
+        { code: emailErr.code || 'EMAIL_DELIVERY_FAILED' }
+      );
     }
-    createAuditLog(req.user.id, 'PASSWORD_RESET_REQUESTED', 'users', req.params.id, req.ip);
-    return ok(res, { email: user.email }, 'Reset link sent to current email');
-  } catch (err) { console.error(err); return fail(res, 'Server error', 500); }
+    createAuditLog(req.user.id, 'PASSWORD_RESET_REQUESTED', 'users', String(user.id), req.ip);
+    return ok(res, { email: user.email }, 'Reset email sent successfully.');
+  } catch (err) {
+    console.error('[send-reset] Unexpected failure:', err);
+    return fail(res, err.publicMessage || 'Failed to send reset email.', err.statusCode || 500);
+  }
 });
 
 // DELETE /api/users/:id

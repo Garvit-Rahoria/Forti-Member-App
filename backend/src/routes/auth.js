@@ -8,6 +8,7 @@ const { ok, fail } = require('../utils/helpers');
 const { v4: uuidv4 } = require('uuid');
 const { createAuditLog } = require('../utils/auditLog');
 const { sendMail } = require('../utils/email');
+const { ensurePasswordResetSchema } = require('../utils/passwordReset');
 const { loginLimiter, forgotPasswordLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
@@ -81,6 +82,8 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   if (!email) return fail(res, 'Email is required', 422);
 
   try {
+    await ensurePasswordResetSchema();
+
     const [rows] = await pool.query(
       'SELECT id, full_name, email FROM portal_admin_users WHERE email=? AND is_active=1 LIMIT 1',
       [email.toLowerCase().trim()]
@@ -148,6 +151,8 @@ router.post('/reset-password', async (req, res) => {
   if (new_password.length < 8) return fail(res, 'Password must be at least 8 characters', 422);
 
   try {
+    await ensurePasswordResetSchema();
+
     const [rows] = await pool.query(
       'SELECT id, full_name FROM portal_admin_users WHERE reset_token=? AND reset_token_expires > NOW() AND is_active=1 LIMIT 1',
       [token]

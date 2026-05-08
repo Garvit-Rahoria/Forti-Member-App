@@ -6,6 +6,7 @@ import {
   Receipt, ShieldCheck, X, Loader2, ExternalLink, MoreVertical, ArrowRightLeft,
 } from 'lucide-react'
 import api from '../../../api/client'
+import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from 'react-hot-toast'
 import { fmtAmount } from '../../../utils/currency'
 import { DatePicker } from '../../../components/DatePicker'
@@ -24,6 +25,70 @@ const LOC_BADGE = {
   overseas:     'bg-green-100 text-green-700',
 }
 
+const DROPDOWN_OFFSET = 4
+
+function resolveAssetUrl(path) {
+  if (!path) return ''
+  if (path.startsWith('http://') || path.startsWith('https://')) return path
+  return `${BASE}${path.startsWith('/') ? path : `/${path}`}`
+}
+
+function getDropdownViewportBounds(node) {
+  let parent = node?.parentElement
+
+  while (parent) {
+    const style = window.getComputedStyle(parent)
+    const isScrollable = /(auto|scroll|overlay)/.test(style.overflowY) && parent.scrollHeight > parent.clientHeight
+
+    if (isScrollable) {
+      const rect = parent.getBoundingClientRect()
+      return {
+        top: Math.max(rect.top, 8),
+        bottom: Math.min(rect.bottom, window.innerHeight - 8),
+      }
+    }
+
+    parent = parent.parentElement
+  }
+
+  return { top: 8, bottom: window.innerHeight - 8 }
+}
+
+function useDropdownPlacement(open, anchorRef, menuRef) {
+  const [openUpward, setOpenUpward] = useState(false)
+
+  useEffect(() => {
+    if (!open) {
+      setOpenUpward(false)
+      return
+    }
+
+    function updatePlacement() {
+      if (!anchorRef.current || !menuRef.current) return
+
+      const anchorRect = anchorRef.current.getBoundingClientRect()
+      const menuRect = menuRef.current.getBoundingClientRect()
+      const bounds = getDropdownViewportBounds(anchorRef.current)
+      const spaceBelow = bounds.bottom - anchorRect.bottom
+      const spaceAbove = anchorRect.top - bounds.top
+      const needsUpward = spaceBelow < menuRect.height + DROPDOWN_OFFSET && spaceAbove > spaceBelow
+
+      setOpenUpward(needsUpward)
+    }
+
+    updatePlacement()
+    window.addEventListener('resize', updatePlacement)
+    window.addEventListener('scroll', updatePlacement, true)
+
+    return () => {
+      window.removeEventListener('resize', updatePlacement)
+      window.removeEventListener('scroll', updatePlacement, true)
+    }
+  }, [open, anchorRef, menuRef])
+
+  return openUpward
+}
+
 // ── Payment Method type helpers ───────────────────────────────────────────────
 const TYPE_LABELS = {
   upi:                { label: 'UPI',              icon: <Smartphone size={14}/>,  color: 'bg-purple-100 text-purple-700' },
@@ -38,6 +103,7 @@ const TYPE_LABELS = {
 function PaymentViewModal({ payment, onClose, onVerify, onReject, verifyPending }) {
   const [notes, setNotes] = useState('')
   if (!payment) return null
+  const screenshotSrc = resolveAssetUrl(payment.screenshot_url || payment.screenshot_path)
 
   const statusColors = {
     pending:  'bg-yellow-100 text-yellow-700',
@@ -52,8 +118,9 @@ function PaymentViewModal({ payment, onClose, onVerify, onReject, verifyPending 
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="card w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+    <AdminModalPortal>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={onClose}>
+        <div className="card w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="card-header">
           <h3 className="font-semibold text-gray-900">Payment Details</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18}/></button>
@@ -138,12 +205,15 @@ function PaymentViewModal({ payment, onClose, onVerify, onReject, verifyPending 
           )}
 
           {/* Screenshot */}
-          {payment.screenshot_path && (
+          {screenshotSrc && (
             <div>
               <p className="text-xs text-gray-500 mb-2">Payment Screenshot</p>
-              <a href={`${BASE}/${payment.screenshot_path}`} target="_blank" rel="noreferrer">
-                <img src={`${BASE}/${payment.screenshot_path}`} alt="Payment screenshot"
-                  className="max-h-48 rounded-xl border border-gray-200 object-contain hover:opacity-90 transition"/>
+              <a href={screenshotSrc} target="_blank" rel="noreferrer">
+                <img src={screenshotSrc} alt="Payment screenshot"
+                  className="max-h-48 rounded-xl border border-gray-200 object-contain hover:opacity-90 transition"
+                  onError={e => {
+                    e.currentTarget.style.display = 'none'
+                  }} />
               </a>
             </div>
           )}
@@ -170,9 +240,10 @@ function PaymentViewModal({ payment, onClose, onVerify, onReject, verifyPending 
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
-    </div>
+    </AdminModalPortal>
   )
 }
 
@@ -192,8 +263,9 @@ function MethodModal({ method, onClose, onSave }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="card w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+    <AdminModalPortal>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={onClose}>
+        <div className="card w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="card-header">
           <h3 className="font-semibold">{method ? 'Edit Payment Method' : 'Add Payment Method'}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
@@ -265,9 +337,10 @@ function MethodModal({ method, onClose, onSave }) {
             <button type="submit" className="btn-primary flex-1">Save Method</button>
             <button type="button" className="btn-outline" onClick={onClose}>Cancel</button>
           </div>
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
+    </AdminModalPortal>
   )
 }
 
@@ -416,8 +489,9 @@ function CreditInrModal({ payment, onClose, onConfirm, pending }) {
   const convertedDisplay = Math.round(Number(payment.amount) * Number(rate || 0))
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="card w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+    <AdminModalPortal>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={onClose}>
+        <div className="card w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="card-header">
           <div className="flex items-center gap-2">
             <ArrowRightLeft size={16} className="text-indigo-600"/>
@@ -529,9 +603,10 @@ function CreditInrModal({ payment, onClose, onConfirm, pending }) {
             </button>
             <button className="btn-outline" onClick={onClose}>Cancel</button>
           </div>
+          </div>
         </div>
       </div>
-    </div>
+    </AdminModalPortal>
   )
 }
 
@@ -539,6 +614,9 @@ function CreditInrModal({ payment, onClose, onConfirm, pending }) {
 function TransactionActionMenu({ row, onView, onVerify, onReject, onInvoice, invoiceLoading, verifyPending, onCreditInr }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
+  const buttonRef = useRef(null)
+  const menuRef = useRef(null)
+  const openUpward = useDropdownPlacement(open, buttonRef, menuRef)
 
   useEffect(() => {
     function handler(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
@@ -548,11 +626,11 @@ function TransactionActionMenu({ row, onView, onVerify, onReject, onInvoice, inv
 
   return (
     <div ref={ref} className="relative">
-      <button onClick={() => setOpen(o => !o)} className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition">
+      <button ref={buttonRef} onClick={() => setOpen(o => !o)} className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition">
         <MoreVertical size={15} />
       </button>
       {open && (
-        <div className="absolute right-0 z-30 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-xl py-1">
+        <div ref={menuRef} className={`absolute right-0 z-30 w-48 bg-white border border-gray-200 rounded-lg shadow-xl py-1 ${openUpward ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
           <button onClick={() => { setOpen(false); onView() }} className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50">
             <Eye size={13} /> View Details
           </button>
@@ -590,8 +668,9 @@ function PaymentActionConfirm({ action, payment, onClose, onConfirm, pending }) 
   const [notes, setNotes] = useState('')
   const isVerify = action === 'verify'
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
+    <AdminModalPortal>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={onClose}>
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-2">
           {isVerify
             ? <ShieldCheck size={18} className="text-green-600" />
@@ -624,8 +703,9 @@ function PaymentActionConfirm({ action, payment, onClose, onConfirm, pending }) 
           </button>
           <button className="btn-outline flex-1" onClick={onClose}>Cancel</button>
         </div>
+        </div>
       </div>
-    </div>
+    </AdminModalPortal>
   )
 }
 

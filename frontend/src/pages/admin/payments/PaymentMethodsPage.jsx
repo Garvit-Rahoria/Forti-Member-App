@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Edit, Trash2, X, Check, QrCode, Globe, Loader2, Building2, Copy } from 'lucide-react'
 import api from '../../../api/client'
+import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from 'react-hot-toast'
 
 const METHOD_TYPES = [
@@ -53,8 +54,9 @@ function MethodModal({ method, onClose, onSave, saving }) {
   const isIntl = d.type === 'international_wire'
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="card w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+    <AdminModalPortal>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={onClose}>
+        <div className="card w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="card-header sticky top-0 bg-white z-10 border-b">
           <h3 className="font-semibold">{method ? 'Edit Payment Method' : 'New Payment Method'}</h3>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18}/></button>
@@ -262,9 +264,10 @@ function MethodModal({ method, onClose, onSave, saving }) {
               {method ? 'Save Changes' : 'Create Method'}
             </button>
           </div>
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
+    </AdminModalPortal>
   )
 }
 

@@ -5,6 +5,7 @@ import {
   Loader2, X, MoreVertical, ChevronUp, ChevronDown,
 } from 'lucide-react'
 import api from '../../../api/client'
+import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from 'react-hot-toast'
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
@@ -135,39 +136,41 @@ function ActionMenu({ row, onView, onCert, certLoading, onInvoice, invoiceLoadin
 function SuspendModal({ member, onClose, onConfirm, pending }) {
   const [reason, setReason] = useState('')
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center gap-2">
-          <UserX size={18} className="text-red-500" />
-          <h3 className="font-bold text-gray-900">Suspend Member</h3>
-        </div>
-        <p className="text-sm text-gray-600">
-          Are you sure you want to suspend <strong>{member.applicant_name}</strong>?{' '}
-          They will lose portal access until reactivated.
-        </p>
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 mb-1">Reason for suspension <span className="text-red-500">*</span></label>
-          <textarea
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-300"
-            rows={3}
-            placeholder="Enter reason for suspension…"
-            value={reason}
-            onChange={e => setReason(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => onConfirm(reason)}
-            disabled={pending || !reason.trim()}
-            className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-lg px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {pending && <Loader2 size={13} className="animate-spin" />}
-            Suspend
-          </button>
-          <button className="btn-outline flex-1" onClick={onClose}>Cancel</button>
+    <AdminModalPortal>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={onClose}>
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center gap-2">
+            <UserX size={18} className="text-red-500" />
+            <h3 className="font-bold text-gray-900">Suspend Member</h3>
+          </div>
+          <p className="text-sm text-gray-600">
+            Are you sure you want to suspend <strong>{member.applicant_name}</strong>?{' '}
+            They will lose portal access until reactivated.
+          </p>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Reason for suspension <span className="text-red-500">*</span></label>
+            <textarea
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-300"
+              rows={3}
+              placeholder="Enter reason for suspension…"
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => onConfirm(reason)}
+              disabled={pending || !reason.trim()}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-lg px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {pending && <Loader2 size={13} className="animate-spin" />}
+              Suspend
+            </button>
+            <button className="btn-outline flex-1" onClick={onClose}>Cancel</button>
+          </div>
         </div>
       </div>
-    </div>
+    </AdminModalPortal>
   )
 }
 
@@ -497,14 +500,15 @@ export default function MembersList() {
 
       {/* ── View Detail Modal ── */}
       {viewMember && (
-        <div
-          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-          onClick={() => setViewMember(null)}
-        >
+        <AdminModalPortal>
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden"
-            onClick={e => e.stopPropagation()}
+            className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]"
+            onClick={() => setViewMember(null)}
           >
+            <div
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
             <div className="flex items-center justify-between px-6 py-4 border-b bg-gray-50">
               <div>
                 <h3 className="font-bold text-gray-900">{viewMember.applicant_name}</h3>
@@ -549,8 +553,9 @@ export default function MembersList() {
                 </button>
               </div>
             </div>
+            </div>
           </div>
-        </div>
+        </AdminModalPortal>
       )}
 
       {/* ── Suspend Confirm Modal ── */}

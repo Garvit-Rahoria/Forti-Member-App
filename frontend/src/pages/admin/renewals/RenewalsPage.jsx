@@ -3,12 +3,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowDownUp,
   BadgeCheck,
-  CalendarClock,
+  CalendarDays,
   CircleAlert,
   CheckCircle2,
   Clock3,
+  CreditCard,
   Download,
   Eye,
+  FileText,
   Filter,
   FileSearch,
   ImageOff,
@@ -17,10 +19,12 @@ import {
   Plus,
   RefreshCw,
   Search,
+  User,
   X,
   XCircle,
 } from 'lucide-react'
 import api from '../../../api/client'
+import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from 'react-hot-toast'
 import { fmtAmount } from '../../../utils/currency'
 
@@ -33,6 +37,10 @@ const SORT_OPTIONS = [
   { value: 'expiry_asc', label: 'Expiry date' },
   { value: 'status', label: 'Status' },
 ]
+const RENEWAL_MODAL_BASE_WIDTH = 930
+const RENEWAL_MODAL_VIEWPORT_GUTTER = 16
+const STATUS_BADGE_BASE = 'inline-flex min-h-[30px] items-center justify-center rounded-full px-3 py-1 text-xs font-semibold leading-none ring-1'
+const NEEDS_ACTION_BADGE = 'inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-700 ring-1 ring-amber-200/80'
 
 function resolveAssetUrl(path) {
   if (!path) return ''
@@ -110,21 +118,21 @@ function statusConfig(status) {
   switch (status) {
     case 'verified':
     case 'completed':
-      return { label: status === 'completed' ? 'Completed' : 'Approved', cls: 'bg-emerald-50 text-emerald-700 ring-emerald-200', tone: 'done' }
+      return { label: status === 'completed' ? 'Completed' : 'Approved', cls: 'bg-emerald-50 text-emerald-700 ring-emerald-200/90', tone: 'done' }
     case 'rejected':
-      return { label: 'Rejected', cls: 'bg-red-50 text-red-700 ring-red-200', tone: 'done' }
+      return { label: 'Rejected', cls: 'bg-red-50 text-red-700 ring-red-200/90', tone: 'done' }
     case 'payment_submitted':
-      return { label: 'Payment Pending', cls: 'bg-blue-50 text-blue-700 ring-blue-200', tone: 'attention' }
+      return { label: 'Payment Pending', cls: 'bg-blue-50 text-blue-700 ring-blue-200/90', tone: 'attention' }
     case 'under_review':
-      return { label: 'Pending Review', cls: 'bg-amber-50 text-amber-700 ring-amber-200', tone: 'attention' }
+      return { label: 'Pending Review', cls: 'bg-amber-50 text-amber-700 ring-amber-200/90', tone: 'attention' }
     default:
-      return { label: 'Pending Review', cls: 'bg-yellow-50 text-yellow-700 ring-yellow-200', tone: 'attention' }
+      return { label: 'Pending Review', cls: 'bg-yellow-50 text-yellow-700 ring-yellow-200/90', tone: 'attention' }
   }
 }
 
 function rowTone(status) {
   return ['pending', 'payment_submitted', 'under_review'].includes(status)
-    ? 'border-l-4 border-l-amber-300 bg-amber-50/60'
+    ? 'border-l-4 border-l-amber-200 bg-amber-50/30'
     : 'border-l-4 border-l-transparent bg-white'
 }
 
@@ -190,59 +198,133 @@ function SummaryCard({ icon: Icon, label, value, tone = 'slate' }) {
   )
 }
 
-function InfoTile({ label, children, className = '' }) {
+function getInitials(name) {
+  return String(name || 'Member')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(part => part[0]?.toUpperCase() || '')
+    .join('') || 'M'
+}
+
+function getStatusIcon(status) {
+  if (status === 'rejected') return XCircle
+  if (status === 'verified' || status === 'completed') return BadgeCheck
+  return Clock3
+}
+
+function StatusBadge({ status, className = '' }) {
+  const badge = statusConfig(status)
+  const Icon = getStatusIcon(status)
+
   return (
-    <div className={`rounded-2xl border border-gray-200 bg-white p-4 ${className}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">{label}</p>
-      <div className="mt-2">{children}</div>
+    <span className={`${STATUS_BADGE_BASE} gap-1.5 px-4 ${badge.cls} ${className}`}>
+      <Icon size={12} />
+      {badge.label}
+    </span>
+  )
+}
+
+function InfoTile({ label, icon: Icon, tone = 'slate', children, className = '' }) {
+  const tones = {
+    emerald: 'border-emerald-100/80 bg-white shadow-sm shadow-emerald-100/40',
+    violet: 'border-violet-100/80 bg-white shadow-sm shadow-violet-100/40',
+    blue: 'border-blue-100/80 bg-white shadow-sm shadow-blue-100/40',
+    amber: 'border-amber-100/80 bg-white shadow-sm shadow-amber-100/40',
+    slate: 'border-slate-100 bg-white shadow-sm shadow-slate-200/40',
+  }
+
+  const iconTones = {
+    emerald: 'bg-emerald-50 text-emerald-600 ring-emerald-100',
+    violet: 'bg-violet-50 text-violet-600 ring-violet-100',
+    blue: 'bg-blue-50 text-blue-600 ring-blue-100',
+    amber: 'bg-amber-50 text-amber-600 ring-amber-100',
+    slate: 'bg-slate-50 text-slate-600 ring-slate-100',
+  }
+
+  return (
+    <div className={`rounded-[22px] border p-3.5 sm:p-4 ${tones[tone] || tones.slate} ${className}`}>
+      <div className="flex items-center gap-2.5">
+        {Icon && (
+          <div className={`inline-flex h-8 w-8 items-center justify-center rounded-xl ring-1 ${iconTones[tone] || iconTones.slate}`}>
+            <Icon size={15} />
+          </div>
+        )}
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      </div>
+      <div className="mt-3.5">{children}</div>
     </div>
   )
 }
 
 function ReceiptEmptyState() {
   return (
-    <div className="flex min-h-[132px] flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center">
-      <div className="rounded-2xl bg-white p-3 text-gray-400 shadow-sm ring-1 ring-gray-200">
+    <div className="flex min-h-[136px] flex-col items-center justify-center rounded-[22px] border border-dashed border-slate-200 bg-gradient-to-b from-slate-50 to-white px-4 py-5 text-center">
+      <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-400 shadow-sm ring-1 ring-slate-200">
         <ImageOff size={18} />
       </div>
-      <p className="mt-3 text-sm font-semibold text-gray-900">No receipt uploaded</p>
-      <p className="mt-1 text-xs text-gray-500">This renewal request does not include a payment proof file.</p>
+      <p className="mt-3 text-sm font-semibold text-slate-900">No receipt uploaded</p>
+      <p className="mt-1.5 max-w-[200px] text-xs leading-5 text-slate-500">This renewal request does not include a payment proof file.</p>
+    </div>
+  )
+}
+
+function WorkflowMetaCard({ icon: Icon, label, tone = 'slate', children }) {
+  const tones = {
+    blue: 'bg-blue-50/55 ring-blue-100',
+    violet: 'bg-violet-50/55 ring-violet-100',
+    amber: 'bg-amber-50/55 ring-amber-100',
+    slate: 'bg-slate-50/80 ring-slate-100',
+  }
+
+  const iconTones = {
+    blue: 'bg-white text-blue-600',
+    violet: 'bg-white text-violet-600',
+    amber: 'bg-white text-amber-600',
+    slate: 'bg-white text-slate-600',
+  }
+
+  return (
+    <div className={`rounded-[22px] p-3.5 ring-1 ${tones[tone] || tones.slate}`}>
+      <div className="flex items-start gap-3">
+        <div className={`inline-flex h-10 w-10 items-center justify-center rounded-xl shadow-sm ${iconTones[tone] || iconTones.slate}`}>
+          <Icon size={16} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+          <div className="mt-1.5">{children}</div>
+        </div>
+      </div>
     </div>
   )
 }
 
 function WorkflowStatusPanel({ row }) {
-  const badge = statusConfig(row?.status)
   const processor = row?.processed_by_name || row?.processed_by_email || 'System'
 
   return (
-    <div className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="rounded-[24px] border border-rose-100/80 bg-gradient-to-br from-white via-rose-50/40 to-white p-4 shadow-sm shadow-slate-200/60">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-gray-900">Workflow status</p>
-          <p className="mt-1 text-sm text-gray-500">Review the final outcome and audit trail for this request.</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Workflow status</p>
+          <p className="mt-1.5 text-sm font-medium leading-6 text-slate-600">Review the final outcome and audit trail for this request.</p>
         </div>
-        <span className={`inline-flex min-w-[112px] justify-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${badge.cls}`}>
-          {badge.label}
-        </span>
+        <StatusBadge status={row?.status} className="min-h-[28px] min-w-[118px] px-3 text-[11px]" />
       </div>
 
-      <div className="mt-4 space-y-3">
-        <div className="rounded-2xl bg-gray-50 p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">Processed date</p>
-          <p className="mt-1 text-sm font-medium text-gray-900">{row?.processed_at ? formatDate(row.processed_at) : 'Not processed yet'}</p>
-        </div>
-        <div className="rounded-2xl bg-gray-50 p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">Processed by</p>
-          <p className="mt-1 text-sm font-medium text-gray-900">{row?.processed_at ? processor : 'Awaiting review'}</p>
+      <div className="mt-3 space-y-2.5">
+        <WorkflowMetaCard icon={CalendarDays} label="Processed date" tone="blue">
+          <p className="text-[22px] font-semibold leading-none text-slate-900">{row?.processed_at ? formatDate(row.processed_at) : 'Not processed yet'}</p>
+        </WorkflowMetaCard>
+        <WorkflowMetaCard icon={User} label="Processed by" tone="violet">
+          <p className="text-base font-semibold leading-6 text-slate-900">{row?.processed_at ? processor : 'Awaiting review'}</p>
           {row?.processed_by_email && row?.processed_by_name && (
-            <p className="mt-1 text-xs text-gray-500">{row.processed_by_email}</p>
+            <p className="mt-0.5 text-xs text-slate-500">{row.processed_by_email}</p>
           )}
-        </div>
-        <div className="rounded-2xl bg-gray-50 p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">Audit notes</p>
-          <p className="mt-1 text-sm leading-6 text-gray-600">{row?.notes || 'No audit notes were added for this request.'}</p>
-        </div>
+        </WorkflowMetaCard>
+        <WorkflowMetaCard icon={FileText} label="Audit notes" tone="amber">
+          <p className="text-sm leading-6 text-slate-700">{row?.notes || 'No audit notes were added for this request.'}</p>
+        </WorkflowMetaCard>
       </div>
     </div>
   )
@@ -291,7 +373,7 @@ function RenewalActionMenu({ row, onView, onApprove, onReject }) {
       <button
         type="button"
         onClick={() => setOpen(value => !value)}
-        className="rounded-lg border border-gray-200 p-2 text-gray-500 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700"
+        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200/80 text-gray-400 transition duration-150 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-600"
       >
         <MoreVertical size={15} />
       </button>
@@ -356,48 +438,57 @@ function RenewalTableRow({ row, onView, onApprove, onReject }) {
   const badge = statusConfig(row.status)
 
   return (
-    <tr key={row.id} className={`${rowTone(row.status)} align-top transition hover:bg-gray-50`}>
-      <td className="px-4 py-3">
-        <div className="space-y-1">
+    <tr key={row.id} className={`${rowTone(row.status)} align-top transition-colors duration-150 hover:bg-gray-50/80`}>
+      <td className="px-5 py-4">
+        <div className="space-y-1.5">
           <div className="flex items-center gap-2">
             <p className="text-[15px] font-semibold leading-5 text-gray-900">{row.applicant_name || 'Unknown member'}</p>
             {needsAction(row.status) && (
-              <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-700">Needs Action</span>
+              <span className={NEEDS_ACTION_BADGE}>Needs Action</span>
             )}
           </div>
-          <p className="text-xs text-gray-500">{row.membership_id || 'No membership ID'} <span className="text-gray-300">•</span> {row.applicant_email || 'No email on file'}</p>
+          <div className="space-y-0.5 text-[11px] leading-5 text-gray-400/95">
+            <p>{row.membership_id || 'No membership ID'}</p>
+            <p className="truncate">{row.applicant_email || 'No email on file'}</p>
+          </div>
         </div>
       </td>
-      <td className="px-4 py-3">
-        <div className="space-y-1">
-          <p className="font-medium leading-5 text-gray-900">{row.package_name || 'Current membership package'}</p>
+      <td className="px-5 py-4">
+        <div className="space-y-1.5">
+          <p className="font-semibold leading-5 text-gray-900">{row.package_name || 'Current membership package'}</p>
           <p className="text-xs font-medium text-primary-700">{extensionLabel(row)}</p>
-          <p className="text-[11px] text-gray-400">Request ID #{row.id}</p>
+          <p className="text-[11px] leading-5 text-gray-400/95">Request ID #{row.id}</p>
         </div>
       </td>
-      <td className="px-4 py-3">
-        <div className="space-y-1">
-          <p className="font-semibold leading-5 text-gray-900">{fmtAmount(row.amount, row.currency)}</p>
-          <p className="text-xs text-gray-500">{row.payment_method_name || 'Payment method not specified'}</p>
-          <p className="break-all font-mono text-[11px] text-gray-400">#{row.transaction_id || 'No transaction ID'}</p>
+      <td className="px-5 py-4">
+        <div className="space-y-1.5">
+          <p className="text-[15px] font-semibold leading-5 text-gray-900">{fmtAmount(row.amount, row.currency)}</p>
+          <p className="text-xs leading-5 text-gray-500">{row.payment_method_name || 'Payment method not specified'}</p>
+          <p className="break-all font-mono text-[10px] leading-5 text-gray-400/95">#{row.transaction_id || 'No transaction ID'}</p>
         </div>
       </td>
-      <td className="px-4 py-3">
-        <div className="space-y-1 text-xs text-gray-600">
-          <p><span className="font-medium text-gray-900">Current:</span> {formatDate(row.old_expiry_date || row.current_expiry)}</p>
-          <p><span className="font-medium text-gray-900">Requested:</span> {row.new_expiry_date ? formatDate(row.new_expiry_date) : 'Pending approval'}</p>
-          <p className="pt-1 text-[11px] text-gray-400">Submitted {formatDate(row.created_at)}</p>
-        </div>
-      </td>
-      <td className="px-4 py-3">
+      <td className="px-5 py-4">
         <div className="space-y-2">
-          <span className={`inline-flex min-w-[108px] justify-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${badge.cls}`}>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400">Current</p>
+            <p className="mt-0.5 text-sm font-medium text-gray-800">{formatDate(row.old_expiry_date || row.current_expiry)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400">Requested</p>
+            <p className="mt-0.5 text-sm font-medium text-gray-800">{row.new_expiry_date ? formatDate(row.new_expiry_date) : 'Pending approval'}</p>
+          </div>
+          <p className="pt-0.5 text-[10px] leading-5 text-gray-400/95">Submitted {formatDate(row.created_at)}</p>
+        </div>
+      </td>
+      <td className="px-5 py-4 align-middle">
+        <div className="space-y-2">
+          <span className={`${STATUS_BADGE_BASE} min-w-[118px] ${badge.cls}`}>
             {badge.label}
           </span>
-          {row.processed_at && <p className="text-[11px] text-gray-400">Processed {formatDate(row.processed_at)}</p>}
+          {row.processed_at && <p className="text-[10px] leading-5 text-gray-400/95">Processed {formatDate(row.processed_at)}</p>}
         </div>
       </td>
-      <td className="px-4 py-3 text-right">
+      <td className="px-5 py-4 text-right align-middle">
         <RenewalActionMenu row={row} onView={onView} onApprove={onApprove} onReject={onReject} />
       </td>
     </tr>
@@ -414,10 +505,10 @@ function RenewalMobileCard({ row, onView, onApprove, onReject }) {
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-[15px] font-semibold text-gray-900">{row.applicant_name || 'Unknown member'}</p>
             {needsAction(row.status) && (
-              <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-700">Needs Action</span>
+              <span className={NEEDS_ACTION_BADGE}>Needs Action</span>
             )}
           </div>
-          <p className="mt-1 text-xs text-gray-500">{row.membership_id || 'No membership ID'} <span className="text-gray-300">•</span> {row.applicant_email || 'No email on file'}</p>
+          <p className="mt-1 text-[11px] leading-5 text-gray-400/95">{row.membership_id || 'No membership ID'} <span className="text-gray-300">•</span> {row.applicant_email || 'No email on file'}</p>
         </div>
         <RenewalActionMenu row={row} onView={onView} onApprove={onApprove} onReject={onReject} />
       </div>
@@ -442,7 +533,7 @@ function RenewalMobileCard({ row, onView, onApprove, onReject }) {
         </div>
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">Status</p>
-          <span className={`mt-1 inline-flex min-w-[108px] justify-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${badge.cls}`}>
+          <span className={`mt-1 ${STATUS_BADGE_BASE} min-w-[118px] ${badge.cls}`}>
             {badge.label}
           </span>
           {row.processed_at && <p className="mt-1 text-[11px] text-gray-400">Processed {formatDate(row.processed_at)}</p>}
@@ -458,8 +549,9 @@ function ConfirmationModal({ action, loading, onCancel, onConfirm, expiryDate })
   const isApprove = action === 'approve'
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+    <AdminModalPortal>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]">
+        <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
         <div className={`inline-flex rounded-2xl p-3 ${isApprove ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
           {isApprove ? <BadgeCheck size={20} /> : <CircleAlert size={20} />}
         </div>
@@ -488,18 +580,19 @@ function ConfirmationModal({ action, loading, onCancel, onConfirm, expiryDate })
             {loading ? 'Processing...' : isApprove ? 'Confirm Approval' : 'Confirm Rejection'}
           </button>
         </div>
+        </div>
       </div>
-    </div>
+    </AdminModalPortal>
   )
 }
 
 export default function RenewalsPage() {
   const queryClient = useQueryClient()
   const modalSurfaceRef = useRef(null)
+  const modalScaleContentRef = useRef(null)
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
   const [sort, setSort] = useState('latest')
-  const [expirySoon, setExpirySoon] = useState(false)
   const [page, setPage] = useState(1)
   const [renewalModal, setRenewalModal] = useState(null)
   const [confirmAction, setConfirmAction] = useState(null)
@@ -508,16 +601,17 @@ export default function RenewalsPage() {
   const [verifyErrors, setVerifyErrors] = useState({})
   const [newForm, setNewForm] = useState(NEW_DEFAULT)
   const [newErrors, setNewErrors] = useState({})
+  const [modalScale, setModalScale] = useState(1)
+  const [modalScaledHeight, setModalScaledHeight] = useState(null)
   const deferredSearch = useDeferredValue(q)
 
   const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
-    queryKey: ['renewals', { q: deferredSearch, status, sort, expirySoon, page }],
+    queryKey: ['renewals', { q: deferredSearch, status, sort, page }],
     queryFn: () => api.get('/renewals', {
       params: {
         q: deferredSearch,
         status,
         sort,
-        expiry_soon: expirySoon,
         page,
         per_page: 20,
       },
@@ -587,6 +681,57 @@ export default function RenewalsPage() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [renewalModal, confirmAction, verifyMut.isPending])
 
+  useEffect(() => {
+    if (!renewalModal) return undefined
+
+    const previousBodyOverflow = document.body.style.overflow
+    const previousHtmlOverflow = document.documentElement.style.overflow
+
+    document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow
+      document.documentElement.style.overflow = previousHtmlOverflow
+    }
+  }, [renewalModal])
+
+  useEffect(() => {
+    if (!renewalModal || !modalScaleContentRef.current) {
+      setModalScale(1)
+      setModalScaledHeight(null)
+      return undefined
+    }
+
+    function measureModalFit() {
+      if (!modalScaleContentRef.current) return
+
+      const contentHeight = modalScaleContentRef.current.scrollHeight
+      const availableWidth = Math.max(window.innerWidth - RENEWAL_MODAL_VIEWPORT_GUTTER * 2, 320)
+      const availableHeight = Math.max(window.innerHeight - RENEWAL_MODAL_VIEWPORT_GUTTER * 2, 320)
+      const widthScale = availableWidth / RENEWAL_MODAL_BASE_WIDTH
+      const heightScale = availableHeight / contentHeight
+      const nextScale = Math.min(1, widthScale, heightScale)
+
+      setModalScale(nextScale)
+      setModalScaledHeight(contentHeight * nextScale)
+    }
+
+    measureModalFit()
+
+    const resizeObserver = new ResizeObserver(() => {
+      measureModalFit()
+    })
+
+    resizeObserver.observe(modalScaleContentRef.current)
+    window.addEventListener('resize', measureModalFit)
+
+    return () => {
+      resizeObserver.disconnect()
+      window.removeEventListener('resize', measureModalFit)
+    }
+  }, [renewalModal, detailLoading, modalIsReadOnly, verifyForm.action])
+
   function openRenewalModal(row, mode, action = 'approve') {
     setRenewalModal({ ...row, mode })
     setVerifyForm({
@@ -631,6 +776,21 @@ export default function RenewalsPage() {
     verifyMut.mutate(confirmAction.payload)
   }
 
+  function submitNewRenewal() {
+    const errors = validateNewRenewal(newForm)
+    if (Object.keys(errors).length > 0) {
+      setNewErrors(errors)
+      return
+    }
+
+    newMut.mutate({
+      submission_id: String(newForm.submission_id).trim(),
+      new_expiry_date: normalizeDateInput(newForm.new_expiry_date),
+      amount: newForm.amount === '' ? 0 : Number(newForm.amount),
+      notes: String(newForm.notes || '').trim(),
+    })
+  }
+
   function clearSearch() {
     setQ('')
     setPage(1)
@@ -640,7 +800,6 @@ export default function RenewalsPage() {
     setQ('')
     setStatus('')
     setSort('latest')
-    setExpirySoon(false)
     setPage(1)
   }
 
@@ -654,17 +813,12 @@ export default function RenewalsPage() {
     setPage(1)
   }
 
-  function toggleExpirySoon() {
-    setExpirySoon(value => !value)
-    setPage(1)
-  }
-
   function renderEmpty() {
     return (
       <div className="px-6 py-16 text-center">
         <div className="mx-auto max-w-sm space-y-2">
           <p className="text-sm font-semibold text-gray-900">No renewal requests found</p>
-          <p className="text-sm text-gray-500">Try changing the status, expiry filter, or search term.</p>
+          <p className="text-sm text-gray-500">Try changing the status, sorting, or search term.</p>
         </div>
       </div>
     )
@@ -711,12 +865,12 @@ export default function RenewalsPage() {
       </div>
 
       <div className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex flex-1 flex-col gap-3 md:flex-row md:items-center">
-            <div className="relative w-full md:max-w-md xl:max-w-lg">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+          <div className="grid flex-1 gap-4 lg:grid-cols-[minmax(0,1.9fr)_minmax(240px,0.9fr)_minmax(240px,0.9fr)_auto]">
+            <div className="relative min-w-0">
               <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
-                className="input pl-9 pr-10"
+                className="input h-11 pl-10 pr-10"
                 placeholder="Search member, membership ID, or transaction ID"
                 value={q}
                 onChange={event => {
@@ -735,26 +889,9 @@ export default function RenewalsPage() {
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={toggleExpirySoon}
-                className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition ${expirySoon ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
-              >
-                <CalendarClock size={15} /> Expiry Soon
-              </button>
-              {(q || status || sort !== 'latest' || expirySoon) && (
-                <button type="button" className="text-sm font-medium text-gray-500 transition hover:text-gray-700" onClick={resetFilters}>
-                  Reset
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <label className="flex items-center gap-2 text-sm text-gray-500">
-              <Filter size={15} />
-              <select className="input min-w-[180px]" value={status} onChange={event => updateStatus(event.target.value)}>
+            <label className="flex min-w-0 items-center gap-2.5 text-sm text-gray-500">
+              <Filter size={15} className="shrink-0 text-gray-400" />
+              <select className="input h-11 min-w-0 flex-1" value={status} onChange={event => updateStatus(event.target.value)}>
                 <option value="">All statuses</option>
                 <option value="pending">Pending Review</option>
                 <option value="payment_submitted">Payment Pending</option>
@@ -762,14 +899,23 @@ export default function RenewalsPage() {
                 <option value="rejected">Rejected</option>
               </select>
             </label>
-            <label className="flex items-center gap-2 text-sm text-gray-500">
-              <ArrowDownUp size={15} />
-              <select className="input min-w-[180px]" value={sort} onChange={event => updateSort(event.target.value)}>
+
+            <label className="flex min-w-0 items-center gap-2.5 text-sm text-gray-500">
+              <ArrowDownUp size={15} className="shrink-0 text-gray-400" />
+              <select className="input h-11 min-w-0 flex-1" value={sort} onChange={event => updateSort(event.target.value)}>
                 {SORT_OPTIONS.map(option => (
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
             </label>
+
+            <div className="flex items-center justify-start lg:justify-end">
+              {(q || status || sort !== 'latest') && (
+                <button type="button" className="text-sm font-medium text-gray-500 transition hover:text-gray-700" onClick={resetFilters}>
+                  Reset
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -779,14 +925,14 @@ export default function RenewalsPage() {
           <>
             <div className="hidden overflow-x-auto lg:block">
               <table className="min-w-full table-fixed text-sm">
-                <thead className="bg-gray-50 text-[11px] uppercase tracking-[0.18em] text-gray-500">
+                <thead className="border-b border-gray-100 bg-gray-50/90 text-[11px] uppercase tracking-[0.18em] text-gray-600">
                   <tr>
-                    <th className="w-[24%] px-4 py-3 text-left font-semibold">Member</th>
-                    <th className="w-[22%] px-4 py-3 text-left font-semibold">Renewal</th>
-                    <th className="w-[15%] px-4 py-3 text-left font-semibold">Payment</th>
-                    <th className="w-[18%] px-4 py-3 text-left font-semibold">Dates</th>
-                    <th className="w-[13%] px-4 py-3 text-left font-semibold">Status</th>
-                    <th className="w-[8%] px-4 py-3 text-right font-semibold">Actions</th>
+                    <th className="w-[24%] px-5 py-3.5 text-left font-semibold">Member</th>
+                    <th className="w-[22%] px-5 py-3.5 text-left font-semibold">Renewal</th>
+                    <th className="w-[15%] px-5 py-3.5 text-left font-semibold">Payment</th>
+                    <th className="w-[18%] px-5 py-3.5 text-left font-semibold">Dates</th>
+                    <th className="w-[13%] px-5 py-3.5 text-left font-semibold">Status</th>
+                    <th className="w-[8%] px-5 py-3.5 text-right font-semibold">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -835,75 +981,90 @@ export default function RenewalsPage() {
       </div>
 
       {renewalModal && (
-        <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-[2px]"
-          onMouseDown={event => {
-            if (event.target === event.currentTarget && !verifyMut.isPending) closeRenewalModal()
-          }}
-        >
-          <div ref={modalSurfaceRef} className="w-full max-w-2xl rounded-[28px] bg-white p-5 shadow-2xl ring-1 ring-black/5 sm:p-6">
-            <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-4">
+        <AdminModalPortal>
+          <div
+            className="fixed inset-0 z-[1000] flex items-center justify-center overflow-hidden bg-slate-950/55 p-4 backdrop-blur-[2px]"
+            onMouseDown={event => {
+              if (event.target === event.currentTarget && !verifyMut.isPending) closeRenewalModal()
+            }}
+          >
+            <div className="relative flex items-start justify-center" style={{ width: `${RENEWAL_MODAL_BASE_WIDTH * modalScale}px`, height: modalScaledHeight ? `${modalScaledHeight}px` : 'auto' }}>
+          <div ref={modalSurfaceRef} className="absolute left-0 top-0 flex w-[930px] flex-col overflow-hidden rounded-[28px] bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.08),_transparent_32%),radial-gradient(circle_at_top_right,_rgba(249,115,22,0.06),_transparent_24%),linear-gradient(to_bottom,_#ffffff,_#fbfcff)] shadow-2xl ring-1 ring-slate-200/80" style={{ transform: `scale(${modalScale})`, transformOrigin: 'top left' }}>
+            <div ref={modalScaleContentRef}>
+            <div className="shrink-0 border-b border-slate-100 px-5 pb-4 pt-5 sm:px-6 sm:pt-6">
+              <div className="flex items-start justify-between gap-5">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Renewal workflow</p>
-                <div className="mt-1 flex flex-wrap items-center gap-3">
-                  <h3 className="text-xl font-semibold text-gray-900">{renewalModal.mode === 'review' ? 'Review renewal request' : 'Renewal details'}</h3>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Renewal workflow</p>
+                <div className="mt-1.5 flex flex-wrap items-center gap-2.5">
+                  <h3 className="text-[28px] font-semibold tracking-[-0.03em] text-slate-950">{renewalModal.mode === 'review' ? 'Review renewal request' : 'Renewal details'}</h3>
                   {modalRow && (
-                    <span className={`inline-flex min-w-[112px] justify-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${statusConfig(modalRow.status).cls}`}>
-                      {statusConfig(modalRow.status).label}
-                    </span>
+                    <StatusBadge status={modalRow.status} className="min-h-[28px] min-w-[118px] px-3 text-[11px]" />
                   )}
                 </div>
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
                   {modalIsReadOnly
                     ? 'This request has already been processed and is now available in read-only mode.'
                     : 'Verify payment proof, confirm the expiry extension, and apply the decision.'}
                 </p>
               </div>
-              <button type="button" onClick={closeRenewalModal} className="rounded-full p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600">
+              <button type="button" onClick={closeRenewalModal} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white/90 text-slate-400 shadow-sm transition hover:border-slate-300 hover:bg-white hover:text-slate-600">
                 <X size={18} />
               </button>
+              </div>
             </div>
 
             {detailLoading ? (
-              <div className="flex items-center justify-center gap-2 py-16 text-sm text-gray-500">
+              <div className="flex min-h-0 flex-1 items-center justify-center gap-2 px-6 py-16 text-sm text-gray-500 sm:px-7">
                 <Loader2 size={16} className="animate-spin" /> Loading renewal details...
               </div>
             ) : (
-              <div className="grid gap-4 pt-5 lg:grid-cols-[1.05fr_0.95fr]">
-                <div className="space-y-4">
-                  <div className="rounded-3xl border border-gray-200 bg-gray-50 p-4">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="text-lg font-semibold text-gray-900">{modalRow?.applicant_name || 'Unknown member'}</h4>
-                      {needsAction(modalRow?.status) && (
-                        <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-700">Needs Action</span>
-                      )}
+              <>
+                <div className="min-h-0 flex-1 px-5 pb-3 pt-4 sm:px-6">
+                  <div className="grid gap-4 lg:grid-cols-[1.08fr_0.92fr]">
+                    <div className="space-y-3">
+                  <div className="rounded-[24px] border border-slate-200/80 bg-gradient-to-br from-white via-indigo-50/25 to-slate-50/40 p-4 shadow-sm shadow-slate-200/60">
+                    <div className="flex items-start gap-3 rounded-[20px] border border-white/70 bg-white/70 p-3.5 shadow-sm shadow-indigo-100/40 backdrop-blur-sm">
+                      <div className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-indigo-100 text-lg font-semibold text-violet-700">
+                        {getInitials(modalRow?.applicant_name)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="text-[16px] font-semibold tracking-[-0.02em] text-slate-950">{modalRow?.applicant_name || 'Unknown member'}</h4>
+                          {needsAction(modalRow?.status) && (
+                            <span className={NEEDS_ACTION_BADGE}>Needs Action</span>
+                          )}
+                        </div>
+                        <p className="mt-1.5 text-xs text-slate-500">{modalRow?.membership_id || 'No membership ID'} <span className="mx-1 text-slate-300">•</span> {modalRow?.applicant_email || 'No email on file'}</p>
+                      </div>
                     </div>
-                    <p className="mt-1 text-sm text-gray-500">{modalRow?.membership_id || 'No membership ID'} <span className="text-gray-300">•</span> {modalRow?.applicant_email || 'No email on file'}</p>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <InfoTile label="Payment">
-                        <p className="font-semibold text-gray-900">{fmtAmount(modalRow?.amount, modalRow?.currency)}</p>
-                        <p className="mt-1 text-sm text-gray-500">{modalRow?.payment_method_name || 'Payment method not specified'}</p>
-                        <p className="mt-1 font-mono text-[11px] text-gray-400">#{modalRow?.transaction_id || 'No transaction ID'}</p>
+
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <InfoTile label="Payment" icon={CreditCard} tone="emerald">
+                        <p className="text-[16px] font-semibold text-slate-950">{fmtAmount(modalRow?.amount, modalRow?.currency)}</p>
+                        <p className="mt-2 text-sm text-slate-600">{modalRow?.payment_method_name || 'Payment method not specified'}</p>
+                        <p className="mt-1.5 font-mono text-xs text-slate-400">#{modalRow?.transaction_id || 'No transaction ID'}</p>
                       </InfoTile>
-                      <InfoTile label="Renewal">
-                        <p className="font-medium text-gray-900">{modalRow?.package_name || 'Current membership package'}</p>
-                        <p className="mt-1 text-sm text-primary-700">{extensionLabel(modalRow || {})}</p>
-                        <p className="mt-1 text-[11px] text-gray-400">Request ID #{modalRow?.id}</p>
+                      <InfoTile label="Renewal" icon={RefreshCw} tone="violet">
+                        <p className="text-[16px] font-semibold leading-7 text-slate-950">{modalRow?.package_name || 'Current membership package'}</p>
+                        <p className="mt-2 text-sm font-medium text-primary-700">{extensionLabel(modalRow || {})}</p>
+                        <p className="mt-1.5 text-xs text-slate-400">Request ID #{modalRow?.id}</p>
                       </InfoTile>
                     </div>
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                      <InfoTile label="Dates" className="text-sm text-gray-600">
-                        <p><span className="font-medium text-gray-900">Current:</span> {formatDate(modalRow?.current_expiry || modalRow?.old_expiry_date)}</p>
-                        <p className="mt-1"><span className="font-medium text-gray-900">Requested:</span> {modalRow?.new_expiry_date ? formatDate(modalRow.new_expiry_date) : 'Pending approval'}</p>
-                        <p className="mt-2 text-[11px] text-gray-400">Submitted {formatDate(modalRow?.created_at)}</p>
+                      <InfoTile label="Dates" icon={CalendarDays} tone="blue" className="text-sm text-slate-700">
+                        <div className="space-y-2.5">
+                          <p className="text-sm"><span className="font-semibold text-slate-900">Current:</span> {formatDate(modalRow?.current_expiry || modalRow?.old_expiry_date)}</p>
+                          <p className="text-sm"><span className="font-semibold text-slate-900">Requested:</span> {modalRow?.new_expiry_date ? formatDate(modalRow.new_expiry_date) : 'Pending approval'}</p>
+                          <p className="pt-0.5 text-xs text-slate-400">Submitted {formatDate(modalRow?.created_at)}</p>
+                        </div>
                       </InfoTile>
-                      <InfoTile label="Receipt" className="min-h-[132px]">
+                      <InfoTile label="Receipt" icon={FileSearch} tone="amber" className="min-h-[190px]">
                         {modalRow?.screenshot_path ? (
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            <a href={resolveAssetUrl(modalRow.screenshot_path)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-primary-200 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700">
+                          <div className="mt-1 flex flex-wrap gap-2.5">
+                            <a href={resolveAssetUrl(modalRow.screenshot_path)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-primary-200 bg-primary-50 px-3.5 py-2 text-sm font-medium text-primary-700 shadow-sm shadow-primary-100/50 transition hover:bg-primary-100">
                               <Eye size={14} /> View Receipt
                             </a>
-                            <a href={resolveAssetUrl(modalRow.screenshot_path)} download target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700">
+                            <a href={resolveAssetUrl(modalRow.screenshot_path)} download target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50">
                               <Download size={14} /> Download
                             </a>
                           </div>
@@ -913,71 +1074,74 @@ export default function RenewalsPage() {
                       </InfoTile>
                     </div>
                   </div>
-                </div>
-
-                <div className="space-y-4">
-                  {renewalModal.mode === 'review' && canReviewModal && !modalIsReadOnly ? (
-                    <div className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
-                      <p className="text-sm font-semibold text-gray-900">Decision</p>
-                      <p className="mt-1 text-sm text-gray-500">Confirm the action and add any internal notes for the audit trail.</p>
-                      <div className="mt-4 space-y-4">
-                        <div>
-                          <label className="label">Action</label>
-                          <select
-                            className="input"
-                            value={verifyForm.action}
-                            onChange={event => {
-                              setVerifyForm(current => ({ ...current, action: event.target.value }))
-                              setVerifyErrors(current => ({ ...current, action: '', newExpiryDate: '' }))
-                            }}
-                          >
-                            <option value="approve">Approve</option>
-                            <option value="reject">Reject</option>
-                          </select>
-                          {verifyErrors.action && <p className="mt-2 text-xs font-medium text-red-600">{verifyErrors.action}</p>}
-                        </div>
-
-                        {verifyForm.action === 'approve' && (
-                          <div>
-                            <label className="label">New Expiry Date</label>
-                            <input
-                              type="date"
-                              min={todayIso()}
-                              className="input"
-                              value={verifyForm.newExpiryDate}
-                              onChange={event => {
-                                setVerifyForm(current => ({ ...current, newExpiryDate: event.target.value }))
-                                setVerifyErrors(current => ({ ...current, newExpiryDate: '' }))
-                              }}
-                            />
-                            {verifyErrors.newExpiryDate && <p className="mt-2 text-xs font-medium text-red-600">{verifyErrors.newExpiryDate}</p>}
-                          </div>
-                        )}
-
-                        <div>
-                          <label className="label">Admin Notes</label>
-                          <textarea
-                            rows={4}
-                            className="input"
-                            placeholder="Optional notes for internal review"
-                            value={verifyForm.notes}
-                            onChange={event => setVerifyForm(current => ({ ...current, notes: event.target.value }))}
-                          />
-                        </div>
-                      </div>
                     </div>
-                  ) : (
-                    <WorkflowStatusPanel row={modalRow} />
-                  )}
 
-                  <div className="flex flex-col-reverse gap-3 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:justify-end">
-                    <button type="button" className="btn-outline" onClick={closeRenewalModal} disabled={verifyMut.isPending}>
+                    <div className="space-y-3">
+                      {renewalModal.mode === 'review' && canReviewModal && !modalIsReadOnly ? (
+                        <div className="rounded-[24px] border border-slate-200/80 bg-white/90 p-4 shadow-sm shadow-slate-200/60 backdrop-blur-sm">
+                          <p className="text-sm font-semibold text-slate-950">Decision</p>
+                          <p className="mt-1.5 text-sm leading-6 text-slate-500">Confirm the action and add any internal notes for the audit trail.</p>
+                          <div className="mt-4 space-y-4">
+                            <div>
+                              <label className="label">Action</label>
+                              <select
+                                className="input"
+                                value={verifyForm.action}
+                                onChange={event => {
+                                  setVerifyForm(current => ({ ...current, action: event.target.value }))
+                                  setVerifyErrors(current => ({ ...current, action: '', newExpiryDate: '' }))
+                                }}
+                              >
+                                <option value="approve">Approve</option>
+                                <option value="reject">Reject</option>
+                              </select>
+                              {verifyErrors.action && <p className="mt-2 text-xs font-medium text-red-600">{verifyErrors.action}</p>}
+                            </div>
+
+                            {verifyForm.action === 'approve' && (
+                              <div>
+                                <label className="label">New Expiry Date</label>
+                                <input
+                                  type="date"
+                                  min={todayIso()}
+                                  className="input"
+                                  value={verifyForm.newExpiryDate}
+                                  onChange={event => {
+                                    setVerifyForm(current => ({ ...current, newExpiryDate: event.target.value }))
+                                    setVerifyErrors(current => ({ ...current, newExpiryDate: '' }))
+                                  }}
+                                />
+                                {verifyErrors.newExpiryDate && <p className="mt-2 text-xs font-medium text-red-600">{verifyErrors.newExpiryDate}</p>}
+                              </div>
+                            )}
+
+                            <div>
+                              <label className="label">Admin Notes</label>
+                              <textarea
+                                rows={4}
+                                className="input"
+                                placeholder="Optional notes for internal review"
+                                value={verifyForm.notes}
+                                onChange={event => setVerifyForm(current => ({ ...current, notes: event.target.value }))}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <WorkflowStatusPanel row={modalRow} />
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="shrink-0 border-t border-slate-100 px-5 pb-5 pt-3 sm:px-6 sm:pb-6">
+                  <div className="flex flex-col-reverse gap-2.5 rounded-[24px] border border-slate-200/80 bg-white/90 p-4 shadow-sm shadow-slate-200/60 sm:flex-row sm:justify-end">
+                    <button type="button" className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60" onClick={closeRenewalModal} disabled={verifyMut.isPending}>
                       {modalIsReadOnly ? 'Close' : 'Cancel'}
                     </button>
                     {renewalModal.mode === 'review' && canReviewModal && !modalIsReadOnly && (
                       <button
                         type="button"
-                        className={verifyForm.action === 'approve' ? 'btn-primary inline-flex items-center justify-center gap-2' : 'inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60'}
+                        className={verifyForm.action === 'approve' ? 'inline-flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-primary-200 transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60' : 'inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-red-200 transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60'}
                         onClick={submitVerification}
                         disabled={verifyMut.isPending || Boolean(confirmAction)}
                       >
@@ -987,10 +1151,13 @@ export default function RenewalsPage() {
                     )}
                   </div>
                 </div>
-              </div>
+              </>
             )}
+            </div>
+            </div>
+            </div>
           </div>
-        </div>
+        </AdminModalPortal>
       )}
 
       <ConfirmationModal
@@ -1002,8 +1169,9 @@ export default function RenewalsPage() {
       />
 
       {showNewModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
+        <AdminModalPortal>
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]">
+            <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Manual renewal</p>
@@ -1079,8 +1247,9 @@ export default function RenewalsPage() {
                 {newMut.isPending ? 'Creating...' : 'Create Renewal'}
               </button>
             </div>
+            </div>
           </div>
-        </div>
+        </AdminModalPortal>
       )}
     </div>
   )

@@ -2,14 +2,16 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Edit, Trash2, ChevronDown, ChevronRight, MapPin, Building2, Globe } from 'lucide-react'
 import api from '../../../api/client'
+import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from 'react-hot-toast'
 
 // ── Generic simple modal ──────────────────────────────────────────────────────
 function SimpleModal({ title, fields, initial, onClose, onSave }) {
   const [d, setD] = useState(initial || {})
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="card w-full max-w-sm" onClick={e => e.stopPropagation()}>
+    <AdminModalPortal>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={onClose}>
+        <div className="card w-full max-w-sm" onClick={e => e.stopPropagation()}>
         <div className="card-header">
           <h3 className="font-semibold">{title}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
@@ -31,9 +33,10 @@ function SimpleModal({ title, fields, initial, onClose, onSave }) {
             <button type="submit" className="btn-primary flex-1">Save</button>
             <button type="button" className="btn-outline" onClick={onClose}>Cancel</button>
           </div>
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
+    </AdminModalPortal>
   )
 }
 
@@ -179,8 +182,9 @@ function StatesList({ countryId }) {
 function CountryModal({ country, onClose, onSave }) {
   const [d, setD] = useState(country || { name: '', iso2: '', phone_code: '', currency: '' })
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="card w-full max-w-md" onClick={e => e.stopPropagation()}>
+    <AdminModalPortal>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={onClose}>
+        <div className="card w-full max-w-md" onClick={e => e.stopPropagation()}>
         <div className="card-header">
           <h3 className="font-semibold">{country ? 'Edit Country' : 'Add Country'}</h3>
           <button onClick={onClose} className="text-gray-400">✕</button>
@@ -211,9 +215,10 @@ function CountryModal({ country, onClose, onSave }) {
             <button type="submit" className="btn-primary flex-1">Save</button>
             <button type="button" className="btn-outline" onClick={onClose}>Cancel</button>
           </div>
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
+    </AdminModalPortal>
   )
 }
 

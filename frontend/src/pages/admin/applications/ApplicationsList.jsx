@@ -6,6 +6,7 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import api from "../../../api/client"
+import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from "react-hot-toast"
 import { useAuth } from "../../../contexts/AuthContext"
 
@@ -141,8 +142,9 @@ function ActionModal({ row, action, onClose, onConfirm, pending }) {
   const cfg = CONFIG[action] || { title: action, label: action, btnCls: "bg-primary-600 text-white" }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="card w-full max-w-md" onClick={e => e.stopPropagation()}>
+    <AdminModalPortal>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={onClose}>
+        <div className="card w-full max-w-md" onClick={e => e.stopPropagation()}>
         <div className="card-header">
           <div className="flex items-center gap-2">{cfg.icon}<h3 className="font-semibold">{cfg.title}</h3></div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
@@ -218,9 +220,10 @@ function ActionModal({ row, action, onClose, onConfirm, pending }) {
             </button>
             <button className="btn-outline" onClick={onClose}>Cancel</button>
           </div>
+          </div>
         </div>
       </div>
-    </div>
+    </AdminModalPortal>
   )
 }
 

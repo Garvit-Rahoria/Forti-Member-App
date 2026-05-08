@@ -825,7 +825,6 @@ function PaymentsTab({ apiClient }) {
 
 // ── Renewal Tab ────────────────────────────────────────────────────────────
 function RenewalTab({ member, apiClient }) {
-  const [step, setStep]                   = useState(1)   // 1=current-plan, 2=instructions, 3=payment
   const [methods, setMethods]             = useState([])
   const [paySettings, setPaySettings]     = useState({})
   const [renewalHistory, setRenewalHistory] = useState([])
@@ -833,6 +832,8 @@ function RenewalTab({ member, apiClient }) {
   const [loading, setLoading]             = useState(true)
   const [submitting, setSubmitting]       = useState(false)
   const [notification, setNotification]  = useState(null)
+  const [dragActive, setDragActive]       = useState(false)
+  const [previewUrl, setPreviewUrl]       = useState('')
   const [form, setForm] = useState({
     payment_method_id: '',
     transaction_id: '',
@@ -864,6 +865,12 @@ function RenewalTab({ member, apiClient }) {
     setTimeout(() => setNotification(null), 6000)
   }
 
+  function assetUrl(path) {
+    if (!path) return ''
+    if (path.startsWith('http://') || path.startsWith('https://')) return path
+    return path.startsWith('/') ? path : `/${path}`
+  }
+
   useEffect(() => {
     const memberType  = member?.data?.membership_type
     const countryCode = member?.data?.country_code || ''
@@ -889,6 +896,47 @@ function RenewalTab({ member, apiClient }) {
     }).finally(() => setLoading(false))
   }, [])
 
+  useEffect(() => {
+    if (!form.screenshot) {
+      setPreviewUrl('')
+      return undefined
+    }
+    if (!form.screenshot.type?.startsWith('image/')) {
+      setPreviewUrl('')
+      return undefined
+    }
+
+    const objectUrl = URL.createObjectURL(form.screenshot)
+    setPreviewUrl(objectUrl)
+    return () => URL.revokeObjectURL(objectUrl)
+  }, [form.screenshot])
+
+  useEffect(() => {
+    if (!methods.length) return
+    if (form.payment_method_id && methods.some(method => String(method.id) === String(form.payment_method_id))) return
+    setForm(current => ({ ...current, payment_method_id: String(methods[0].id) }))
+  }, [methods])
+
+  function refreshRenewals() {
+    return apiClient().get('/member/renewals').catch(() => ({ data: { data: [] } }))
+  }
+
+  function handleFileSelect(file) {
+    if (!file) return
+    setForm(current => ({ ...current, screenshot: file }))
+  }
+
+  function clearFile() {
+    setForm(current => ({ ...current, screenshot: null }))
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  function onDrop(event) {
+    event.preventDefault()
+    setDragActive(false)
+    handleFileSelect(event.dataTransfer.files?.[0] || null)
+  }
+
   async function handleSubmit() {
     if (!form.payment_method_id)     return notify('error', 'Please select a payment method.')
     if (!form.transaction_id.trim()) return notify('error', 'Please enter the transaction ID / reference.')
@@ -905,13 +953,12 @@ function RenewalTab({ member, apiClient }) {
     try {
       await apiClient().post('/member/renewal/apply', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
       notify('success', 'Payment submitted and under verification.')
-      const rnRes = await apiClient().get('/member/renewals').catch(() => ({ data: { data: [] } }))
+      const rnRes = await refreshRenewals()
       const history = rnRes.data.data || []
       setRenewalHistory(history)
       setLatestRenewal(history[0] || null)
-      setStep(1)
       setForm({ payment_method_id: '', transaction_id: '', screenshot: null })
-      if (fileRef.current) fileRef.current.value = ''
+      clearFile()
     } catch (err) {
       notify('error', err.response?.data?.message || 'Submission failed. Please try again.')
     } finally {
@@ -934,12 +981,12 @@ function RenewalTab({ member, apiClient }) {
     try {
       await apiClient().post('/member/renewal/resubmit', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
       notify('success', 'Payment resubmitted and under verification.')
-      const rnRes = await apiClient().get('/member/renewals').catch(() => ({ data: { data: [] } }))
+      const rnRes = await refreshRenewals()
       const history = rnRes.data.data || []
       setRenewalHistory(history)
       setLatestRenewal(history[0] || null)
       setForm(f => ({ ...f, transaction_id: '', screenshot: null }))
-      if (fileRef.current) fileRef.current.value = ''
+      clearFile()
     } catch (err) {
       notify('error', err.response?.data?.message || 'Resubmission failed.')
     } finally {
@@ -950,7 +997,11 @@ function RenewalTab({ member, apiClient }) {
   const daysLeft = member?.expiry_date
     ? Math.ceil((new Date(member.expiry_date) - new Date()) / 86400000)
     : null
-  const canRenewNow = daysLeft !== null && daysLeft <= 30
+  const isLifetimeMembership = (() => {
+    if (currentPlan?.duration_months && Number(currentPlan.duration_months) >= 999) return true
+    return /lifetime/i.test(currentPlan?.name || member?.package_name || '')
+  })()
+  const canRenewNow = !isLifetimeMembership && daysLeft !== null && daysLeft <= 30
 
   const membershipStatus = () => {
     if (getMembershipStatus(member) === 'active' && daysLeft !== null && daysLeft > 30) return { label: 'Active', color: 'bg-green-100 text-green-800 border-green-200', dot: 'bg-green-500' }
@@ -971,6 +1022,20 @@ function RenewalTab({ member, apiClient }) {
   const canSubmitNew = !latestRenewal || latestRenewal.status === 'verified' || latestRenewal.status === 'rejected'
   const canResubmit  = latestRenewal?.status === 'rejected'
   const hasPending   = latestRenewal && (latestRenewal.status === 'pending' || latestRenewal.status === 'payment_submitted')
+  const selectedMethod = methods.find(method => String(method.id) === String(form.payment_method_id)) || methods[0] || null
+  const selectedInstruction = selectedMethod?.instructions || paySettings.payment_instructions
+  const selectedQr = assetUrl(selectedMethod?.qr_image)
+  const selectedUpiId = selectedMethod?.upi_id || paySettings.upi_id
+  const bankDetails = {
+    accountName: selectedMethod?.account_name || paySettings.bank_account_name,
+    accountNumber: selectedMethod?.account_number || paySettings.bank_account_number,
+    ifscCode: selectedMethod?.ifsc_code || paySettings.bank_ifsc,
+    bankName: selectedMethod?.bank_name || paySettings.bank_name,
+    swiftCode: selectedMethod?.swift_code,
+    iban: selectedMethod?.iban,
+    bankAddress: selectedMethod?.bank_address,
+  }
+  const showIntegratedForm = canRenewNow && !hasPending && (canSubmitNew || canResubmit)
 
   // Compute projected new expiry date for display
   const projectedExpiry = (() => {
@@ -1018,10 +1083,11 @@ function RenewalTab({ member, apiClient }) {
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3 text-blue-800">
           <Info size={17} className="shrink-0 mt-0.5"/>
           <div>
-            <p className="font-semibold text-sm">Renewal Not Available Yet</p>
+            <p className="font-semibold text-sm">{isLifetimeMembership ? 'This Membership Does Not Require Renewal' : 'Renewal Not Available Yet'}</p>
             <p className="text-xs mt-0.5">
-              Your membership expires on <strong>{member?.expiry_date ? fmtDate(member.expiry_date) : '—'}</strong>.
-              Renewal will be available during the last <strong>30 days</strong> before expiry.
+              {isLifetimeMembership
+                ? 'Your current plan is a lifetime membership, so no renewal request is needed.'
+                : <>Your membership expires on <strong>{member?.expiry_date ? fmtDate(member.expiry_date) : '—'}</strong>. Renewal will be available during the last <strong>30 days</strong> before expiry.</>}
             </p>
           </div>
         </div>
@@ -1114,272 +1180,208 @@ function RenewalTab({ member, apiClient }) {
         </div>
       )}
 
-      {/* ── SECTION 4: Renewal Form OR Resubmit ── */}
-      {(canSubmitNew || canResubmit) && (
-        <>
-          {/* Step indicators */}
-          <div className="flex items-center gap-0">
-            {['Your Current Plan', 'Payment Instructions', 'Submit Payment'].map((label, i) => {
-              const n = i + 1
-              const active = step === n
-              const done = step > n
-              return (
-                <div key={n} className="flex items-center flex-1">
-                  <button
-                    onClick={() => { if (done) setStep(n) }}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition
-                      ${active ? 'bg-primary-600 text-white'
-                      : done   ? 'bg-primary-100 text-primary-700 cursor-pointer'
-                      :          'bg-gray-100 text-gray-400 cursor-default'}`}
-                  >
-                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0
-                      ${active ? 'bg-white text-primary-600'
-                      : done   ? 'bg-primary-600 text-white'
-                      :          'bg-gray-300 text-gray-500'}`}>
-                      {done ? <CheckCircle size={12}/> : n}
-                    </span>
-                    <span className="hidden sm:inline">{label}</span>
-                  </button>
-                  {i < 2 && <div className={`h-0.5 flex-1 mx-1 ${step > n ? 'bg-primary-400' : 'bg-gray-200'}`}/>}
-                </div>
-              )
-            })}
+      {/* ── SECTION 4: Integrated Renewal Request ── */}
+      {showIntegratedForm && (
+        <div className="card overflow-hidden">
+          <div className="card-header">
+            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+              {canResubmit ? <><RotateCcw size={17}/> Renew Membership</> : <><RefreshCw size={17}/> Renew Membership</>}
+            </h3>
           </div>
-
-          {/* ── STEP 1: Your Current Plan ── */}
-          {step === 1 && !canResubmit && (
-            <div className="card">
-              <div className="card-header">
-                <h3 className="font-semibold text-gray-900 flex items-center gap-2"><RefreshCw size={17}/>Your Current Plan</h3>
-              </div>
-              <div className="card-body space-y-4">
-                {!currentPlan ? (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3 text-amber-800">
-                    <AlertCircle size={17} className="shrink-0"/>
-                    <div>
-                      <p className="font-semibold text-sm">Membership Plan Pending</p>
-                      <p className="text-xs mt-0.5">Your plan details will appear once your membership is activated by the admin. Please check back soon.</p>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {/* Plan card */}
-                    <div className="rounded-xl border-2 border-primary-200 bg-primary-50 p-5">
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className="font-black text-gray-900 text-lg leading-tight">{currentPlan.name}</p>
-                          <p className="text-sm text-gray-500 mt-1">{durationLabel(currentPlan.duration_months)}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-3xl font-black text-primary-700">{fmtAmount(currentPlan.price, currentPlan.currency)}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">{currentPlan.currency || 'INR'}</p>
-                        </div>
-                      </div>
-                      <div className="mt-4 pt-4 border-t border-primary-200 grid grid-cols-2 gap-3">
-                        <div>
-                          <p className="text-xs text-gray-500">Current Expiry</p>
-                          <p className="text-sm font-semibold text-gray-900 mt-0.5">{member?.expiry_date ? fmtDate(member.expiry_date) : '—'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500">New Expiry After Renewal</p>
-                          <p className="text-sm font-semibold text-primary-700 mt-0.5">
-                            {currentPlan.duration_months >= 999 ? 'Lifetime' : projectedExpiry ? fmtDate(projectedExpiry) : '—'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-start gap-2.5 text-blue-800">
-                      <Info size={15} className="shrink-0 mt-0.5"/>
-                      <p className="text-xs">Your membership will be extended by <strong>{durationLabel(currentPlan.duration_months)}</strong> from the current expiry date upon payment approval.</p>
-                    </div>
-
-                    <button onClick={() => setStep(2)} className="btn-primary w-full text-base py-3">
-                      Renew This Plan →
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ── STEP 2: Payment Instructions ── */}
-          {step === 2 && !canResubmit && (
-            <div className="card">
-              <div className="card-header">
-                <h3 className="font-semibold text-gray-900 flex items-center gap-2"><IndianRupee size={17}/>Payment Instructions</h3>
-              </div>
-              <div className="card-body space-y-5">
-                {/* Amount highlight */}
-                <div className="bg-gradient-to-r from-primary-700 to-primary-900 rounded-xl p-5 text-white text-center">
-                  <p className="text-primary-200 text-xs mb-1">Amount to Pay</p>
-                  <p className="text-4xl font-black">{fmtAmount(currentPlan?.price, currentPlan?.currency)}</p>
-                  <p className="text-primary-300 text-xs mt-1">{currentPlan?.name}</p>
-                </div>
-
-                {/* UPI */}
-                {paySettings.upi_id && (
-                  <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-xl border border-blue-200">
-                    <Wallet size={20} className="text-blue-600 shrink-0 mt-0.5"/>
-                    <div>
-                      <p className="text-sm font-bold text-blue-800">UPI Payment</p>
-                      <p className="text-xs text-blue-600 mt-0.5">UPI ID:</p>
-                      <p className="font-mono font-bold text-blue-900 text-sm mt-0.5 select-all">{paySettings.upi_id}</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Bank transfer */}
-                {(paySettings.bank_account_number || paySettings.bank_name) && (
-                  <div className="flex items-start gap-3 p-4 bg-green-50 rounded-xl border border-green-200">
-                    <Building2 size={20} className="text-green-600 shrink-0 mt-0.5"/>
-                    <div className="space-y-1.5 w-full">
-                      <p className="text-sm font-bold text-green-800">Bank Transfer / NEFT / RTGS</p>
-                      {paySettings.bank_account_name   && <BankRow label="Account Name" value={paySettings.bank_account_name}/>}
-                      {paySettings.bank_account_number && <BankRow label="Account No."  value={paySettings.bank_account_number} mono/>}
-                      {paySettings.bank_ifsc           && <BankRow label="IFSC Code"    value={paySettings.bank_ifsc} mono/>}
-                      {paySettings.bank_name           && <BankRow label="Bank"         value={paySettings.bank_name}/>}
-                    </div>
-                  </div>
-                )}
-
-                {/* Fallback */}
-                {!paySettings.upi_id && !paySettings.bank_account_number && (
-                  <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-xl border border-amber-200 text-amber-800 text-sm">
-                    <AlertCircle size={17} className="shrink-0 mt-0.5"/>
-                    Payment details are managed by your administrator. Please contact the office for UPI or bank details.
-                  </div>
-                )}
-
-                {/* Methods */}
+          <div className="card-body space-y-5">
+            {canResubmit && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 text-red-800">
+                <XCircle size={17} className="shrink-0 mt-0.5"/>
                 <div>
-                  <label className="label">Payment Method *</label>
-                  <select className="input" value={form.payment_method_id}
-                    onChange={e => setForm(f => ({ ...f, payment_method_id: e.target.value }))}>
-                    <option value="">— Select payment method —</option>
-                    {methods.map(m => <option key={m.id} value={m.id}>{m.name}{m.type ? ` (${m.type.replace('_', ' ')})` : ''}</option>)}
-                  </select>
-                </div>
-
-                {/* Custom instructions */}
-                {paySettings.payment_instructions && (
-                  <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                    <Info size={16} className="text-gray-500 shrink-0 mt-0.5"/>
-                    <p className="text-sm text-gray-700">{paySettings.payment_instructions}</p>
-                  </div>
-                )}
-
-                <div className="flex gap-3">
-                  <button onClick={() => setStep(1)} className="btn-outline flex-1">← Back</button>
-                  <button
-                    disabled={!form.payment_method_id}
-                    onClick={() => setStep(3)}
-                    className="btn-primary flex-1 disabled:opacity-40">
-                    Continue to Submit →
-                  </button>
+                  <p className="font-semibold text-sm">Previous Renewal Request Was Rejected</p>
+                  {latestRenewal?.notes && <p className="text-xs mt-0.5">Reason: {latestRenewal.notes}</p>}
+                  <p className="text-xs mt-1">Please make payment again, upload a fresh receipt, and resubmit your renewal request.</p>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* ── STEP 3 (or Resubmit): Submit Payment ── */}
-          {(step === 3 || canResubmit) && (
-            <div className="card">
-              <div className="card-header">
-                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                  {canResubmit ? <><RotateCcw size={17}/> Resubmit Payment</> : <><Upload size={17}/> Submit Payment Proof</>}
-                </h3>
-              </div>
-              <div className="card-body space-y-5">
-                {canResubmit && (
-                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 text-red-800">
-                    <XCircle size={17} className="shrink-0 mt-0.5"/>
+            <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
+              <div className="space-y-4">
+                <div className="rounded-xl border border-primary-200 bg-primary-50 p-5">
+                  <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="font-semibold text-sm">Previous Payment Rejected</p>
-                      {latestRenewal?.notes && <p className="text-xs mt-0.5">Reason: {latestRenewal.notes}</p>}
-                      <p className="text-xs mt-1">Please complete payment again and resubmit with a new screenshot.</p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Selected Renewal Plan</p>
+                      <p className="mt-2 text-xl font-bold text-gray-900 leading-tight">{canResubmit ? (latestRenewal?.package_name || currentPlan?.name || '—') : (currentPlan?.name || '—')}</p>
+                      <p className="mt-1 text-sm text-primary-800/80">{durationLabel(canResubmit ? currentPlan?.duration_months : currentPlan?.duration_months)}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-2xl font-black text-primary-700">{canResubmit ? fmtAmount(latestRenewal?.amount, latestRenewal?.currency) : fmtAmount(currentPlan?.price, currentPlan?.currency)}</p>
+                      <p className="text-xs text-primary-700/70 mt-1">Renewal fee</p>
                     </div>
                   </div>
-                )}
-
-                {/* Amount — read only */}
-                <div>
-                  <label className="label">Amount</label>
-                  <div className="input bg-gray-50 text-gray-700 font-semibold cursor-default">
-                    {canResubmit
-                      ? `${fmtAmount(latestRenewal?.amount, latestRenewal?.currency)} — ${latestRenewal?.package_name || ''}`
-                      : `${fmtAmount(currentPlan?.price, currentPlan?.currency)} — ${currentPlan?.name || ''}`
-                    }
+                  <div className="mt-4 grid grid-cols-2 gap-3 border-t border-primary-200 pt-4 text-sm">
+                    <div>
+                      <p className="text-xs text-primary-700/70">Current Expiry</p>
+                      <p className="mt-1 font-semibold text-gray-900">{member?.expiry_date ? fmtDate(member.expiry_date) : '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-primary-700/70">Projected Renewal End</p>
+                      <p className="mt-1 font-semibold text-primary-700">{currentPlan?.duration_months >= 999 ? 'Lifetime' : projectedExpiry ? fmtDate(projectedExpiry) : '—'}</p>
+                    </div>
                   </div>
                 </div>
 
-                {/* Payment method for resubmit */}
-                {canResubmit && (
+                <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-4">
                   <div>
-                    <label className="label">Payment Method</label>
+                    <label className="label">Payment Method *</label>
                     <select className="input" value={form.payment_method_id}
                       onChange={e => setForm(f => ({ ...f, payment_method_id: e.target.value }))}>
-                      <option value="">— Same as before / Select —</option>
+                      <option value="">— Select payment method —</option>
                       {methods.map(m => <option key={m.id} value={m.id}>{m.name}{m.type ? ` (${m.type.replace('_', ' ')})` : ''}</option>)}
                     </select>
                   </div>
-                )}
 
-                {/* Transaction ID */}
-                <div>
-                  <label className="label">Transaction ID / Reference No. *</label>
-                  <input className="input" placeholder="UPI reference, NEFT/RTGS UTR, or receipt number"
-                    value={form.transaction_id}
-                    onChange={e => setForm(f => ({ ...f, transaction_id: e.target.value }))}/>
-                  <p className="text-xs text-gray-400 mt-1">Enter the exact transaction reference number from your payment app or bank.</p>
+                  <div>
+                    <label className="label">Transaction ID / Reference No. *</label>
+                    <input className="input" placeholder="UPI reference, NEFT/RTGS UTR, or receipt number"
+                      value={form.transaction_id}
+                      onChange={e => setForm(f => ({ ...f, transaction_id: e.target.value }))}/>
+                    <p className="text-xs text-gray-400 mt-1">Enter the exact payment reference shown in your banking or payment app.</p>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-start gap-2.5 text-blue-800">
+                    <Info size={15} className="shrink-0 mt-0.5"/>
+                    <p className="text-xs">Your renewal request will be sent to the admin review queue immediately after you upload payment proof and submit.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="rounded-xl border border-gray-200 bg-gray-50/70 p-4 space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">Payment Instructions</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Complete the payment using the selected method, then upload the receipt below.</p>
+                    </div>
+                    {selectedMethod?.type && (
+                      <span className="inline-flex items-center rounded-full bg-white border border-gray-200 px-2.5 py-1 text-[11px] font-semibold capitalize text-gray-600">
+                        {selectedMethod.type.replace('_', ' ')}
+                      </span>
+                    )}
+                  </div>
+
+                  {selectedMethod ? (
+                    <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-start">
+                      <div className="space-y-3">
+                        {selectedUpiId && (
+                          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 flex items-start gap-3">
+                            <Wallet size={18} className="text-blue-600 shrink-0 mt-0.5"/>
+                            <div>
+                              <p className="text-sm font-semibold text-blue-900">UPI ID</p>
+                              <p className="text-sm font-mono font-semibold text-blue-800 mt-1 select-all">{selectedUpiId}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {(bankDetails.accountNumber || bankDetails.bankName || bankDetails.accountName) && (
+                          <div className="rounded-xl border border-green-200 bg-green-50 p-4 flex items-start gap-3">
+                            <Banknote size={18} className="text-green-600 shrink-0 mt-0.5"/>
+                            <div className="space-y-1.5 w-full">
+                              <p className="text-sm font-semibold text-green-900">Bank Transfer Details</p>
+                              {bankDetails.accountName && <BankRow label="Account Name" value={bankDetails.accountName}/>} 
+                              {bankDetails.accountNumber && <BankRow label="Account No." value={bankDetails.accountNumber} mono/>}
+                              {bankDetails.ifscCode && <BankRow label="IFSC Code" value={bankDetails.ifscCode} mono/>}
+                              {bankDetails.bankName && <BankRow label="Bank" value={bankDetails.bankName}/>} 
+                              {bankDetails.swiftCode && <BankRow label="SWIFT" value={bankDetails.swiftCode} mono/>}
+                              {bankDetails.iban && <BankRow label="IBAN" value={bankDetails.iban} mono/>}
+                              {bankDetails.bankAddress && <BankRow label="Address" value={bankDetails.bankAddress}/>} 
+                            </div>
+                          </div>
+                        )}
+
+                        {selectedInstruction && (
+                          <div className="rounded-xl border border-gray-200 bg-white p-4 flex items-start gap-3">
+                            <Info size={16} className="text-gray-500 shrink-0 mt-0.5"/>
+                            <p className="text-sm text-gray-700">{selectedInstruction}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {selectedQr && (
+                        <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm md:w-[170px]">
+                          <img src={selectedQr} alt="Payment QR" className="w-full aspect-square object-contain rounded-lg bg-white border border-gray-200"/>
+                          <p className="mt-2 text-center text-xs text-gray-500">Scan to pay</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 flex items-start gap-3 text-amber-800 text-sm">
+                      <AlertCircle size={17} className="shrink-0 mt-0.5"/>
+                      Select a payment method to view UPI, QR, or bank transfer instructions.
+                    </div>
+                  )}
                 </div>
 
-                {/* Screenshot upload */}
-                <div>
-                  <label className="label">Payment Screenshot *</label>
+                <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">Upload Payment Proof</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Upload a payment screenshot or PDF receipt. You can replace the file before submitting.</p>
+                    </div>
+                    {form.screenshot && (
+                      <button type="button" onClick={clearFile} className="text-xs font-semibold text-red-600 hover:text-red-700 transition">
+                        Remove
+                      </button>
+                    )}
+                  </div>
+
                   <div
+                    onDragOver={event => { event.preventDefault(); setDragActive(true) }}
+                    onDragLeave={() => setDragActive(false)}
+                    onDrop={onDrop}
                     onClick={() => fileRef.current?.click()}
-                    className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition
-                      ${form.screenshot ? 'border-primary-400 bg-primary-50' : 'border-gray-300 hover:border-primary-400 hover:bg-gray-50'}`}>
-                    <input ref={fileRef} type="file" accept="image/*,.pdf" className="hidden"
-                      onChange={e => setForm(f => ({ ...f, screenshot: e.target.files?.[0] || null }))}/>
+                    className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition ${dragActive ? 'border-primary-400 bg-primary-50' : form.screenshot ? 'border-primary-300 bg-primary-50/60' : 'border-gray-300 hover:border-primary-400 hover:bg-gray-50'}`}
+                  >
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept="image/*,.pdf"
+                      className="hidden"
+                      onChange={e => handleFileSelect(e.target.files?.[0] || null)}
+                    />
                     {form.screenshot ? (
-                      <div className="flex flex-col items-center gap-2">
-                        {form.screenshot.type?.startsWith('image/') && (
-                          <img src={URL.createObjectURL(form.screenshot)} alt="preview"
-                            className="w-32 h-32 object-contain rounded-lg border border-gray-200"/>
+                      <div className="flex flex-col items-center gap-3">
+                        {previewUrl ? (
+                          <img src={previewUrl} alt="Receipt preview" className="w-28 h-28 object-cover rounded-lg border border-gray-200 bg-white"/>
+                        ) : (
+                          <div className="w-28 h-28 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-400">
+                            <FileText size={28}/>
+                          </div>
                         )}
-                        <p className="text-sm font-semibold text-primary-700">{form.screenshot.name}</p>
-                        <p className="text-xs text-gray-400">({(form.screenshot.size / 1024).toFixed(0)} KB) · Click to change</p>
+                        <div>
+                          <p className="text-sm font-semibold text-primary-700 break-all">{form.screenshot.name}</p>
+                          <p className="text-xs text-gray-400 mt-1">{(form.screenshot.size / 1024 / 1024).toFixed(2)} MB · Click or drop to replace</p>
+                        </div>
                       </div>
                     ) : (
                       <div className="flex flex-col items-center gap-2 text-gray-400">
                         <Upload size={28}/>
-                        <p className="text-sm font-medium">Click to upload screenshot</p>
-                        <p className="text-xs">JPG, PNG or PDF · Max 10MB</p>
+                        <p className="text-sm font-medium text-gray-600">Drag & drop receipt here, or click to upload</p>
+                        <p className="text-xs">Supports JPG, PNG, WEBP and PDF</p>
                       </div>
                     )}
                   </div>
-                </div>
 
-                <div className="flex gap-3">
-                  {!canResubmit && (
-                    <button onClick={() => setStep(2)} className="btn-outline flex-1">← Back</button>
-                  )}
                   <button
                     onClick={canResubmit ? handleResubmit : handleSubmit}
-                    disabled={submitting}
-                    className="btn-primary flex-1 flex items-center justify-center gap-2">
+                    disabled={submitting || !form.payment_method_id}
+                    className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
                     {submitting
                       ? <><Loader2 size={15} className="animate-spin"/>Submitting…</>
-                      : canResubmit ? 'Resubmit Payment' : 'Submit Payment'}
+                      : canResubmit ? 'Resubmit Renewal Request' : 'Submit Renewal Request'}
                   </button>
+                  <p className="text-xs text-gray-400 text-center">Your renewal becomes active only after the admin verifies your payment proof.</p>
                 </div>
-                <p className="text-xs text-gray-400 text-center">Your membership will be extended only after payment verification by our team.</p>
               </div>
             </div>
-          )}
-        </>
+          </div>
+        </div>
       )}
 
       {/* ── SECTION 5: Renewal Payment History ── */}
