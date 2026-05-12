@@ -4,6 +4,7 @@ const { pool } = require('../config/database');
 // ── Dynamic SMTP settings (DB-first, env fallback, 60s cache) ────────────────
 let _smtpCache = null;
 let _cacheTs   = 0;
+let _smtpVerifyTs = 0;
 const DEFAULT_ORG = {
   name: 'FORTI',
   shortName: 'FORTI',
@@ -51,8 +52,112 @@ async function getSmtpConfig() {
 
 function clearSmtpCache() {
   _smtpCache = null;
+  _smtpVerifyTs = 0;
   _orgCache = { ...DEFAULT_ORG };
   _orgTs = 0;
+}
+
+function makeEmailServiceError(message, { code = 'EMAIL_SERVICE_ERROR', publicMessage = null, statusCode = 503, cause = null } = {}) {
+  const err = new Error(message);
+  err.code = code;
+  err.publicMessage = publicMessage || message;
+  err.statusCode = statusCode;
+  if (cause) err.cause = cause;
+  return err;
+}
+
+function validateSmtpConfig(cfg) {
+  if (!cfg.host) {
+    throw makeEmailServiceError('SMTP host is not configured', {
+      code: 'SMTP_HOST_MISSING',
+      publicMessage: 'Email service unavailable. SMTP host is not configured.',
+    });
+  }
+
+  if (!cfg.port || Number.isNaN(Number(cfg.port))) {
+    throw makeEmailServiceError('SMTP port is not configured correctly', {
+      code: 'SMTP_PORT_INVALID',
+      publicMessage: 'Email service unavailable. SMTP port is invalid.',
+    });
+  }
+
+  if (!cfg.user || !cfg.pass) {
+    throw makeEmailServiceError('SMTP credentials not configured (MAIL_USER / MAIL_PASS missing)', {
+      code: 'SMTP_CREDENTIALS_MISSING',
+      publicMessage: 'Email service unavailable. SMTP credentials are missing.',
+    });
+  }
+
+  if (!cfg.from) {
+    throw makeEmailServiceError('MAIL_FROM is not configured', {
+      code: 'SMTP_FROM_MISSING',
+      publicMessage: 'Email service unavailable. Sender address is not configured.',
+    });
+  }
+}
+
+function buildTransportOptions(cfg) {
+  return {
+    host: cfg.host,
+    port: cfg.port,
+    secure: cfg.secure,
+    auth: { user: cfg.user, pass: cfg.pass },
+    ...(cfg.port === 587 ? { requireTLS: true } : {}),
+    tls: { rejectUnauthorized: false },
+    connectionTimeout: 15_000,
+    greetingTimeout: 15_000,
+    socketTimeout: 20_000,
+  };
+}
+
+function classifyEmailError(err) {
+  const message = String(err?.message || '').trim();
+  const code = String(err?.code || '').trim().toUpperCase();
+  const responseCode = Number(err?.responseCode || 0);
+
+  if (err?.publicMessage && err?.statusCode) return err;
+
+  if (code === 'EAUTH' || responseCode === 535 || /invalid login|authentication|auth/i.test(message)) {
+    return makeEmailServiceError(message || 'SMTP authentication failed', {
+      code: 'SMTP_AUTH_FAILED',
+      publicMessage: 'Email service unavailable. SMTP authentication failed.',
+      statusCode: 502,
+      cause: err,
+    });
+  }
+
+  if (['ECONNECTION', 'ETIMEDOUT', 'ESOCKET', 'ECONNREFUSED', 'ENOTFOUND', 'EHOSTUNREACH'].includes(code) || /timeout|connect|dns|refused|socket/i.test(message)) {
+    return makeEmailServiceError(message || 'Unable to connect to SMTP server', {
+      code: 'SMTP_CONNECTION_FAILED',
+      publicMessage: 'Email service unavailable. Unable to connect to the email server.',
+      statusCode: 502,
+      cause: err,
+    });
+  }
+
+  return makeEmailServiceError(message || 'Failed to send email', {
+    code: 'EMAIL_DELIVERY_FAILED',
+    publicMessage: 'Failed to send reset email.',
+    statusCode: 502,
+    cause: err,
+  });
+}
+
+async function verifyEmailService() {
+  const cfg = await getSmtpConfig();
+  validateSmtpConfig(cfg);
+
+  const now = Date.now();
+  if (_smtpVerifyTs && now - _smtpVerifyTs < 60_000) return cfg;
+
+  const transporter = nodemailer.createTransport(buildTransportOptions(cfg));
+  try {
+    await transporter.verify();
+    _smtpVerifyTs = now;
+    return cfg;
+  } catch (err) {
+    throw classifyEmailError(err);
+  }
 }
 
 function pickSetting(map, keys) {
@@ -176,16 +281,24 @@ async function logEmail(to, subject, template, refId, status, errorMsg = null) {
 // ── Core send helper ───────────────────────────────────────────────────────
 async function sendMail({ to, subject, html, template = null, refId = null }) {
   const cfg = await getSmtpConfig();
-  const transporter = nodemailer.createTransport({
-    host: cfg.host, port: cfg.port, secure: cfg.secure,
-    auth: { user: cfg.user, pass: cfg.pass },
-  });
   try {
-    await transporter.sendMail({ from: cfg.from, to, subject, html });
-    await logEmail(to, subject, template, refId, 'sent');
+    validateSmtpConfig(cfg);
   } catch (err) {
     console.error('[EMAIL ERROR]', err.message);
     await logEmail(to, subject, template, refId, 'failed', err.message);
+    throw err;
+  }
+
+  const transporter = nodemailer.createTransport(buildTransportOptions(cfg));
+  try {
+    const info = await transporter.sendMail({ from: cfg.from, to, subject, html });
+    console.log(`[EMAIL SENT] to=${to} messageId=${info.messageId}`);
+    await logEmail(to, subject, template, refId, 'sent');
+  } catch (err) {
+    const mapped = classifyEmailError(err);
+    console.error('[EMAIL ERROR]', mapped.message);
+    await logEmail(to, subject, template, refId, 'failed', mapped.message);
+    throw mapped;
   }
 }
 
@@ -221,11 +334,11 @@ async function baseTemplate(content) {
     .otp-box{background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:2px solid #7c3aed;border-radius:12px;text-align:center;padding:24px 20px;margin:24px 0}
     .otp-box .otp{font-size:40px;font-weight:800;color:#5b21b6;letter-spacing:12px;font-family:monospace}
     .otp-box .otp-hint{color:#7c3aed;font-size:12px;margin:10px 0 0;font-weight:500}
-    .info-box{background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:18px 20px;margin:18px 0}
-    .info-box .info-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f3f4f6;font-size:13px}
-    .info-box .info-row:last-child{border-bottom:none;padding-bottom:0}
-    .info-box .info-label{color:#6b7280;font-weight:500}
-    .info-box .info-value{color:#111827;font-weight:600;text-align:right;max-width:65%}
+    .info-box{background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:18px 20px;margin:18px 0;display:table;width:100%;border-collapse:collapse;box-sizing:border-box}
+    .info-box .info-row{display:table-row;font-size:13px}
+    .info-box .info-row:last-child .info-label,.info-box .info-row:last-child .info-value{border-bottom:none;padding-bottom:0}
+    .info-box .info-label{display:table-cell;color:#6b7280;font-weight:500;padding:6px 16px 6px 0;border-bottom:1px solid #f3f4f6;white-space:nowrap;width:38%;vertical-align:middle}
+    .info-box .info-value{display:table-cell;color:#111827;font-weight:600;padding:6px 0;border-bottom:1px solid #f3f4f6;vertical-align:middle}
     .badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
     .badge-review{background:#fef3c7;color:#92400e}
     .badge-active{background:#d1fae5;color:#065f46}
@@ -553,6 +666,8 @@ module.exports = {
   sendMail,
   baseTemplate,
   getSmtpConfig,
+  verifyEmailService,
+  classifyEmailError,
   clearSmtpCache,
   clearOrgCache,
 };

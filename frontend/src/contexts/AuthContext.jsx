@@ -20,11 +20,11 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const stored = localStorage.getItem('forti_token')
+    const stored = sessionStorage.getItem('forti_token')
 
     // If no token or it is already expired → skip the API call entirely
     if (!stored || isTokenExpired(stored)) {
-      localStorage.removeItem('forti_token')
+      sessionStorage.removeItem('forti_token')
       setLoading(false)
       return
     }
@@ -39,7 +39,7 @@ export function AuthProvider({ children }) {
       })
       .catch(() => {
         // Server rejected token — clear everything
-        localStorage.removeItem('forti_token')
+        sessionStorage.removeItem('forti_token')
         setToken(null)
         setUser(null)
         setLoading(false)
@@ -49,7 +49,7 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     const res = await api.post('/auth/login', { email, password })
     const { token: t, user: u } = res.data.data
-    localStorage.setItem('forti_token', t)
+    sessionStorage.setItem('forti_token', t)
     // flushSync forces React to apply these state updates synchronously
     // BEFORE navigate() is called, so PrivateRoute sees token immediately
     flushSync(() => {
@@ -61,7 +61,7 @@ export function AuthProvider({ children }) {
   }
 
   const logout = () => {
-    localStorage.removeItem('forti_token')
+    sessionStorage.removeItem('forti_token')
     setToken(null)
     setUser(null)
   }

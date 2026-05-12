@@ -8,7 +8,7 @@ const api = axios.create({
 api.interceptors.request.use(config => {
   // Never attach a token to the login request itself
   if (config.url?.includes('/auth/login')) return config
-  const token = localStorage.getItem('forti_token')
+  const token = sessionStorage.getItem('forti_token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
@@ -21,7 +21,7 @@ api.interceptors.response.use(
       // Don't redirect on the login or me endpoints – let the caller handle it
       const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/me')
       if (!isAuthEndpoint) {
-        localStorage.removeItem('forti_token')
+        sessionStorage.removeItem('forti_token')
         window.location.href = '/login'
       }
     }

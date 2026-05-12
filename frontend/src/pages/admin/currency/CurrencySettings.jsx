@@ -5,6 +5,7 @@ import {
   CheckCircle, Globe2, Star, ToggleLeft, ToggleRight, Info,
 } from 'lucide-react'
 import api from '../../../api/client'
+import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from 'react-hot-toast'
 
 const EMPTY = {
@@ -38,8 +39,9 @@ function CurrencyModal({ item, countries, onClose, onSave, saving }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg">
+    <AdminModalPortal>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <div className="flex items-center gap-3">
@@ -126,9 +128,10 @@ function CurrencyModal({ item, countries, onClose, onSave, saving }) {
               {isEdit ? 'Save Changes' : 'Add Currency'}
             </button>
           </div>
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
+    </AdminModalPortal>
   )
 }
 
@@ -298,8 +301,9 @@ export default function CurrencySettings() {
 
       {/* Delete confirm */}
       {deleteTarget && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center space-y-4">
+        <AdminModalPortal>
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]">
+            <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center space-y-4">
             <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mx-auto">
               <Trash2 size={24} className="text-red-500"/>
             </div>
@@ -320,8 +324,9 @@ export default function CurrencySettings() {
                 Delete
               </button>
             </div>
+            </div>
           </div>
-        </div>
+        </AdminModalPortal>
       )}
     </div>
   )

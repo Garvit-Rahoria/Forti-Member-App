@@ -22,8 +22,11 @@ router.get('/', async (req, res) => {
     where = "s.status IN ('active','approved')";
   }
 
-  // State manager: scope to their assigned state
-  if (req.user.role === 'branch_manager' && req.user.assigned_state_id) {
+  // Branch scoping: branch_manager AND office_staff see only their state
+  if (
+    (req.user.role === 'branch_manager' || req.user.role === 'office_staff') &&
+    req.user.assigned_state_id
+  ) {
     where += ' AND s.state_id=?'; params.push(req.user.assigned_state_id);
   }
 
@@ -45,7 +48,18 @@ router.get('/', async (req, res) => {
               f.name AS form_name, f.form_type,
               pp.name AS package_name,
               DATEDIFF(s.expiry_date, CURDATE()) AS days_to_expiry,
-              org.value AS organisation_name
+              COALESCE(
+                NULLIF(org.value, ''),
+                NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.data, '$.organisation_name')), ''),
+                NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.data, '$.organization_name')), ''),
+                NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.data, '$.company_name')), '')
+              ) AS organisation_name,
+              COALESCE(
+                NULLIF(org.value, ''),
+                NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.data, '$.organisation_name')), ''),
+                NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.data, '$.organization_name')), ''),
+                NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.data, '$.company_name')), '')
+              ) AS organization_name
        FROM fb_submissions s
        LEFT JOIN fb_forms f ON f.id=s.form_id
        LEFT JOIN portal_packages pp ON pp.id=s.package_id

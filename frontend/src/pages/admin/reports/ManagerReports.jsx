@@ -87,9 +87,8 @@ export default function ManagerReports() {
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-xs text-gray-400 bg-white border border-gray-200 rounded-full px-3 py-1.5">
-          <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"/>
-          Live data
+        <div className="flex items-center gap-2 text-xs text-gray-500 bg-white border border-gray-200 rounded-full px-3 py-1.5">
+          Regional overview
         </div>
       </div>
 

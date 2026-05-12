@@ -149,6 +149,11 @@ export default function Login() {
           <p className="text-center text-xs text-gray-400 mt-6">
             FORTI Membership Management System © {new Date().getFullYear()}
           </p>
+          <div className="text-center mt-3">
+            <a href="/" className="text-xs text-primary-600 hover:underline inline-flex items-center gap-1">
+              ← Back to Home
+            </a>
+          </div>
         </div>
       </div>
     </div>

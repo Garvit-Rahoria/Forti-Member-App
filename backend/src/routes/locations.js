@@ -20,12 +20,15 @@ router.get('/countries', async (req, res) => {
 // GET /api/locations/states?country_id=
 router.get('/states', async (req, res) => {
   const { country_id } = req.query;
-  if (!country_id) return fail(res, 'country_id required', 422);
   try {
-    const [rows] = await pool.query(
-      'SELECT id, name, code FROM states WHERE country_id=? ORDER BY name',
-      [country_id]
-    );
+    const [rows] = country_id
+      ? await pool.query(
+          'SELECT id, name, code FROM states WHERE country_id=? ORDER BY name',
+          [country_id]
+        )
+      : await pool.query(
+          'SELECT id, name, code FROM states ORDER BY name'
+        );
     return ok(res, rows);
   } catch (err) { return fail(res, 'Server error', 500); }
 });

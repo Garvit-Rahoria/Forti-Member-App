@@ -4,6 +4,7 @@ import api from '../../api/client'
 import FieldRenderer from './FieldRenderer'
 import toast from 'react-hot-toast'
 import { useMember } from '../../contexts/MemberContext'
+import { getMemberLandingPath } from '../../utils/memberAccess'
 
 /**
  * DynamicFormRenderer
@@ -151,9 +152,9 @@ export default function DynamicFormRenderer({ formSlug, formData: externalFormDa
 
       // Auto-login with the newly created member session
       if (member_token && member) {
-        login(member_token, member)
+        const loggedInMember = await login(member_token, member)
         onSubmitSuccess?.(uuid)
-        navigate('/member/dashboard', { replace: true })
+        navigate(getMemberLandingPath(loggedInMember || member), { replace: true })
       } else {
         setSubmitted(true)
         onSubmitSuccess?.(uuid)

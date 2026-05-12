@@ -8,31 +8,154 @@ const { upload } = require('../middleware/upload');
 
 const router = express.Router();
 
+const STATUS_PRIORITY_SQL = `CASE s.status
+  WHEN 'active' THEN 0
+  WHEN 'approved' THEN 1
+  WHEN 'payment_verified' THEN 2
+  WHEN 'payment_pending' THEN 3
+  WHEN 'payment_submitted' THEN 4
+  WHEN 'under_review' THEN 5
+  WHEN 'submitted' THEN 6
+  WHEN 'pending' THEN 7
+  WHEN 'rejected' THEN 8
+  ELSE 9
+END`;
+
+function deriveMembershipStatus(row) {
+  const applicationStatus = row?.status || row?.application_status || row?.applicationStatus || null;
+  const memberStatus = row?.member_status || row?.membership_status || row?.membershipStatus || null;
+
+  if (memberStatus && memberStatus !== 'inactive') return memberStatus;
+  if (applicationStatus === 'active') return 'active';
+  if (applicationStatus === 'submitted') return 'submitted';
+  return memberStatus || 'inactive';
+}
+
+function normalizeApplication(row) {
+  if (!row) return null;
+
+  return {
+    id: row.submission_id || row.id,
+    submission_id: row.submission_id || row.id,
+    submission_uuid: row.submission_uuid || row.submissionUuid || row.uuid || null,
+    applicationId: row.applicationId || row.membership_id || null,
+    membership_id: row.membership_id || row.applicationId || null,
+    email: row.email || row.applicant_email || null,
+    full_name: row.full_name || row.applicant_name || null,
+    status: row.status || row.application_status || null,
+    applicationStatus: row.status || row.application_status || null,
+    member_status: row.member_status || row.membership_status || 'inactive',
+    membershipStatus: deriveMembershipStatus(row),
+    payment_status: row.payment_status || 'pending',
+    submitted_at: row.submitted_at || null,
+    approved_at: row.approved_at || null,
+    payment_date: row.payment_date || null,
+    expiry_date: row.expiry_date || null,
+  };
+}
+
+async function getApplicationByEmail(email, preferredSubmissionId = 0) {
+  const [[row]] = await pool.query(
+    `SELECT s.id AS submission_id,
+            s.uuid AS submission_uuid,
+            s.membership_id,
+            s.applicant_email AS email,
+            s.applicant_name AS full_name,
+            s.status,
+            s.member_status,
+            s.submitted_at,
+            s.approved_at,
+            s.expiry_date,
+            pp.status AS payment_status,
+            pp.created_at AS payment_date
+     FROM fb_submissions s
+     LEFT JOIN portal_payments pp ON pp.submission_id = s.id
+       AND pp.id = (SELECT MAX(id) FROM portal_payments WHERE submission_id = s.id)
+     WHERE s.applicant_email = ? AND s.status != 'draft'
+     ORDER BY (s.id = ?) DESC,
+              CASE COALESCE(s.member_status, 'inactive')
+                WHEN 'active' THEN 0
+                ELSE 1
+              END ASC,
+              ${STATUS_PRIORITY_SQL} ASC,
+              s.created_at DESC,
+              s.id DESC
+     LIMIT 1`,
+    [email, Number(preferredSubmissionId) || 0]
+  );
+
+  return normalizeApplication(row);
+}
+
+async function getApplicationByIdentifier(identifier) {
+  const value = String(identifier || '').trim();
+  if (!value) return null;
+
+  const [[row]] = await pool.query(
+    `SELECT s.id AS submission_id,
+            s.uuid AS submission_uuid,
+            s.membership_id,
+            s.applicant_email AS email,
+            s.applicant_name AS full_name,
+            s.status,
+            s.member_status,
+            s.submitted_at,
+            s.approved_at,
+            s.expiry_date,
+            pp.status AS payment_status,
+            pp.created_at AS payment_date
+     FROM fb_submissions s
+     LEFT JOIN portal_payments pp ON pp.submission_id = s.id
+       AND pp.id = (SELECT MAX(id) FROM portal_payments WHERE submission_id = s.id)
+     WHERE s.status != 'draft'
+       AND (s.membership_id = ? OR s.uuid = ? OR CAST(s.id AS CHAR) = ?)
+     ORDER BY s.created_at DESC, s.id DESC
+     LIMIT 1`,
+    [value, value, value]
+  );
+
+  return normalizeApplication(row);
+}
+
 // ── PUBLIC: GET /api/member/track-status?email=... ───────────────────────
 // Returns application_status, payment_status, membership_status for tracking
 router.get('/track-status', async (req, res) => {
-  const { email } = req.query;
-  if (!email || !String(email).trim()) return fail(res, 'email is required', 422);
+  const { email, applicationId } = req.query;
+  if (!email && !applicationId) return fail(res, 'email or applicationId is required', 422);
   try {
-    const [[sub]] = await pool.query(
-      `SELECT s.status AS application_status,
-              COALESCE(pp.status, 'pending') AS payment_status,
-              COALESCE(s.member_status, 'inactive') AS membership_status
-       FROM fb_submissions s
-       LEFT JOIN portal_payments pp ON pp.submission_id = s.id
-         AND pp.id = (SELECT MAX(id) FROM portal_payments WHERE submission_id = s.id)
-       WHERE s.applicant_email = ? AND s.status NOT IN ('draft')
-       ORDER BY s.created_at DESC LIMIT 1`,
-      [String(email).trim()]
-    );
-    if (!sub) return fail(res, 'Application not found', 404);
-    return ok(res, {
-      application_status: sub.application_status,
-      payment_status: sub.payment_status,
-      membership_status: sub.membership_status,
-    });
+    const application = applicationId
+      ? await getApplicationByIdentifier(applicationId)
+      : await getApplicationByEmail(String(email).trim());
+
+    if (!application) return fail(res, 'Application not found', 404);
+    return ok(res, application);
   } catch (err) {
     console.error(err);
+    return fail(res, 'Server error', 500);
+  }
+});
+
+router.get('/application/by-email', async (req, res) => {
+  const { email } = req.query;
+  if (!email || !String(email).trim()) return fail(res, 'email is required', 422);
+
+  try {
+    const application = await getApplicationByEmail(String(email).trim());
+    if (!application) return fail(res, 'Application not found', 404);
+    return ok(res, application);
+  } catch (err) {
+    console.error('[GET /api/member/application/by-email]', err);
+    return fail(res, 'Server error', 500);
+  }
+});
+
+router.get('/application/:id', async (req, res) => {
+  try {
+    const application = await getApplicationByIdentifier(req.params.id);
+    if (!application) return fail(res, 'Application not found', 404);
+    return ok(res, application);
+  } catch (err) {
+    console.error('[GET /api/member/application/:id]', err);
     return fail(res, 'Server error', 500);
   }
 });
@@ -114,6 +237,7 @@ router.get('/payment-settings', async (req, res) => {
 });
 
 // ── Member auth middleware ─────────────────────────────────────────────────
+// Accepts role = 'member' (active) OR 'applicant' (submitted, not yet activated)
 function memberAuth(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
@@ -122,7 +246,8 @@ function memberAuth(req, res, next) {
   try {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, JWT_SECRET);
-    if (decoded.role !== 'member') return fail(res, 'Access denied', 403);
+    if (decoded.role !== 'member' && decoded.role !== 'applicant')
+      return fail(res, 'Access denied', 403);
     req.member = decoded;
     next();
   } catch {
@@ -133,14 +258,13 @@ function memberAuth(req, res, next) {
 // ── GET /api/member/status — lightweight status check (auth-protected) ──────
 router.get('/status', memberAuth, async (req, res) => {
   try {
-    const [[row]] = await pool.query(
-      `SELECT s.status, s.member_status
-       FROM fb_submissions s
-       WHERE s.id = ? LIMIT 1`,
-      [req.member.submission_id]
-    );
-    if (!row) return fail(res, 'Not found', 404);
-    return ok(res, { status: row.status, member_status: row.member_status });
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+
+    const application = await getApplicationByEmail(req.member.email, req.member.submission_id);
+    if (!application) return fail(res, 'Not found', 404);
+    return ok(res, application);
   } catch (err) {
     console.error('[GET /api/member/status]', err);
     return fail(res, 'Server error', 500);
@@ -149,186 +273,351 @@ router.get('/status', memberAuth, async (req, res) => {
 
 // ── GET /api/member/me ─────────────────────────────────────────────────────
 router.get('/me', memberAuth, async (req, res) => {
-  const [rows] = await pool.query(
-    `SELECT COALESCE(ma.id, 0) AS id,
-            ma.uuid,
-            COALESCE(ma.email, s.applicant_email) AS email,
-            COALESCE(ma.full_name, s.applicant_name) AS full_name,
-            COALESCE(ma.phone, s.applicant_phone) AS phone,
-            COALESCE(ma.membership_id, s.membership_id) AS membership_id,
-            ma.last_login,
-            s.id AS submission_id, s.uuid AS sub_uuid, s.status, s.member_status,
-            s.expiry_date, s.submitted_at, s.created_at AS applied_at,
-            s.approved_at AS start_date,
-            s.data,
-            COALESCE(ma.package_id, s.package_id) AS package_id,
-            COALESCE(ma.plan_type, s.plan_type, p.plan_type) AS plan_type,
-            s.membership_type,
-            p.name AS package_name, p.price AS package_price,
-            p.plan_type AS pkg_plan_type,
-            p.duration_months, p.currency,
-            pp.status AS payment_status, pp.amount AS payment_amount,
-            pp.transaction_id, pp.created_at AS payment_date,
-            pm.name AS payment_method
-     FROM fb_submissions s
-     LEFT JOIN member_accounts ma ON ma.submission_id = s.id
-     LEFT JOIN portal_packages p ON p.id = COALESCE(ma.package_id, s.package_id)
-     LEFT JOIN portal_payments pp ON pp.submission_id = s.id
-       AND pp.id = (SELECT MAX(id) FROM portal_payments WHERE submission_id = s.id)
-     LEFT JOIN portal_payment_methods pm ON pm.id = pp.method_id
-     WHERE s.id = ? LIMIT 1`,
-    [req.member.submission_id]
-  );
-  if (!rows.length) return fail(res, 'Member not found', 404);
+  const email = req.member.email;
+  const tokenSubmissionId = req.member.submission_id;
 
-  const member = rows[0];
-  if (member.data && typeof member.data === 'string') {
-    try { member.data = JSON.parse(member.data); } catch {}
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+
+  try {
+    let [rows] = await pool.query(
+      `SELECT COALESCE(ma.id, 0) AS id,
+              ma.uuid,
+              COALESCE(ma.email, s.applicant_email) AS email,
+              COALESCE(ma.full_name, s.applicant_name) AS full_name,
+              COALESCE(ma.phone, s.applicant_phone) AS phone,
+              COALESCE(ma.membership_id, s.membership_id) AS membership_id,
+              IF(COALESCE(s.member_status,'inactive')='active','member','applicant') AS role,
+              ma.last_login,
+              s.id AS submission_id, s.uuid AS sub_uuid,
+              s.status,
+              s.status AS applicationStatus,
+              s.member_status,
+              s.expiry_date, s.submitted_at, s.created_at AS applied_at,
+              s.approved_at AS start_date,
+              s.data,
+              COALESCE(ma.package_id, s.package_id) AS package_id,
+              COALESCE(ma.plan_type, s.plan_type, p.plan_type) AS plan_type,
+              s.membership_type,
+              p.name AS package_name, p.price AS package_price,
+              p.plan_type AS pkg_plan_type,
+              p.duration_months, p.currency,
+              pp.status AS payment_status, pp.amount AS payment_amount,
+              pp.transaction_id, pp.created_at AS payment_date,
+              pm.name AS payment_method
+       FROM fb_submissions s
+       LEFT JOIN member_accounts ma ON ma.id = (
+         SELECT ma2.id FROM member_accounts ma2
+         WHERE ma2.submission_id = s.id
+         ORDER BY ma2.is_active DESC, ma2.id DESC
+         LIMIT 1
+       )
+       LEFT JOIN portal_packages p ON p.id = COALESCE(ma.package_id, s.package_id)
+       LEFT JOIN portal_payments pp ON pp.submission_id = s.id
+         AND pp.id = (SELECT MAX(id) FROM portal_payments WHERE submission_id = s.id)
+       LEFT JOIN portal_payment_methods pm ON pm.id = pp.method_id
+       WHERE s.applicant_email = ? AND s.id = ? AND s.status != 'draft'
+       LIMIT 1`,
+      [email, Number(tokenSubmissionId) || 0]
+    );
+
+    if (!rows.length) {
+      [rows] = await pool.query(
+        `SELECT COALESCE(ma.id, 0) AS id,
+                ma.uuid,
+                COALESCE(ma.email, s.applicant_email) AS email,
+                COALESCE(ma.full_name, s.applicant_name) AS full_name,
+                COALESCE(ma.phone, s.applicant_phone) AS phone,
+                COALESCE(ma.membership_id, s.membership_id) AS membership_id,
+                IF(COALESCE(s.member_status,'inactive')='active','member','applicant') AS role,
+                ma.last_login,
+                s.id AS submission_id, s.uuid AS sub_uuid,
+                s.status,
+                s.status AS applicationStatus,
+                s.member_status,
+                s.expiry_date, s.submitted_at, s.created_at AS applied_at,
+                s.approved_at AS start_date,
+                s.data,
+                COALESCE(ma.package_id, s.package_id) AS package_id,
+                COALESCE(ma.plan_type, s.plan_type, p.plan_type) AS plan_type,
+                s.membership_type,
+                p.name AS package_name, p.price AS package_price,
+                p.plan_type AS pkg_plan_type,
+                p.duration_months, p.currency,
+                pp.status AS payment_status, pp.amount AS payment_amount,
+                pp.transaction_id, pp.created_at AS payment_date,
+                pm.name AS payment_method
+         FROM fb_submissions s
+         LEFT JOIN member_accounts ma ON ma.id = (
+           SELECT ma2.id FROM member_accounts ma2
+           WHERE ma2.submission_id = s.id
+           ORDER BY ma2.is_active DESC, ma2.id DESC
+           LIMIT 1
+         )
+         LEFT JOIN portal_packages p ON p.id = COALESCE(ma.package_id, s.package_id)
+         LEFT JOIN portal_payments pp ON pp.submission_id = s.id
+           AND pp.id = (SELECT MAX(id) FROM portal_payments WHERE submission_id = s.id)
+         LEFT JOIN portal_payment_methods pm ON pm.id = pp.method_id
+         WHERE s.applicant_email = ? AND s.status != 'draft'
+         ORDER BY (s.id = ?) DESC,
+                  CASE COALESCE(s.member_status, 'inactive')
+                    WHEN 'active' THEN 0
+                    ELSE 1
+                  END ASC,
+                  ${STATUS_PRIORITY_SQL} ASC,
+                  s.created_at DESC,
+                  s.id DESC
+         LIMIT 1`,
+        [email, Number(tokenSubmissionId) || 0]
+      );
+    }
+
+    if (!rows.length) return fail(res, 'Member not found', 404);
+
+    const member = rows[0];
+    if (member.data && typeof member.data === 'string') {
+      try { member.data = JSON.parse(member.data); } catch {}
+    }
+    member.applicationId = member.membership_id || null;
+    member.membershipStatus = deriveMembershipStatus(member);
+    return ok(res, member);
+  } catch (err) {
+    console.error('[GET /api/member/me]', err);
+    return fail(res, 'Server error', 500);
   }
-  return ok(res, member);
 });
 
 // ── GET /api/member/applications ──────────────────────────────────────────
 router.get('/applications', memberAuth, async (req, res) => {
-  const [rows] = await pool.query(
-    `SELECT s.id, s.uuid, s.membership_id, s.status, s.member_status, s.expiry_date,
-            s.submitted_at, s.created_at,
-            p.name AS package_name, p.price, p.currency, p.duration_months,
-            pp.status AS payment_status, pp.amount, pp.transaction_id
-     FROM fb_submissions s
-     LEFT JOIN portal_packages p ON p.id = s.package_id
-     LEFT JOIN portal_payments pp ON pp.submission_id = s.id
-     WHERE s.applicant_email = ? AND s.status NOT IN ('draft')
-     ORDER BY s.created_at DESC`,
-    [req.member.email]
-  );
-  return ok(res, rows);
+  try {
+    const [rows] = await pool.query(
+      `SELECT s.id, s.uuid, s.membership_id, s.status, s.member_status, s.expiry_date,
+              s.submitted_at, s.created_at,
+              p.name AS package_name, p.price, p.currency, p.duration_months,
+              pp.status AS payment_status, pp.amount, pp.transaction_id
+       FROM fb_submissions s
+       LEFT JOIN portal_packages p ON p.id = s.package_id
+       LEFT JOIN portal_payments pp ON pp.submission_id = s.id
+       WHERE s.applicant_email = ? AND s.status NOT IN ('draft')
+       ORDER BY s.created_at DESC`,
+      [req.member.email]
+    );
+    return ok(res, rows);
+  } catch (err) { console.error('[GET /applications]', err); return fail(res, 'Server error', 500); }
 });
 
 // ── GET /api/member/application/:uuid ─────────────────────────────────────
 router.get('/application/:uuid', memberAuth, async (req, res) => {
-  const [rows] = await pool.query(
-    `SELECT s.*, p.name AS package_name, p.price, p.currency, p.duration_months,
-            pp.status AS payment_status, pp.amount, pp.transaction_id, pp.screenshot_path,
-            pm.name AS payment_method_name
-     FROM fb_submissions s
-     LEFT JOIN portal_packages p ON p.id = s.package_id
-     LEFT JOIN portal_payments pp ON pp.submission_id = s.id
-     LEFT JOIN portal_payment_methods pm ON pm.id = pp.method_id
-     WHERE s.uuid = ? AND s.applicant_email = ? LIMIT 1`,
-    [req.params.uuid, req.member.email]
-  );
-  if (!rows.length) return fail(res, 'Application not found', 404);
-  const row = rows[0];
-  if (row.data && typeof row.data === 'string') {
-    try { row.data = JSON.parse(row.data); } catch {}
-  }
-  return ok(res, row);
+  try {
+    const [rows] = await pool.query(
+      `SELECT s.*, p.name AS package_name, p.price, p.currency, p.duration_months,
+              pp.status AS payment_status, pp.amount, pp.transaction_id, pp.screenshot_path,
+              pm.name AS payment_method_name
+       FROM fb_submissions s
+       LEFT JOIN portal_packages p ON p.id = s.package_id
+       LEFT JOIN portal_payments pp ON pp.submission_id = s.id
+       LEFT JOIN portal_payment_methods pm ON pm.id = pp.method_id
+       WHERE s.uuid = ? AND s.applicant_email = ? LIMIT 1`,
+      [req.params.uuid, req.member.email]
+    );
+    if (!rows.length) return fail(res, 'Application not found', 404);
+    const row = rows[0];
+    if (row.data && typeof row.data === 'string') {
+      try { row.data = JSON.parse(row.data); } catch {}
+    }
+    return ok(res, row);
+  } catch (err) { console.error('[GET /application/:uuid]', err); return fail(res, 'Server error', 500); }
 });
 
 // ── GET /api/member/invoice/:submission_uuid ──────────────────────────────
 router.get('/invoice/:uuid', memberAuth, async (req, res) => {
-  const [rows] = await pool.query(
-    `SELECT i.* FROM invoices i
-     JOIN fb_submissions s ON s.id = i.submission_id
-     WHERE s.uuid = ? AND s.applicant_email = ?
-     ORDER BY i.created_at DESC LIMIT 1`,
-    [req.params.uuid, req.member.email]
-  );
-  if (!rows.length) return fail(res, 'Invoice not found', 404);
-  return ok(res, rows[0]);
+  try {
+    const [rows] = await pool.query(
+      `SELECT i.* FROM invoices i
+       JOIN fb_submissions s ON s.id = i.submission_id
+       WHERE s.uuid = ? AND s.applicant_email = ?
+       ORDER BY i.created_at DESC LIMIT 1`,
+      [req.params.uuid, req.member.email]
+    );
+    if (!rows.length) return fail(res, 'Invoice not found', 404);
+    return ok(res, rows[0]);
+  } catch (err) { console.error('[GET /invoice/:uuid]', err); return fail(res, 'Server error', 500); }
 });
+
+// ── PDF helpers ───────────────────────────────────────────────────────────
+const QRCode        = require('qrcode');
+const { htmlToPdf, buildCertificateHtml, buildIdCardHtml, buildInvoiceHtml } = require('../utils/pdfGenerator');
+
+// Fetch full member data for PDF generation
+async function getMemberDataForPdf(uuid, email) {
+  const [[row]] = await pool.query(
+    `SELECT s.id AS submission_id, s.uuid, s.membership_id,
+            s.applicant_name AS full_name, s.applicant_email AS email,
+            s.status, s.member_status, s.submitted_at, s.approved_at, s.expiry_date,
+            pp.amount, pp.currency, pp.transaction_id,
+            pp.created_at AS payment_date,
+            pm.name AS payment_method
+     FROM fb_submissions s
+     LEFT JOIN portal_payments pp ON pp.submission_id = s.id
+       AND pp.id = (SELECT MAX(id) FROM portal_payments WHERE submission_id = s.id AND status = 'verified')
+     LEFT JOIN portal_payment_methods pm ON pm.id = pp.method_id
+     WHERE s.uuid = ? AND s.applicant_email = ? AND s.status != 'draft'
+     LIMIT 1`,
+    [uuid, email]
+  );
+  return row || null;
+}
 
 // ── GET /api/member/certificate/:submission_uuid/download ─────────────────
 router.get('/certificate/:uuid/download', memberAuth, async (req, res) => {
-  const [rows] = await pool.query(
-    `SELECT c.*, s.applicant_email
-     FROM portal_certificates c
-     JOIN fb_submissions s ON s.id = c.submission_id
-     WHERE s.uuid = ? AND s.applicant_email = ? LIMIT 1`,
-    [req.params.uuid, req.member.email]
-  );
-  if (!rows.length) return fail(res, 'Certificate not found or not yet generated', 404);
+  try {
+    const member = await getMemberDataForPdf(req.params.uuid, req.member.email);
+    if (!member) return fail(res, 'Membership record not found', 404);
 
-  const cert = rows[0];
-  if (!cert.pdf_path) return fail(res, 'Certificate PDF not yet generated', 404);
+    const isActive = member.member_status === 'active' || member.status === 'active';
+    if (!isActive) return fail(res, 'Certificate available only for active members', 403);
 
-  const path = require('path');
-  const fs = require('fs');
-  const filePath = path.join(__dirname, '../../storage', cert.pdf_path.replace(/^\/?(storage\/)?/, ''));
-  if (!fs.existsSync(filePath)) return fail(res, 'Certificate file not found', 404);
+    const certNo    = member.membership_id || `FORTI-${member.submission_id}`;
+    const issuedOn  = member.approved_at
+      ? new Date(member.approved_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })
+      : new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+    const validUpto = member.expiry_date
+      ? new Date(member.expiry_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })
+      : 'Lifetime';
 
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="FORTI_Certificate_${cert.certificate_number || req.params.uuid}.pdf"`);
-  fs.createReadStream(filePath).pipe(res);
+    const html = buildCertificateHtml({
+      fullName: member.full_name || 'Member',
+      certNo, issuedOn, validUpto,
+      email: member.email,
+    });
+
+    const pdfBuffer = await htmlToPdf(html, {
+      format: 'A4',
+      printBackground: true,
+    });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="FORTI_Certificate_${certNo}.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.end(pdfBuffer);
+  } catch (err) {
+    console.error('[GET /certificate/download]', err);
+    if (!res.headersSent) return fail(res, 'Could not generate certificate. Please try again.', 500);
+  }
 });
 
 // ── GET /api/member/idcard/:submission_uuid/download ──────────────────────
 router.get('/idcard/:uuid/download', memberAuth, async (req, res) => {
-  const [rows] = await pool.query(
-    `SELECT c.*, s.applicant_email
-     FROM portal_certificates c
-     JOIN fb_submissions s ON s.id = c.submission_id
-     WHERE s.uuid = ? AND s.applicant_email = ? LIMIT 1`,
-    [req.params.uuid, req.member.email]
-  );
-  if (!rows.length) return fail(res, 'ID Card not found or not yet generated', 404);
+  try {
+    const member = await getMemberDataForPdf(req.params.uuid, req.member.email);
+    if (!member) return fail(res, 'Membership record not found', 404);
 
-  const cert = rows[0];
-  const idCardPath = cert.id_card_path || cert.pdf_path;
-  if (!idCardPath) return fail(res, 'ID Card not yet generated', 404);
+    const isActive = member.member_status === 'active' || member.status === 'active';
+    if (!isActive) return fail(res, 'ID Card available only for active members', 403);
 
-  const path = require('path');
-  const fs = require('fs');
-  const filePath = path.join(__dirname, '../../storage', idCardPath.replace(/^\/?(storage\/)?/, ''));
-  if (!fs.existsSync(filePath)) return fail(res, 'ID Card file not found', 404);
+    const certNo    = member.membership_id || `FORTI-${member.submission_id}`;
+    const validUpto = member.expiry_date
+      ? new Date(member.expiry_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })
+      : 'Lifetime';
 
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="FORTI_IDCard_${cert.certificate_number || req.params.uuid}.pdf"`);
-  fs.createReadStream(filePath).pipe(res);
+    const qrData    = `FORTI-MEMBER:${certNo}:${member.email}`;
+    const qrDataUrl = await QRCode.toDataURL(qrData, {
+      width: 160, margin: 1,
+      color: { dark: '#5A2D95', light: '#FFFFFF' },
+    });
+
+    const html = buildIdCardHtml({
+      fullName:   member.full_name || 'Member',
+      certNo, validUpto,
+      email:      member.email,
+      qrDataUrl,
+    });
+
+    const pdfBuffer = await htmlToPdf(html, {
+      format: 'A4',
+      printBackground: true,
+    });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="FORTI_IDCard_${certNo}.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.end(pdfBuffer);
+  } catch (err) {
+    console.error('[GET /idcard/download]', err);
+    if (!res.headersSent) return fail(res, 'Could not generate ID card. Please try again.', 500);
+  }
 });
 
 // ── GET /api/member/invoice/:submission_uuid/download ─────────────────────
 router.get('/invoice/:uuid/download', memberAuth, async (req, res) => {
-  const [rows] = await pool.query(
-    `SELECT i.*, s.applicant_email
-     FROM invoices i
-     JOIN fb_submissions s ON s.id = i.submission_id
-     WHERE s.uuid = ? AND s.applicant_email = ?
-     ORDER BY i.created_at DESC LIMIT 1`,
-    [req.params.uuid, req.member.email]
-  );
-  if (!rows.length) return fail(res, 'Invoice not found', 404);
+  try {
+    const [invRows] = await pool.query(
+      `SELECT i.*, s.applicant_email, s.uuid AS sub_uuid
+       FROM invoices i
+       JOIN fb_submissions s ON s.id = i.submission_id
+       WHERE s.uuid = ? AND s.applicant_email = ?
+       ORDER BY i.created_at DESC LIMIT 1`,
+      [req.params.uuid, req.member.email]
+    );
 
-  const invoice = rows[0];
-  if (!invoice.pdf_path) return fail(res, 'Invoice PDF not yet generated', 404);
+    const member = await getMemberDataForPdf(req.params.uuid, req.member.email);
+    if (!invRows.length && !member) return fail(res, 'Invoice not found', 404);
 
-  const path = require('path');
-  const fs = require('fs');
-  const filePath = path.join(__dirname, '../../storage', invoice.pdf_path.replace(/^\/?(storage\/)?/, ''));
-  if (!fs.existsSync(filePath)) return fail(res, 'Invoice file not found', 404);
+    const inv         = invRows[0] || {};
+    const memberName  = inv.member_name   || member?.full_name     || 'Member';
+    const memberEmail = inv.member_email  || member?.email         || req.member.email;
+    const memberId    = inv.member_id_str || member?.membership_id || `FORTI-${member?.submission_id || 0}`;
+    const invoiceNum  = inv.invoice_number || `INV-${Date.now()}`;
+    const packageName = inv.package_name   || 'FORTI Membership';
+    const amount      = parseFloat(inv.amount      || member?.amount || 0);
+    const taxAmount   = parseFloat(inv.tax_amount  || 0);
+    const totalAmount = parseFloat(inv.total_amount || amount);
+    const currency    = inv.currency || member?.currency || 'INR';
+    const issuedAt    = inv.issued_at || member?.payment_date || new Date();
+    const txnId       = member?.transaction_id || String(inv.payment_id || '') || '—';
+    const dateStr     = new Date(issuedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
 
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="FORTI_Invoice_${invoice.invoice_number}.pdf"`);
-  fs.createReadStream(filePath).pipe(res);
+    const html = buildInvoiceHtml({
+      memberName, memberEmail, memberId,
+      invoiceNum, packageName,
+      amount, taxAmount, totalAmount,
+      currency, dateStr, txnId,
+    });
+
+    const pdfBuffer = await htmlToPdf(html, {
+      format: 'A4',
+      printBackground: true,
+    });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="FORTI_Invoice_${invoiceNum}.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.end(pdfBuffer);
+  } catch (err) {
+    console.error('[GET /invoice/download]', err);
+    if (!res.headersSent) return fail(res, 'Could not generate invoice. Please try again.', 500);
+  }
 });
 
 // ── GET /api/member/payment-history ───────────────────────────────────────
 router.get('/payment-history', memberAuth, async (req, res) => {
-  const [rows] = await pool.query(
-    `SELECT pp.id, pp.uuid, pp.transaction_id, pp.amount, pp.status,
-            pp.created_at AS payment_date,
-            pp.currency,
-            pm.name AS method_name,
-            s.membership_id, s.uuid AS submission_uuid
-     FROM portal_payments pp
-     JOIN fb_submissions s ON s.id = pp.submission_id
-     LEFT JOIN portal_payment_methods pm ON pm.id = pp.method_id
-     WHERE s.id = ?
-     ORDER BY pp.created_at DESC`,
-    [req.member.submission_id]
-  );
-  return ok(res, rows);
+  try {
+    const [rows] = await pool.query(
+      `SELECT pp.id, pp.uuid, pp.transaction_id, pp.amount, pp.status,
+              pp.created_at AS payment_date,
+              pp.currency,
+              pm.name AS method_name,
+              s.membership_id, s.uuid AS submission_uuid
+       FROM portal_payments pp
+       JOIN fb_submissions s ON s.id = pp.submission_id
+       LEFT JOIN portal_payment_methods pm ON pm.id = pp.method_id
+       WHERE s.applicant_email = ?
+       ORDER BY pp.created_at DESC`,
+      [req.member.email]
+    );
+    return ok(res, rows);
+  } catch (err) { console.error('[GET /payment-history]', err); return fail(res, 'Server error', 500); }
 });
 
 // ── GET /api/member/renewals ───────────────────────────────────────────────
@@ -530,25 +819,9 @@ router.get('/track', async (req, res) => {
   const { membership_id } = req.query;
   if (!membership_id || !String(membership_id).trim()) return fail(res, 'membership_id is required', 422);
   try {
-    const [[sub]] = await pool.query(
-      `SELECT s.membership_id, s.status, s.member_status, s.submitted_at, s.approved_at,
-              pp.status AS payment_status, pp.created_at AS payment_date
-       FROM fb_submissions s
-       LEFT JOIN portal_payments pp ON pp.submission_id = s.id
-         AND pp.id = (SELECT MAX(id) FROM portal_payments WHERE submission_id = s.id)
-       WHERE s.membership_id = ? LIMIT 1`,
-      [String(membership_id).trim()]
-    );
-    if (!sub) return fail(res, 'Application not found', 404);
-    return ok(res, {
-      membership_id: sub.membership_id,
-      status:         sub.status,
-      member_status:  sub.member_status,
-      submitted_at:   sub.submitted_at,
-      approved_at:    sub.approved_at,
-      payment_status: sub.payment_status,
-      payment_date:   sub.payment_date,
-    });
+    const application = await getApplicationByIdentifier(membership_id);
+    if (!application) return fail(res, 'Application not found', 404);
+    return ok(res, application);
   } catch (err) {
     console.error(err);
     return fail(res, 'Server error', 500);

@@ -117,25 +117,13 @@ router.post('/:uuid/submit', async (req, res) => {
       console.error('[submit: member_accounts upsert]', e.message);
     }
 
-    // Generate member JWT so frontend can auto-login and show blocked dashboard
-    let memberToken = null;
-    if (memberId) {
-      try {
-        const jwt = require('jsonwebtoken');
-        memberToken = jwt.sign(
-          { id: memberId, email: sub.applicant_email, submission_id: sub.id, role: 'member' },
-          process.env.JWT_SECRET,
-          { expiresIn: '7d' }
-        );
-      } catch (e) {
-        console.error('[submit: jwt sign]', e.message);
-      }
-    }
-
     return ok(res, {
       submission_uuid: sub.uuid,
-      member_token: memberToken,
-      member: memberToken ? {
+      email: sub.applicant_email,
+      applicationId: sub.membership_id || null,
+      membership_id: sub.membership_id || null,
+      membershipStatus: 'submitted',
+      member: memberId ? {
         id: memberId,
         uuid: memberUuid,
         email: sub.applicant_email,
@@ -221,8 +209,11 @@ router.get('/', async (req, res) => {
   let where = '1=1';
   const params = [];
 
-  // State manager: scope to their assigned state
-  if (req.user.role === 'branch_manager' && req.user.assigned_state_id) {
+  // Branch-level scoping: branch_manager AND office_staff see only their state
+  if (
+    (req.user.role === 'branch_manager' || req.user.role === 'office_staff') &&
+    req.user.assigned_state_id
+  ) {
     where += ' AND s.state_id=?'; params.push(req.user.assigned_state_id);
   }
 
@@ -584,6 +575,34 @@ router.patch('/:id/status', async (req, res) => {
         `STATUS_CHANGE_${status.toUpperCase()}`,
         'members', String(req.params.id), req.ip
       );
+    }
+
+    // ── Sync portal_payments when payment is verified from application view ──
+    if (status === 'payment_verified') {
+      try {
+        await pool.query(
+          `UPDATE portal_payments SET status='verified', approved_by=?, approved_at=NOW()
+           WHERE submission_id=? AND status != 'verified'`,
+          [req.user.id, req.params.id]
+        );
+      } catch (payErr) { console.error('[payment sync]', payErr.message); }
+    }
+
+    // ── When payment_submitted, ensure a portal_payment record exists ────────
+    if (status === 'payment_submitted') {
+      try {
+        const [[existingPay]] = await pool.query(
+          'SELECT id FROM portal_payments WHERE submission_id=? LIMIT 1',
+          [req.params.id]
+        );
+        if (existingPay) {
+          await pool.query(
+            `UPDATE portal_payments SET status='submitted', updated_at=NOW()
+             WHERE submission_id=? AND status NOT IN ('verified')`,
+            [req.params.id]
+          );
+        }
+      } catch (payErr) { console.error('[payment_submitted sync]', payErr.message); }
     }
 
     return ok(res, null, 'Status updated');

@@ -120,7 +120,7 @@ export default function EmailTemplatesPage() {
 
       {/* Edit Modal — rendered via portal to document.body to avoid parent overflow/z-index issues */}
       {editing && createPortal(
-        <div className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4" onClick={() => setEditing(null)}>
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={() => setEditing(null)}>
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col" style={{ maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0">
               <div>
@@ -178,7 +178,7 @@ export default function EmailTemplatesPage() {
 
       {/* Preview Modal — also rendered via portal */}
       {preview && createPortal(
-        <div className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4" onClick={() => setPreview(null)}>
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={() => setPreview(null)}>
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col" style={{ maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0">
               <div>

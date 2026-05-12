@@ -1,22 +1,64 @@
-﻿import { useState, useMemo } from 'react'
+﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Edit, Key, Shield, X, Loader2, Search } from 'lucide-react'
 import api from '../../../api/client'
+import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from 'react-hot-toast'
 
 // ── Role configuration ────────────────────────────────────────────────────────
 const ROLES = [
-  { value: 'super_admin',   label: 'Super Admin',    badge: 'bg-purple-100 text-purple-700' },
-  { value: 'admin',         label: 'Admin',           badge: 'bg-blue-100 text-blue-700' },
-  { value: 'branch_manager',label: 'Branch Manager',  badge: 'bg-green-100 text-green-700' },
-  { value: 'office_staff',  label: 'Staff',           badge: 'bg-gray-100 text-gray-700' },
+  { value: 'super_admin',    label: 'Super Administrator',   badge: 'bg-purple-100 text-purple-700' },
+  { value: 'branch_manager', label: 'State/Branch Manager',  badge: 'bg-green-100 text-green-700' },
+  { value: 'office_staff',   label: 'Office Staff',          badge: 'bg-gray-100 text-gray-700' },
 ]
 const ROLE_MAP = Object.fromEntries(ROLES.map(r => [r.value, r]))
+// Normalize legacy role values that may exist in older records
+const ROLE_ALIAS = {
+  admin:         'super_admin',
+  state_manager: 'branch_manager',
+  staff:         'office_staff',
+}
+function resolveRole(raw) {
+  const key = ROLE_ALIAS[raw] || raw
+  return ROLE_MAP[key] || { value: raw, label: raw, badge: 'bg-red-100 text-red-600' }
+}
+
+function normalizeStateSearch(value) {
+  return String(value || '').trim().toLowerCase()
+}
+
+function rankStateMatch(label, query) {
+  const normalizedLabel = normalizeStateSearch(label)
+  if (!normalizedLabel || !query) return null
+
+  if (normalizedLabel === query) return { score: 0, index: 0 }
+
+  if (normalizedLabel.startsWith(query)) {
+    return { score: 1, index: 0 }
+  }
+
+  const words = normalizedLabel.split(/\s+/)
+  const wordIndex = words.findIndex(word => word.startsWith(query))
+  if (wordIndex !== -1) {
+    return { score: 2, index: normalizedLabel.indexOf(query) }
+  }
+
+  const substringIndex = normalizedLabel.indexOf(query)
+  if (substringIndex !== -1) {
+    return { score: 3, index: substringIndex }
+  }
+
+  return null
+}
 
 // ── User create / edit modal ──────────────────────────────────────────────────
 function UserModal({ user, onClose, onSave, saving }) {
   const empty = { full_name: '', email: '', password: '', role: 'office_staff', is_active: 1, assigned_state_id: '' }
   const [d, setD] = useState(user ? { ...user, password: '' } : empty)
+  const [stateQuery, setStateQuery] = useState('')
+  const [stateOpen, setStateOpen] = useState(false)
+  const [stateTouched, setStateTouched] = useState(false)
+  const stateBoxRef = useRef(null)
   const set = (k, v) => setD(x => ({ ...x, [k]: v }))
 
   const { data: statesData } = useQuery({
@@ -24,16 +66,87 @@ function UserModal({ user, onClose, onSave, saving }) {
     queryFn: () => api.get('/locations/states').then(r => r.data.data || []),
     staleTime: 60_000,
   })
-  const states = statesData || []
+  const states = useMemo(
+    () => (statesData || []).map(s => ({ id: s.id, value: s.id, label: s.label || s.name, code: s.code || '' })),
+    [statesData],
+  )
+  const selectedState = states.find(s => String(s.id) === String(d.assigned_state_id)) || null
+
+  useEffect(() => {
+    if (selectedState) {
+      setStateQuery(selectedState.label)
+      return
+    }
+    if (!d.assigned_state_id) setStateQuery('')
+  }, [selectedState, d.assigned_state_id])
+
+  useEffect(() => {
+    function handleOutsideClick(event) {
+      if (!stateBoxRef.current?.contains(event.target)) {
+        setStateOpen(false)
+        setStateTouched(true)
+        setStateQuery(selectedState?.label || '')
+      }
+    }
+
+    document.addEventListener('mousedown', handleOutsideClick)
+    return () => document.removeEventListener('mousedown', handleOutsideClick)
+  }, [selectedState])
+
+  const filteredStates = useMemo(() => {
+    const query = normalizeStateSearch(stateQuery)
+    if (!query) return []
+
+    return states
+      .map((option) => {
+        const match = rankStateMatch(option.label, query)
+        if (!match) return null
+
+        return {
+          ...option,
+          _matchScore: match.score,
+          _matchIndex: match.index,
+        }
+      })
+      .filter(Boolean)
+      .sort((left, right) => {
+        if (left._matchScore !== right._matchScore) return left._matchScore - right._matchScore
+        if (left._matchIndex !== right._matchIndex) return left._matchIndex - right._matchIndex
+        return left.label.localeCompare(right.label)
+      })
+  }, [stateQuery, states])
+
+  const showStateError =
+    (d.role === 'branch_manager' || d.role === 'office_staff') &&
+    stateTouched &&
+    !selectedState
+
+  function handleStateSelect(state) {
+    set('assigned_state_id', Number(state.id))
+    setStateQuery(state.label)
+    setStateTouched(false)
+    setStateOpen(false)
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault()
+    if ((d.role === 'branch_manager' || d.role === 'office_staff') && !selectedState) {
+      setStateTouched(true)
+      setStateOpen(false)
+      return
+    }
+    onSave(d)
+  }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="card w-full max-w-md" onClick={e => e.stopPropagation()}>
+    <AdminModalPortal>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={onClose}>
+        <div className="card w-full max-w-md" onClick={e => e.stopPropagation()}>
         <div className="card-header">
           <h3 className="font-semibold">{user ? 'Edit User' : 'New Admin User'}</h3>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
         </div>
-        <form className="card-body space-y-4" onSubmit={e => { e.preventDefault(); onSave(d) }}>
+        <form className="card-body space-y-4" onSubmit={handleSubmit}>
           {/* Full name */}
           <div>
             <label className="label">Full Name *</label>
@@ -68,18 +181,53 @@ function UserModal({ user, onClose, onSave, saving }) {
             </select>
           </div>
 
-          {/* Assigned state — only relevant for branch_manager */}
-          {d.role === 'branch_manager' && (
+          {/* Assigned state — required for branch_manager and office_staff scoped access */}
+          {(d.role === 'branch_manager' || d.role === 'office_staff') && (
             <div>
               <label className="label">Assigned State</label>
-              <select className="input" value={d.assigned_state_id || ''}
-                onChange={e => set('assigned_state_id', e.target.value || null)}>
-                <option value="">— Select State —</option>
-                {states.map(s => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-              <p className="text-xs text-gray-400 mt-1">This manager will only see applications from this state.</p>
+              <div ref={stateBoxRef} className="relative">
+                <input
+                  className="input"
+                  value={stateQuery}
+                  placeholder="— Select State —"
+                  autoComplete="off"
+                  onChange={e => {
+                    setStateQuery(e.target.value)
+                    set('assigned_state_id', null)
+                    setStateTouched(true)
+                    setStateOpen(!!e.target.value.trim())
+                  }}
+                  onBlur={() => {
+                    window.setTimeout(() => {
+                      setStateOpen(false)
+                      setStateTouched(true)
+                      setStateQuery(selectedState?.label || '')
+                    }, 120)
+                  }}
+                />
+                {stateOpen && (
+                  <div className="absolute left-0 right-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                    <div className="max-h-44 overflow-y-auto">
+                      {filteredStates.length ? filteredStates.map(s => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={() => handleStateSelect(s)}>
+                          {s.label}
+                        </button>
+                      )) : (
+                        <div className="px-3 py-2 text-sm text-gray-400">No states found</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {showStateError && <p className="text-xs text-red-500 mt-1">Please select a valid state</p>}
+              <p className="text-xs text-gray-400 mt-1">
+                This {d.role === 'branch_manager' ? 'manager' : 'staff user'} will only see records from this state.
+              </p>
             </div>
           )}
 
@@ -99,9 +247,10 @@ function UserModal({ user, onClose, onSave, saving }) {
             </button>
             <button type="button" className="btn-outline" onClick={onClose}>Cancel</button>
           </div>
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
+    </AdminModalPortal>
   )
 }
 
@@ -115,8 +264,9 @@ function ResetPwModal({ user, onClose, onSend, sending }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="card w-full max-w-sm" onClick={e => e.stopPropagation()}>
+    <AdminModalPortal>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={onClose}>
+        <div className="card w-full max-w-sm" onClick={e => e.stopPropagation()}>
         <div className="card-header">
           <h3 className="font-semibold">Reset Password</h3>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
@@ -152,9 +302,10 @@ function ResetPwModal({ user, onClose, onSend, sending }) {
               </div>
             </>
           )}
+          </div>
         </div>
       </div>
-    </div>
+    </AdminModalPortal>
   )
 }
 
@@ -185,9 +336,12 @@ export default function UsersList() {
   })
 
   const pwMut = useMutation({
-    mutationFn: ({ email }) => api.post('/auth/forgot-password', { email }),
-    onSuccess: () => { toast.success('Reset link sent!') },
-    onError: err => toast.error(err.response?.data?.message || 'Failed to send reset link'),
+    mutationFn: ({ id }) => api.post(`/users/${id}/send-reset`),
+    onSuccess: (res) => {
+      const email = res.data?.data?.email || ''
+      toast.success(res.data?.message || `Reset link sent to ${email}`)
+    },
+    onError: err => toast.error(err.response?.data?.message || err.message || 'Failed to send reset link'),
   })
 
   const toggleActiveMut = useMutation({
@@ -199,7 +353,16 @@ export default function UsersList() {
     onError: err => toast.error(err.response?.data?.message || 'Error'),
   })
 
-  const allUsers = Array.isArray(data) ? data : []
+  // Dedup by email — keep first occurrence (highest id from backend query)
+  const allUsers = useMemo(() => {
+    const raw = Array.isArray(data) ? data : []
+    const seen = new Set()
+    return raw.filter(u => {
+      if (!u.email || seen.has(u.email.toLowerCase())) return false
+      seen.add(u.email.toLowerCase())
+      return true
+    })
+  }, [data])
 
   const users = useMemo(() => {
     return allUsers.filter(u => {
@@ -265,7 +428,7 @@ export default function UsersList() {
               ) : users.length === 0 ? (
                 <tr><td colSpan={6} className="text-center py-12 text-gray-400">No users found</td></tr>
               ) : users.map(u => {
-                const roleInfo = ROLE_MAP[u.role]
+                const roleInfo = resolveRole(u.role)
                 return (
                   <tr key={u.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
@@ -293,7 +456,7 @@ export default function UsersList() {
                         <button className="btn-outline btn-sm flex items-center gap-1" onClick={() => setModal(u)}>
                           <Edit size={11} /> Edit
                         </button>
-                        <button className="btn-outline btn-sm flex items-center gap-1" onClick={() => setPwModal(u)}>
+                                        <button className="btn-outline btn-sm flex items-center gap-1" onClick={() => setPwModal(u)}>
                           <Key size={11} /> Reset PW
                         </button>
                         <button
@@ -331,7 +494,7 @@ export default function UsersList() {
         <ResetPwModal
           user={pwModal}
           onClose={() => setPwModal(null)}
-          onSend={() => pwMut.mutateAsync({ email: pwModal.email })}
+          onSend={() => pwMut.mutateAsync({ id: pwModal.id })}
           sending={pwMut.isPending}
         />
       )}

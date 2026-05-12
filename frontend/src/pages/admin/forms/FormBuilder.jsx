@@ -12,6 +12,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, Plus, Trash2, Settings, ChevronDown, ChevronRight, Eye, Hammer, ExternalLink, Wand2 } from 'lucide-react'
 import api from '../../../api/client'
+import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from 'react-hot-toast'
 import FieldSettingsPanel from '../../../components/form-builder/FieldSettingsPanel'
 import FieldTypePanel from '../../../components/form-builder/FieldTypePanel'
@@ -114,8 +115,9 @@ function SectionModal({ section, formId, onClose, onSaved }) {
     onError: err => toast.error(err.response?.data?.message || 'Error'),
   })
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="card w-full max-w-md" onClick={e => e.stopPropagation()}>
+    <AdminModalPortal>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={onClose}>
+        <div className="card w-full max-w-md" onClick={e => e.stopPropagation()}>
         <div className="card-header">
           <h3 className="font-semibold">{section ? 'Edit Section' : 'New Section'}</h3>
           <button onClick={onClose} className="text-gray-400">✕</button>
@@ -133,9 +135,10 @@ function SectionModal({ section, formId, onClose, onSaved }) {
             <button type="submit" className="btn-primary flex-1" disabled={mut.isPending}>Save</button>
             <button type="button" className="btn-outline" onClick={onClose}>Cancel</button>
           </div>
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
+    </AdminModalPortal>
   )
 }
 

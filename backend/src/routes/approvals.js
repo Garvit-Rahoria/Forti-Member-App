@@ -219,10 +219,13 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
     const [[sub]] = await pool.query('SELECT * FROM fb_submissions WHERE id=?', [req.params.id]);
     if (!sub) return fail(res, 'Not found', 404);
 
-    // State manager: only process submissions from their assigned state
-    if (role === 'branch_manager' && req.user.assigned_state_id) {
+    // Branch-level scoping: branch_manager AND office_staff can only act on their state
+    if (
+      (role === 'branch_manager' || role === 'office_staff') &&
+      req.user.assigned_state_id
+    ) {
       if (sub.state_id && String(sub.state_id) !== String(req.user.assigned_state_id))
-        return fail(res, 'This submission is not in your assigned state', 403);
+        return fail(res, 'This submission is not in your assigned branch', 403);
     }
 
     // ── Branch manager: can only approve if payment is verified ──
@@ -238,23 +241,37 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
 
     // ── STRICT: No approval without payment verified (all roles) ──
     if (status === 'approved') {
-      const [[pmt]] = await pool.query(
-        'SELECT status FROM portal_payments WHERE submission_id=? ORDER BY id DESC LIMIT 1',
-        [req.params.id]
-      );
-      if (!pmt || pmt.status !== 'verified') {
-        return fail(res, 'Action not allowed. Payment must be verified before approving.', 422);
-      }
-      // Also check current application status
+      // Submission status is the authoritative source — if it's payment_verified, allow approval
       if (!['payment_verified'].includes(sub.status)) {
         return fail(res, 'Action not allowed. Complete previous steps first.', 422);
       }
+      // Also check portal_payments table, but auto-sync it if submission is already payment_verified
+      const [[pmt]] = await pool.query(
+        'SELECT id, status FROM portal_payments WHERE submission_id=? ORDER BY id DESC LIMIT 1',
+        [req.params.id]
+      );
+      if (!pmt) {
+        // No payment record yet — create a minimal verified stub so downstream logic works
+        const { v4: uuidv4 } = require('uuid');
+        await pool.query(
+          `INSERT INTO portal_payments (uuid, submission_id, status, approved_by, approved_at, created_at)
+           VALUES (?, ?, 'verified', ?, NOW(), NOW())`,
+          [uuidv4(), req.params.id, req.user.id]
+        ).catch(e => console.error('[auto-create payment record on approve]', e.message));
+      } else if (pmt.status !== 'verified') {
+        // Row exists but not yet marked verified — sync it now
+        await pool.query(
+          `UPDATE portal_payments SET status='verified', approved_by=?, approved_at=NOW() WHERE id=?`,
+          [req.user.id, pmt.id]
+        ).catch(e => console.error('[auto-sync payment on approve]', e.message));
+      }
     }
 
-    // ── STRICT: No activation without approved status ──
+    // ── STRICT: No activation without approved status (only for legacy 'active' direct status) ──
+    // 'activate' virtual action allows direct activation from payment_verified (single-click approve)
     if (status === 'active') {
-      if (sub.status !== 'approved') {
-        return fail(res, 'Action not allowed. Application must be approved before activation.', 422);
+      if (!['approved', 'payment_verified'].includes(sub.status)) {
+        return fail(res, 'Action not allowed. Application must be approved or payment verified before activation.', 422);
       }
     }
 
@@ -275,12 +292,35 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
       ).catch(e => console.error('[sync payment approved]', e.message));
     }
 
+    // ── Payment verified: sync the linked payment record (or create stub if none exists) ──
+    if (status === 'payment_verified') {
+      const [[existingPmt]] = await pool.query(
+        'SELECT id FROM portal_payments WHERE submission_id=? ORDER BY id DESC LIMIT 1',
+        [req.params.id]
+      ).catch(() => [[null]]);
+      if (existingPmt) {
+        await pool.query(
+          `UPDATE portal_payments SET status='verified', approved_by=?, approved_at=NOW()
+           WHERE id=? AND status != 'verified'`,
+          [req.user.id, existingPmt.id]
+        ).catch(e => console.error('[sync payment verified]', e.message));
+      } else {
+        // No payment row — create a stub so the Payments tab shows this entry
+        const { v4: uuidv4 } = require('uuid');
+        await pool.query(
+          `INSERT INTO portal_payments (uuid, submission_id, status, approved_by, approved_at, created_at)
+           VALUES (?, ?, 'verified', ?, NOW(), NOW())`,
+          [uuidv4(), req.params.id, req.user.id]
+        ).catch(e => console.error('[create payment stub on verify]', e.message));
+      }
+    }
+
     // ── Payment rejected: also mark the linked payment record as rejected ──
-    if (role === 'office_staff' && status === 'payment_rejected') {
+    if (status === 'payment_pending') {
       await pool.query(
-        `UPDATE portal_payments SET status='rejected', verified_by=?, verified_at=NOW()
-         WHERE submission_id=? ORDER BY id DESC LIMIT 1`,
-        [req.user.id, req.params.id]
+        `UPDATE portal_payments SET status='submitted'
+         WHERE submission_id=? AND status NOT IN ('verified')`,
+        [req.params.id]
       ).catch(e => console.error('[sync payment rejected]', e.message));
     }
 
@@ -291,12 +331,21 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
         const [[{ cnt }]] = await pool.query(
           "SELECT COUNT(*) AS cnt FROM fb_submissions WHERE membership_id IS NOT NULL AND membership_id != ''"
         );
-        finalMembershipId = `FORTI${String(cnt + 1).padStart(4, '0')}`;
+        finalMembershipId = `FORTI-${Date.now()}${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
         await pool.query(
           'UPDATE fb_submissions SET membership_id=?, approved_at=COALESCE(approved_at, NOW()) WHERE id=?',
           [finalMembershipId, req.params.id]
         );
       }
+    }
+
+    // ── ACTIVATE action: single-click approve+activate ──
+    // Also generates membership_id if bypassing the separate approved step
+    if (status === 'activate' && !finalMembershipId) {
+      const [[{ cnt }]] = await pool.query(
+        "SELECT COUNT(*) AS cnt FROM fb_submissions WHERE membership_id IS NOT NULL AND membership_id != ''"
+      );
+      finalMembershipId = `FORTI-${Date.now()}${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
     }
 
     // ── ACTIVATE action: explicit admin-triggered membership activation ──
@@ -342,35 +391,37 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
       );
 
       // Upsert member_accounts for THIS submission only. Never repoint another account by email.
-      const [[existingAcc]] = await pool.query(
-        'SELECT id FROM member_accounts WHERE submission_id=? LIMIT 1',
-        [req.params.id]
-      );
-      if (existingAcc) {
-        await pool.query(
-          `UPDATE member_accounts
-           SET submission_id=?, membership_id=?, is_active=1, expiry_date=?,
-               plan_type=COALESCE(?,plan_type),
-               membership_type=COALESCE(?,membership_type),
-               package_id=COALESCE(?,package_id)
-           WHERE id=?`,
-          [req.params.id, finalMembershipId, expiryDate,
-           sub.plan_type || null, sub.membership_type || null, sub.package_id || null,
-           existingAcc.id]
+      try {
+        const [[existingAcc]] = await pool.query(
+          'SELECT id FROM member_accounts WHERE submission_id=? LIMIT 1',
+          [req.params.id]
         );
-      } else {
-        const { v4: uuidv4 } = require('uuid');
-        await pool.query(
-          `INSERT INTO member_accounts
-             (uuid, submission_id, email, full_name, phone, membership_id,
-              plan_type, membership_type, expiry_date, package_id, is_active)
-           VALUES (?,?,?,?,?,?,?,?,?,?,1)`,
-          [uuidv4(), req.params.id, sub.applicant_email, sub.applicant_name,
-           sub.applicant_phone || null, finalMembershipId,
-           sub.plan_type || null, sub.membership_type || null, expiryDate,
-           sub.package_id || null]
-        ).catch(e => console.error('[activate member_account]', e.message));
-      }
+        if (existingAcc) {
+          await pool.query(
+            `UPDATE member_accounts
+             SET submission_id=?, membership_id=?, is_active=1, expiry_date=?,
+                 plan_type=COALESCE(?,plan_type),
+                 membership_type=COALESCE(?,membership_type),
+                 package_id=COALESCE(?,package_id)
+             WHERE id=?`,
+            [req.params.id, finalMembershipId, expiryDate,
+             sub.plan_type || null, sub.membership_type || null, sub.package_id || null,
+             existingAcc.id]
+          );
+        } else {
+          const { v4: uuidv4 } = require('uuid');
+          await pool.query(
+            `INSERT INTO member_accounts
+               (uuid, submission_id, email, full_name, phone, membership_id,
+                plan_type, membership_type, expiry_date, package_id, is_active)
+             VALUES (?,?,?,?,?,?,?,?,?,?,1)`,
+            [uuidv4(), req.params.id, sub.applicant_email, sub.applicant_name,
+             sub.applicant_phone || null, finalMembershipId,
+             sub.plan_type || null, sub.membership_type || null, expiryDate,
+             sub.package_id || null]
+          );
+        }
+      } catch (e) { console.error('[activate member_account]', e.message); }
 
       // Send activation email
       const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/member/login`;

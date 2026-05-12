@@ -1,29 +1,31 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import OTPModal from '../../components/membership/OTPModal'
 import { useMember } from '../../contexts/MemberContext'
+import { getMemberLandingPath } from '../../utils/memberAccess'
 import {
   Shield, Globe, Award, Users, ChevronRight, CheckCircle,
   FileText, CreditCard, UserCheck, Download, Star,
   ArrowRight, Menu, X, Phone, Mail, MapPin, Zap,
   Building2, BookOpen, Image, MessageCircle, Search,
   Facebook, Twitter, Linkedin, Instagram, Youtube,
-  PlayCircle, ChevronDown, ExternalLink
+  PlayCircle, ChevronDown, ExternalLink, Eye, Target,
+  TrendingUp, Briefcase, Landmark, Network
 } from 'lucide-react'
 
 const http = axios.create({ baseURL: '/api' })
 
-// ── Navigation ─────────────────────────────────────────────────────────────
+// ── Navigation ──────────────────────────────────────────────────────────────
 function Navbar({ onApply }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const navigate = useNavigate()
-  const { token: memberToken } = useMember()
+  const { token: memberToken, member } = useMember()
 
   function handleMemberNav() {
-    navigate(memberToken ? '/member/dashboard' : '/member/login')
+    navigate(memberToken ? getMemberLandingPath(member) : '/member/login')
   }
 
   useEffect(() => {
@@ -43,47 +45,91 @@ function Navbar({ onApply }) {
   ]
 
   return (
-    <nav className={`sticky top-0 z-40 transition-all duration-200 ${scrolled ? 'bg-white shadow-md' : 'bg-white/95 backdrop-blur-md border-b border-gray-100'}`}>
+    <nav className={`sticky top-0 z-40 transition-all duration-300 ${scrolled ? 'bg-white shadow-lg shadow-gray-200/60' : 'bg-white/98 backdrop-blur-md border-b border-gray-100'}`}>
+      {/* Top info bar */}
+      <div className="hidden lg:block bg-gradient-to-r from-primary-700 to-primary-900 text-white text-xs py-1.5">
+        <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <span className="flex items-center gap-1.5"><Mail size={11}/> info@forti.in</span>
+            <span className="flex items-center gap-1.5"><Phone size={11}/> Mon – Sat: 10:00 AM – 6:00 PM</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-primary-300">Follow us:</span>
+            {[Facebook, Instagram, Twitter, Linkedin].map((Icon, i) => (
+              <a key={i} href="#" className="hover:text-yellow-300 transition"><Icon size={12}/></a>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center text-white font-black text-lg shadow-md">F</div>
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-3 shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-600 to-primary-800 flex items-center justify-center text-white font-black text-lg shadow-md shadow-primary-200">F</div>
             <div>
-              <span className="font-black text-gray-900 text-lg tracking-tight">FORTI</span>
-              <p className="text-xs text-gray-400 leading-none -mt-0.5">Membership Portal</p>
+              <span className="font-black text-gray-900 text-base tracking-tight leading-none">FORTI</span>
+              <p className="text-[10px] text-gray-400 leading-none mt-0.5 font-medium tracking-wide">Membership Portal</p>
             </div>
           </Link>
 
-          {/* Desktop nav */}
-          <div className="hidden lg:flex items-center gap-1">
+          {/* Desktop nav links */}
+          <div className="hidden lg:flex items-center gap-0.5">
             {links.map(l => (
-              <Link key={l.to} to={l.to} className="text-sm text-gray-600 hover:text-primary-600 transition font-medium px-3 py-1.5 rounded-lg hover:bg-primary-50">{l.label}</Link>
+              <Link key={l.to} to={l.to}
+                className="text-sm text-gray-600 hover:text-primary-600 transition-colors font-medium px-3 py-2 rounded-lg hover:bg-primary-50 relative group">
+                {l.label}
+                <span className="absolute bottom-0.5 left-3 right-3 h-0.5 bg-primary-600 rounded-full scale-x-0 group-hover:scale-x-100 transition-transform origin-left"/>
+              </Link>
             ))}
           </div>
 
           {/* CTA buttons */}
-          <div className="hidden lg:flex items-center gap-2">
-            <button onClick={() => navigate('/admin/login')} className="text-sm text-gray-600 hover:text-primary-600 font-medium px-3 py-1.5 rounded-lg hover:bg-primary-50 transition border border-gray-200">Admin Login</button>
-            <button onClick={() => navigate('/track')} className="text-sm text-gray-600 hover:text-primary-600 font-medium px-3 py-1.5 rounded-lg hover:bg-primary-50 transition border border-gray-200">Track Status</button>
-            <button onClick={handleMemberNav} className="btn-outline text-sm">{memberToken ? 'My Dashboard' : 'Member Login'}</button>
-            <button onClick={onApply} className="btn-primary text-sm">Apply Now</button>
+          <div className="hidden lg:flex items-center gap-1.5">
+            <button onClick={() => navigate('/admin/login')}
+              className="text-xs text-gray-600 hover:text-primary-600 font-semibold px-3 py-1.5 rounded-lg hover:bg-gray-50 transition border border-gray-200">
+              Admin Login
+            </button>
+            <button onClick={() => navigate('/track')}
+              className="text-xs text-gray-600 hover:text-gray-900 font-semibold px-3 py-1.5 rounded-lg hover:bg-gray-50 transition border border-gray-200">
+              Track Status
+            </button>
+            <button onClick={handleMemberNav}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-primary-300 text-primary-700 hover:bg-primary-50 transition">
+              {memberToken ? 'My Dashboard' : 'Member Login'}
+            </button>
+            <button onClick={onApply}
+              className="text-xs font-bold px-4 py-2 rounded-lg bg-gradient-to-r from-primary-600 to-primary-700 text-white hover:from-primary-700 hover:to-primary-800 transition shadow-md shadow-primary-200">
+              Apply Now
+            </button>
           </div>
 
-          <button className="lg:hidden p-2 text-gray-600" onClick={() => setMenuOpen(o => !o)}>
+          <button className="lg:hidden p-2 text-gray-600 rounded-lg hover:bg-gray-100" onClick={() => setMenuOpen(o => !o)}>
             {menuOpen ? <X size={22}/> : <Menu size={22}/>}
           </button>
         </div>
 
+        {/* Mobile menu */}
         {menuOpen && (
           <div className="lg:hidden border-t border-gray-100 py-4 space-y-1">
             {links.map(l => (
-              <Link key={l.to} to={l.to} className="block text-sm text-gray-700 hover:text-primary-600 py-2 px-2 font-medium rounded-lg hover:bg-primary-50" onClick={() => setMenuOpen(false)}>{l.label}</Link>
+              <Link key={l.to} to={l.to}
+                className="block text-sm text-gray-700 hover:text-primary-600 py-2.5 px-3 font-medium rounded-xl hover:bg-primary-50 transition"
+                onClick={() => setMenuOpen(false)}>{l.label}</Link>
             ))}
             <div className="pt-3 space-y-2 border-t border-gray-100">
-              <button onClick={() => { navigate('/admin/login'); setMenuOpen(false) }} className="w-full text-sm text-gray-700 font-medium border border-gray-200 rounded-xl py-2 hover:bg-gray-50 transition">Admin Login</button>
-              <button onClick={() => { navigate('/track'); setMenuOpen(false) }} className="w-full text-sm text-gray-700 font-medium border border-gray-200 rounded-xl py-2 hover:bg-gray-50 transition">Track Status</button>
-              <button onClick={() => { handleMemberNav(); setMenuOpen(false) }} className="btn-outline w-full text-sm">{memberToken ? 'My Dashboard' : 'Member Login'}</button>
-              <button onClick={onApply} className="btn-primary w-full text-sm">Apply Now</button>
+              <button onClick={() => { navigate('/admin/login'); setMenuOpen(false) }}
+                className="w-full text-sm text-gray-700 font-medium border border-gray-200 rounded-xl py-2.5 hover:bg-gray-50 transition">Admin Login</button>
+              <button onClick={() => { navigate('/track'); setMenuOpen(false) }}
+                className="w-full text-sm text-gray-700 font-medium border border-gray-200 rounded-xl py-2.5 hover:bg-gray-50 transition">Track Status</button>
+              <button onClick={() => { handleMemberNav(); setMenuOpen(false) }}
+                className="w-full text-sm text-primary-700 font-semibold border border-primary-200 rounded-xl py-2.5 hover:bg-primary-50 transition">
+                {memberToken ? 'My Dashboard' : 'Member Login'}
+              </button>
+              <button onClick={onApply}
+                className="w-full text-sm font-bold py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 text-white">
+                Apply Now
+              </button>
             </div>
           </div>
         )}
@@ -92,99 +138,112 @@ function Navbar({ onApply }) {
   )
 }
 
-// ── Hero ───────────────────────────────────────────────────────────────────
+// ── Hero — President Message ────────────────────────────────────────────────
 function Hero({ onApply }) {
   const navigate = useNavigate()
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-primary-900 via-primary-700 to-primary-500 text-white">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-1/3 -right-1/4 w-96 h-96 bg-white/5 rounded-full blur-3xl"/>
-        <div className="absolute -bottom-1/4 -left-1/4 w-80 h-80 bg-white/5 rounded-full blur-3xl"/>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary-400/10 rounded-full blur-3xl"/>
+    <section className="relative bg-white overflow-hidden">
+      {/* Subtle background pattern */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-primary-50/60 to-transparent"/>
+        <div className="absolute -top-20 -right-20 w-96 h-96 bg-primary-100/40 rounded-full blur-3xl"/>
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-amber-50/60 rounded-full blur-3xl"/>
       </div>
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-20 sm:py-28">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="space-y-6">
-            <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 text-sm">
-              <Zap size={14} className="text-yellow-300"/>
-              <span>India's Premier Professional Network</span>
-            </div>
-            <h1 className="text-4xl sm:text-5xl font-black leading-tight">
-              Join the <span className="text-yellow-300">FORTI</span><br/>Professional Membership
-            </h1>
-            <p className="text-primary-100 text-lg leading-relaxed">
-              Connect with thousands of professionals across India and the globe.
-              Build your network, access exclusive resources, and grow your career with FORTI membership.
-            </p>
-            <div className="flex flex-wrap gap-4">
-              <button onClick={onApply} className="bg-white text-primary-700 hover:bg-primary-50 font-bold px-8 py-3.5 rounded-xl flex items-center gap-2 transition shadow-lg hover:shadow-xl">
-                Apply for Membership <ArrowRight size={18}/>
-              </button>
-              <button onClick={() => navigate('/member/login')} className="border border-white/40 text-white hover:bg-white/10 font-semibold px-6 py-3.5 rounded-xl flex items-center gap-2 transition">
-                Member Login
-              </button>
-            </div>
-            <div className="flex flex-wrap gap-6 pt-2">
-              {[['10,000+', 'Active Members'], ['20+', 'States Covered'], ['50+', 'Countries'], ['15+', 'Years']].map(([num, label]) => (
-                <div key={label}>
-                  <p className="text-2xl font-black text-yellow-300">{num}</p>
-                  <p className="text-xs text-primary-200">{label}</p>
+
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
+        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+
+          {/* Left: President Image */}
+          <div className="flex justify-center lg:justify-start">
+            <div className="relative">
+              {/* Decorative ring */}
+              <div className="absolute -inset-3 rounded-3xl bg-gradient-to-br from-primary-200 via-amber-100 to-primary-100 opacity-60"/>
+              <div className="relative w-72 h-80 sm:w-80 sm:h-96 rounded-2xl overflow-hidden shadow-2xl shadow-gray-300/50">
+                <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
+                  <div className="text-center text-gray-400">
+                    <Users size={64} className="mx-auto mb-2 opacity-30"/>
+                    <p className="text-sm font-medium opacity-50">President Photo</p>
+                  </div>
                 </div>
-              ))}
+              </div>
+              {/* Verified badge */}
+              <div className="absolute -top-3 -right-3 bg-gradient-to-br from-amber-400 to-amber-500 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-lg">
+                ✓ Verified
+              </div>
             </div>
           </div>
 
-          <div className="hidden lg:flex justify-center">
-            <div className="relative">
-              <div className="bg-gradient-to-br from-white/20 to-white/5 border border-white/30 rounded-2xl p-6 w-80 shadow-2xl backdrop-blur-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center font-black text-sm">F</div>
-                    <span className="font-bold text-sm">FORTI</span>
-                  </div>
-                  <span className="text-xs bg-green-400/30 text-green-200 px-2 py-0.5 rounded-full">Active Member</span>
-                </div>
-                <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mb-3">
-                  <Users size={28} className="text-white/70"/>
-                </div>
-                <p className="font-bold text-lg mb-0.5">Member Name</p>
-                <p className="text-primary-200 text-sm mb-4">FORTI-2026-XXXXX</p>
-                <div className="border-t border-white/20 pt-3 flex justify-between text-xs text-primary-200">
-                  <span>Individual Member</span>
-                  <span>Valid: Lifetime</span>
-                </div>
-              </div>
-              <div className="absolute -top-4 -right-4 bg-yellow-400 text-yellow-900 rounded-xl px-3 py-1.5 text-xs font-bold shadow-lg">✓ Verified</div>
-              <div className="absolute -bottom-4 -left-4 bg-white text-primary-700 rounded-xl px-3 py-2 text-xs font-bold shadow-lg flex items-center gap-1.5">
-                <Award size={14}/> Lifetime Access
-              </div>
+          {/* Right: Message */}
+          <div className="space-y-6">
+            <div className="inline-flex items-center gap-2 bg-primary-50 border border-primary-100 rounded-full px-4 py-1.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-primary-500"/>
+              <span className="text-primary-700 text-sm font-semibold">Message From the President</span>
+            </div>
+
+            <div>
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-gray-900 leading-tight">
+                Mr. Suresh Agarwal
+              </h1>
+              <p className="text-primary-600 font-semibold mt-1">President, FORTI</p>
+            </div>
+
+            {/* Quote card */}
+            <div className="relative bg-gradient-to-br from-primary-800 to-primary-900 rounded-2xl p-6 text-white shadow-xl">
+              <div className="absolute top-4 left-5 text-6xl text-white/10 font-serif leading-none select-none">"</div>
+              <p className="relative text-sm sm:text-base leading-relaxed text-primary-100 italic">
+                FORTI is one big happy family that stays united and weathers every storm it faces.
+                It is an ever-increasing family with branches in every single district in Rajasthan
+                that cares about the smooth functioning of businesses and trade. Together, we address
+                issues that businessmen and traders face and bring about a positive change that
+                ensures a market that brims with opportunities for generations to come.
+              </p>
+              <div className="absolute bottom-4 right-5 text-6xl text-white/10 font-serif leading-none select-none rotate-180">"</div>
+            </div>
+
+            {/* CTA */}
+            <div className="flex flex-wrap gap-3 pt-2">
+              <button onClick={onApply}
+                className="bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 shadow-md shadow-primary-200 transition">
+                Apply for Membership <ArrowRight size={16}/>
+              </button>
+              <button onClick={() => navigate('/member/login')}
+                className="border border-gray-200 text-gray-700 hover:border-primary-300 hover:text-primary-700 font-semibold px-6 py-3 rounded-xl flex items-center gap-2 transition hover:bg-primary-50">
+                Member Login
+              </button>
             </div>
           </div>
         </div>
       </div>
-      <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-gray-50 to-transparent"/>
     </section>
   )
 }
 
-// ── Live Stats (from DB) ─────────────────────────────────────────────────────
+// ── Stats Section (golden) ──────────────────────────────────────────────────
 function Stats() {
   const items = [
-    { icon: Users,     num: '10,000+', label: 'Active Members' },
-    { icon: Globe,     num: '50+',  label: 'Countries' },
-    { icon: MapPin,    num: '20+',  label: 'Indian States' },
-    { icon: Building2, num: '500+', label: 'Organisations' },
-    { icon: Award,     num: '15+',  label: 'Years Active' },
+    { icon: Users,     num: '15K',  label: 'Direct Members',         color: 'text-amber-600 bg-amber-50' },
+    { icon: Network,   num: '2L',   label: 'Indirect Members',       color: 'text-primary-600 bg-primary-50' },
+    { icon: Building2, num: '500',  label: 'Associations',           color: 'text-emerald-600 bg-emerald-50' },
+    { icon: Globe,     num: '8',    label: 'International Branches', color: 'text-blue-600 bg-blue-50' },
+    { icon: TrendingUp,num: '17',   label: 'National Branches',      color: 'text-violet-600 bg-violet-50' },
+    { icon: MapPin,    num: '29',   label: 'Rajasthan State Branches',color: 'text-rose-600 bg-rose-50' },
   ]
   return (
-    <section className="py-14 bg-white border-y border-gray-100">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-6 text-center">
-          {items.map(({ icon: Icon, num, label }) => (
-            <div key={label} className="space-y-1">
-              <Icon size={22} className="text-primary-400 mx-auto mb-2"/>
-              <p className="text-3xl font-black text-primary-700">{num}</p>
-              <p className="text-sm text-gray-500">{label}</p>
+    <section className="py-16 relative overflow-hidden">
+      {/* Golden gradient bg matching forti.in */}
+      <div className="absolute inset-0 bg-gradient-to-br from-amber-500 via-amber-400 to-yellow-400"/>
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0di00aDJ2NGg0djJoLTR2NGgtMnYtNGgtNHYtMmg0em0wLTMwVjBoMnY0aDR2MmgtNHY0aC0yVjZoLTRWNGg0eiIvPjwvZz48L2c+PC9zdmc+')] opacity-30"/>
+
+      <div className="relative max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          {items.map(({ icon: Icon, num, label, color }) => (
+            <div key={label}
+              className="bg-white/90 backdrop-blur-sm rounded-2xl p-4 text-center hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group border border-white/60">
+              <div className={`w-10 h-10 rounded-xl mx-auto mb-3 flex items-center justify-center ${color} group-hover:scale-110 transition-transform`}>
+                <Icon size={20}/>
+              </div>
+              <p className="text-2xl sm:text-3xl font-black text-gray-900">{num}</p>
+              <p className="text-xs text-gray-500 mt-1 font-medium leading-tight">{label}</p>
             </div>
           ))}
         </div>
@@ -193,64 +252,96 @@ function Stats() {
   )
 }
 
-// ── About Snippet ─────────────────────────────────────────────────────────
-function AboutSnippet() {
+// ── About + Vision + Mission ────────────────────────────────────────────────
+function AboutVisionMission() {
   const navigate = useNavigate()
+  const cards = [
+    {
+      icon: Building2,
+      tag: 'Who We Are',
+      title: 'About FORTI',
+      color: 'from-primary-600 to-primary-800',
+      iconBg: 'bg-primary-50 text-primary-600',
+      borderHover: 'hover:border-primary-200',
+      content: 'Federation of Rajasthan Trade and Industry, abbreviated as FORTI, is a registered body with the Registrar of Non-Trading Companies and is the apex chamber of Trade and Industry in Rajasthan. FORTI acts as a bridge between the Government of India at the National Level and the Government of Rajasthan at the state level for its members.',
+      cta: 'Know More',
+      href: '/about',
+    },
+    {
+      icon: Eye,
+      tag: 'Our Vision',
+      title: 'Our Vision',
+      color: 'from-emerald-500 to-emerald-700',
+      iconBg: 'bg-emerald-50 text-emerald-600',
+      borderHover: 'hover:border-emerald-200',
+      content: 'To enhance the efficiency and global competitiveness of the Indian industry and expand business opportunities in domestic and foreign markets through a range of specialised services and international linkages while also ensuring the businesses have the right to business ethics.',
+      cta: 'Know More',
+      href: '/about',
+    },
+    {
+      icon: Target,
+      tag: 'Our Purpose',
+      title: 'Our Mission',
+      color: 'from-indigo-500 to-indigo-700',
+      iconBg: 'bg-indigo-50 text-indigo-600',
+      borderHover: 'hover:border-indigo-200',
+      content: "FORTI's mission is to promote the culture and business of Rajasthan globally by collaborating with partners, hosting exhibitions, providing employment opportunities to women, creating favorable policies, establishing Jaipur Night Bazaars, organizing award shows, and providing a platform for start-ups.",
+      cta: 'Know More',
+      href: '/about',
+    },
+  ]
+
   return (
     <section className="py-20 bg-gray-50" id="about">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="space-y-5">
-            <span className="text-primary-600 font-semibold text-sm uppercase tracking-widest">About FORTI</span>
-            <h2 className="text-3xl sm:text-4xl font-black text-gray-900">Empowering Professionals Since 2010</h2>
-            <p className="text-gray-600 leading-relaxed">
-              FORTI (Federation of Organised and Recognised Trade Institutions) is India's premier professional membership association, dedicated to connecting, empowering, and recognising professionals across all sectors and regions.
-            </p>
-            <p className="text-gray-600 leading-relaxed">
-              With a presence in 20+ Indian states and 50+ countries, FORTI brings together individuals, corporations, and institutions under one unified platform, fostering growth, collaboration, and professional excellence.
-            </p>
-            <div className="grid grid-cols-2 gap-4 pt-2">
-              {[['National Reach', 'Pan-India network across all states'],['Global Presence','Members in 50+ countries worldwide'],['Professional Recognition','Globally accepted certification'],['Community Support','24/7 member support & resources']].map(([title, desc]) => (
-                <div key={title} className="flex items-start gap-3">
-                  <CheckCircle size={18} className="text-green-500 mt-0.5 shrink-0"/>
+        <div className="text-center mb-12">
+          <span className="inline-flex items-center gap-2 text-primary-600 font-semibold text-sm uppercase tracking-widest">
+            <span className="w-6 h-px bg-primary-400"/>
+            Organisation Overview
+            <span className="w-6 h-px bg-primary-400"/>
+          </span>
+          <h2 className="text-3xl sm:text-4xl font-black text-gray-900 mt-2">Who We Are &amp; What We Stand For</h2>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-6">
+          {cards.map(({ icon: Icon, tag, title, color, iconBg, borderHover, content, cta, href }) => (
+            <div key={title}
+              className={`bg-white rounded-2xl border border-gray-200 ${borderHover} hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden group`}>
+              {/* Card header gradient bar */}
+              <div className={`h-1.5 bg-gradient-to-r ${color}`}/>
+              <div className="p-6 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${iconBg} group-hover:scale-110 transition-transform`}>
+                    <Icon size={22}/>
+                  </div>
                   <div>
-                    <p className="font-semibold text-gray-900 text-sm">{title}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
+                    <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">{tag}</p>
+                    <h3 className="font-black text-gray-900 text-lg leading-tight">{title}</h3>
                   </div>
                 </div>
-              ))}
-            </div>
-            <button onClick={() => navigate('/about')} className="btn-outline flex items-center gap-2 mt-2">
-              Learn More About FORTI <ArrowRight size={16}/>
-            </button>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            {[['','Founded in 2010','With a mission to empower professionals globally'],
-              ['','10,000+ Members','Active professionals across all sectors'],
-              ['','ISO Accredited','Internationally recognised membership certificates'],
-              ['','Global Network','Chapters in 50+ countries worldwide']].map(([emoji, title, desc]) => (
-              <div key={title} className="bg-white rounded-2xl p-5 border border-gray-200 hover:border-primary-200 hover:shadow-sm transition">
-                <div className="text-3xl mb-3">{emoji}</div>
-                <h4 className="font-bold text-gray-900 text-sm">{title}</h4>
-                <p className="text-xs text-gray-500 mt-1">{desc}</p>
+                <p className="text-gray-600 text-sm leading-relaxed">{content}</p>
+                <button onClick={() => navigate(href)}
+                  className={`inline-flex items-center gap-1.5 text-sm font-bold px-4 py-2 rounded-lg bg-gradient-to-r ${color} text-white hover:opacity-90 transition shadow-sm`}>
+                  {cta} <ArrowRight size={13}/>
+                </button>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
     </section>
   )
 }
 
-// ── Benefits ───────────────────────────────────────────────────────────────
+// ── Benefits ────────────────────────────────────────────────────────────────
 function Benefits() {
   const items = [
-    { icon: Award, title: 'Digital Membership Certificate', desc: 'Professionally designed membership certificate as a PDF, ready to download and print.', color: 'text-yellow-600 bg-yellow-50' },
-    { icon: UserCheck, title: 'Digital ID Card with QR', desc: 'Personal FORTI membership ID card with a QR code for instant verification anywhere.', color: 'text-blue-600 bg-blue-50' },
-    { icon: Globe, title: 'Multi-Country Network', desc: 'Connect with FORTI members across 50+ countries. Dedicated overseas membership category.', color: 'text-green-600 bg-green-50' },
-    { icon: Shield, title: 'Verified Professional Status', desc: 'Build trust with clients and partners through your FORTI verified member status.', color: 'text-purple-600 bg-purple-50' },
-    { icon: FileText, title: 'Access to Resources', desc: 'Exclusive access to industry reports, publications, events, and training materials.', color: 'text-red-600 bg-red-50' },
-    { icon: Star, title: 'Priority Event Access', desc: 'Get early bird access and discounts to national and international FORTI events.', color: 'text-orange-600 bg-orange-50' },
+    { icon: Award,    title: 'Digital Membership Certificate', desc: 'Professionally designed membership certificate as a PDF, ready to download and print.', color: 'text-yellow-600 bg-yellow-50 border-yellow-100' },
+    { icon: UserCheck,title: 'Digital ID Card with QR',        desc: 'Personal FORTI membership ID card with a QR code for instant verification anywhere.',      color: 'text-blue-600 bg-blue-50 border-blue-100' },
+    { icon: Globe,    title: 'Multi-Country Network',          desc: 'Connect with FORTI members across 50+ countries. Dedicated overseas membership category.',  color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
+    { icon: Shield,   title: 'Verified Professional Status',   desc: 'Build trust with clients and partners through your FORTI verified member status.',         color: 'text-purple-600 bg-purple-50 border-purple-100' },
+    { icon: FileText, title: 'Access to Resources',            desc: 'Exclusive access to industry reports, publications, events, and training materials.',       color: 'text-rose-600 bg-rose-50 border-rose-100' },
+    { icon: Star,     title: 'Priority Event Access',          desc: 'Get early bird access and discounts to national and international FORTI events.',           color: 'text-orange-600 bg-orange-50 border-orange-100' },
   ]
   return (
     <section id="benefits" className="py-20 bg-white">
@@ -260,12 +351,15 @@ function Benefits() {
           <h2 className="text-3xl sm:text-4xl font-black text-gray-900 mt-2">Why Join FORTI?</h2>
           <p className="text-gray-500 mt-3 max-w-xl mx-auto">Everything you need to grow your professional network and career</p>
         </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {items.map(({ icon: Icon, title, desc, color }) => (
-            <div key={title} className="p-6 rounded-2xl border border-gray-100 hover:border-primary-200 hover:shadow-md transition group">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${color}`}><Icon size={22}/></div>
-              <h3 className="font-bold text-gray-900 mb-2">{title}</h3>
-              <p className="text-gray-500 text-sm leading-relaxed">{desc}</p>
+            <div key={title}
+              className={`p-5 rounded-2xl border ${color} hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 group`}>
+              <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-4 ${color} group-hover:scale-110 transition-transform`}>
+                <Icon size={20}/>
+              </div>
+              <h3 className="font-bold text-gray-900 mb-1.5 text-sm">{title}</h3>
+              <p className="text-gray-500 text-xs leading-relaxed">{desc}</p>
             </div>
           ))}
         </div>
@@ -274,48 +368,48 @@ function Benefits() {
   )
 }
 
-// ── Dynamic Plans Preview ─────────────────────────────────────────────────
+// ── Plans Preview ───────────────────────────────────────────────────────────
 function PlansPreview({ onApply }) {
   const navigate = useNavigate()
-
   const staticPlans = [
     { name: 'Individual Membership', badge: 'Most Popular', badgeColor: 'bg-primary-100 text-primary-700', icon: '👤',
       desc: 'For professionals, consultants, freelancers, students, and independent practitioners.',
       features: ['Personal membership certificate','Digital ID card with QR code','Access to FORTI events','Networking directory listing','Monthly newsletter','Renewal management'],
-      cta: 'Apply as Individual' },
-    { name: 'Corporate Membership', badge: 'Best Value', badgeColor: 'bg-green-100 text-green-700', icon: '',
+      cta: 'Apply as Individual', gradient: 'from-primary-600 to-primary-800' },
+    { name: 'Corporate Membership', badge: 'Best Value', badgeColor: 'bg-amber-100 text-amber-700', icon: '🏢',
       desc: 'For companies, organisations, institutions, and enterprises looking to associate with FORTI.',
       features: ['Multiple member seats','Corporate profile listing','Priority event access','Dedicated account manager','Corporate certificate','Custom payment terms'],
-      cta: 'Apply as Corporate' },
+      cta: 'Apply as Corporate', gradient: 'from-amber-500 to-amber-700' },
   ]
-
   return (
-    <section id="membership" className="py-20 bg-gradient-to-b from-slate-50 to-white">
+    <section id="membership" className="py-20 bg-gradient-to-b from-gray-50 to-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="text-center mb-12">
           <span className="text-primary-600 font-semibold text-sm uppercase tracking-widest">Membership Plans</span>
           <h2 className="text-3xl sm:text-4xl font-black text-gray-900 mt-2">Choose Your Membership</h2>
           <p className="text-gray-500 mt-3">All plans include a Digital Certificate, ID Card, and Invoice</p>
         </div>
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <div className="grid md:grid-cols-2 gap-7 max-w-4xl mx-auto">
           {staticPlans.map(t => (
-            <div key={t.name} className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-lg transition overflow-hidden">
+            <div key={t.name} className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group">
+              <div className={`h-1.5 bg-gradient-to-r ${t.gradient}`}/>
               <div className="p-6 border-b border-gray-100">
                 <div className="flex items-start justify-between mb-3">
                   <span className="text-3xl">{t.icon}</span>
-                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${t.badgeColor}`}>{t.badge}</span>
+                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${t.badgeColor}`}>{t.badge}</span>
                 </div>
                 <h3 className="text-xl font-black text-gray-900 mb-2">{t.name}</h3>
                 <p className="text-gray-500 text-sm">{t.desc}</p>
               </div>
-              <div className="p-6 space-y-3">
+              <div className="p-6 space-y-2.5">
                 {t.features.map(f => (
                   <div key={f} className="flex items-center gap-2.5 text-sm text-gray-700">
-                    <CheckCircle size={16} className="text-green-500 shrink-0"/>{f}
+                    <CheckCircle size={15} className="text-emerald-500 shrink-0"/>{f}
                   </div>
                 ))}
                 <div className="pt-4">
-                  <button onClick={onApply} className="btn-primary w-full flex items-center justify-center gap-2">
+                  <button onClick={onApply}
+                    className={`w-full py-2.5 rounded-xl font-bold text-sm text-white bg-gradient-to-r ${t.gradient} hover:opacity-90 transition flex items-center justify-center gap-2 shadow-md`}>
                     {t.cta} <ChevronRight size={16}/>
                   </button>
                 </div>
@@ -327,47 +421,52 @@ function PlansPreview({ onApply }) {
           <button onClick={() => navigate('/plans')} className="btn-outline inline-flex items-center gap-2">
             View All Plans with Pricing <ArrowRight size={16}/>
           </button>
-          <p className="text-center text-sm text-gray-400 mt-3">Exact pricing shown during application based on your region and duration.</p>
+          <p className="text-sm text-gray-400 mt-3">Exact pricing shown during application based on your region and duration.</p>
         </div>
       </div>
     </section>
   )
 }
 
-// ── How It Works ───────────────────────────────────────────────────────────
+// ── How It Works ────────────────────────────────────────────────────────────
 function HowItWorks({ onApply }) {
   const steps = [
-    { step: '01', icon: Shield,    title: 'Verify Identity',  desc: 'Enter your Name, Mobile, and Email. OTP sent to verify — takes 30 seconds.' },
-    { step: '02', icon: FileText,  title: 'Fill Application', desc: 'Complete the membership form: Personal Details, Location, Category, Plan, and Payment.' },
-    { step: '03', icon: CreditCard,title: 'Submit Payment',   desc: 'Pay via UPI, Bank Transfer, or Cash. Upload payment screenshot and transaction reference.' },
-    { step: '04', icon: UserCheck, title: 'Get Approved',     desc: 'Our team reviews your application (2–3 business days). Email updates at every step.' },
-    { step: '05', icon: Download,  title: 'Get Documents',    desc: 'Once approved, download your Certificate, ID Card, and Invoice from your dashboard.' },
+    { step: '01', icon: Shield,     title: 'Verify Identity',  desc: 'Enter your Name, Mobile, and Email. OTP sent to verify — takes 30 seconds.' },
+    { step: '02', icon: FileText,   title: 'Fill Application', desc: 'Complete the membership form: Personal Details, Location, Category, Plan, and Payment.' },
+    { step: '03', icon: CreditCard, title: 'Submit Payment',   desc: 'Pay via UPI, Bank Transfer, or Cash. Upload payment screenshot and transaction reference.' },
+    { step: '04', icon: UserCheck,  title: 'Get Approved',     desc: 'Our team reviews your application (2–3 business days). Email updates at every step.' },
+    { step: '05', icon: Download,   title: 'Get Documents',    desc: 'Once approved, download your Certificate, ID Card, and Invoice from your dashboard.' },
   ]
   return (
-    <section id="how-it-works" className="py-20 bg-primary-900 text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+    <section id="how-it-works" className="py-20 bg-gradient-to-br from-primary-900 via-primary-800 to-primary-900 text-white relative overflow-hidden">
+      <div className="absolute inset-0 opacity-5 pointer-events-none"
+        style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '32px 32px' }}/>
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
         <div className="text-center mb-12">
           <span className="text-primary-300 font-semibold text-sm uppercase tracking-widest">Simple Process</span>
           <h2 className="text-3xl sm:text-4xl font-black mt-2">How It Works</h2>
           <p className="text-primary-300 mt-3">From application to active membership in 5 simple steps</p>
         </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-6">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-5">
           {steps.map(({ step, icon: Icon, title, desc }, i) => (
-            <div key={step} className="relative text-center lg:text-left">
-              {i < steps.length - 1 && <div className="hidden lg:block absolute top-5 left-[calc(50%+28px)] w-[calc(100%-56px)] h-px bg-white/10 z-0"/>}
-              <div className="relative z-10">
-                <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center mx-auto lg:mx-0 mb-3">
-                  <Icon size={22} className="text-primary-300"/>
+            <div key={step} className="relative text-center">
+              {i < steps.length - 1 && (
+                <div className="hidden lg:block absolute top-7 left-[calc(50%+30px)] w-[calc(100%-60px)] h-px bg-white/15"/>
+              )}
+              <div className="relative z-10 group">
+                <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center mx-auto mb-3 group-hover:bg-white/20 transition">
+                  <Icon size={22} className="text-amber-300"/>
                 </div>
-                <span className="text-xs font-mono text-primary-400 font-bold">{step}</span>
-                <h4 className="font-bold text-white my-1">{title}</h4>
+                <span className="text-xs font-mono text-primary-400 font-bold tracking-widest">{step}</span>
+                <h4 className="font-bold text-white my-1 text-sm">{title}</h4>
                 <p className="text-primary-300 text-xs leading-relaxed">{desc}</p>
               </div>
             </div>
           ))}
         </div>
-        <div className="text-center mt-10">
-          <button onClick={onApply} className="bg-white text-primary-700 hover:bg-primary-50 font-bold px-10 py-4 rounded-xl flex items-center gap-2 mx-auto transition shadow-lg">
+        <div className="text-center mt-12">
+          <button onClick={onApply}
+            className="bg-white text-primary-700 hover:bg-primary-50 font-bold px-10 py-4 rounded-xl inline-flex items-center gap-2 transition shadow-xl shadow-black/20">
             Start Application <ArrowRight size={18}/>
           </button>
         </div>
@@ -376,91 +475,146 @@ function HowItWorks({ onApply }) {
   )
 }
 
-// ── News Preview ───────────────────────────────────────────────────────────
+// ── News / Blog Section ─────────────────────────────────────────────────────
 function NewsPreview() {
   const navigate = useNavigate()
   const newsItems = [
-    { id: 1, cat: 'Announcement', title: 'FORTI Launches New Online Membership Portal', date: 'March 2026', excerpt: 'FORTI has launched its new digital membership management portal, enabling faster application processing and instant certificate delivery.' },
-    { id: 2, cat: 'Event',        title: 'Annual General Meeting 2026 — New Delhi', date: 'February 2026', excerpt: 'FORTI hosted its Annual General Meeting in New Delhi, with over 500 members attending in person and virtually across the globe.' },
-    { id: 3, cat: 'Update',       title: 'Expansion to 5 New States Announced', date: 'January 2026', excerpt: 'FORTI announces expansion of its State Chapter network to 5 new states, bringing the total active state chapters to 25.' },
+    {
+      id: 1, cat: 'BLOGS',
+      title: 'The Importance of Small and Medium Enterprises in the Indian Economy',
+      date: 'March 2026',
+      excerpt: 'Small businesses have been the backbone of the Indian economy for centuries, providing employment to millions of people. Learn how FORTI supports SME growth across Rajasthan.',
+    },
+    {
+      id: 2, cat: 'NEWS',
+      title: 'FORTI News',
+      date: 'April 2026',
+      excerpt: 'Stay informed about the latest developments, happenings, and news updates from FORTI — India\'s apex chamber of Trade and Industry in Rajasthan.',
+    },
+    {
+      id: 3, cat: 'ANNOUNCEMENT',
+      title: 'FORTI Launches New Online Membership Portal',
+      date: 'March 2026',
+      excerpt: 'FORTI has launched its new digital membership management portal, enabling faster application processing and instant certificate delivery.',
+    },
+  ]
+
+  const catColors = {
+    BLOGS: 'bg-primary-100 text-primary-700',
+    NEWS: 'bg-emerald-100 text-emerald-700',
+    ANNOUNCEMENT: 'bg-amber-100 text-amber-700',
+  }
+
+  return (
+    <section className="py-20 bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        {/* Section header */}
+        <div className="text-center mb-12">
+          <span className="inline-flex items-center gap-2 text-primary-600 font-semibold text-sm uppercase tracking-widest">
+            <span className="w-6 h-px bg-primary-400"/>
+            Stay Informed With Us
+            <span className="w-6 h-px bg-primary-400"/>
+          </span>
+          <h2 className="text-3xl sm:text-4xl font-black text-gray-900 mt-2">All Our Latest News &amp; Updates</h2>
+          <p className="text-gray-500 mt-3 max-w-lg mx-auto">Stay informed and be the first to know about the latest developments, happenings, and news updates from our organisation.</p>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-6">
+          {newsItems.map(n => (
+            <div key={n.id}
+              className="bg-white rounded-2xl border border-gray-200 hover:border-primary-200 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden group cursor-pointer"
+              onClick={() => navigate('/news')}>
+              {/* Image placeholder */}
+              <div className="h-44 bg-gradient-to-br from-primary-50 via-primary-100 to-primary-200 relative overflow-hidden">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <BookOpen size={40} className="text-primary-300 group-hover:scale-110 transition-transform duration-500"/>
+                </div>
+                <div className="absolute top-4 left-4">
+                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${catColors[n.cat] || 'bg-gray-100 text-gray-600'}`}>
+                    {n.cat}
+                  </span>
+                </div>
+              </div>
+              <div className="p-5 space-y-3">
+                <p className="text-xs text-gray-400 font-medium">{n.date}</p>
+                <h3 className="font-black text-gray-900 text-sm leading-snug group-hover:text-primary-600 transition-colors">{n.title}</h3>
+                <p className="text-gray-500 text-xs leading-relaxed line-clamp-3">{n.excerpt}</p>
+                <button
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-primary-600 border border-primary-200 px-3 py-1.5 rounded-lg hover:bg-primary-50 transition"
+                  onClick={e => { e.stopPropagation(); navigate('/news') }}>
+                  Read More <ArrowRight size={12}/>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ── Gallery Preview ─────────────────────────────────────────────────────────
+function GalleryPreview() {
+  const navigate = useNavigate()
+  const colors = [
+    'from-purple-200 to-purple-300','from-blue-200 to-blue-300',
+    'from-emerald-200 to-emerald-300','from-amber-200 to-amber-300',
+    'from-rose-200 to-rose-300','from-indigo-200 to-indigo-300',
   ]
   return (
     <section className="py-20 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex items-end justify-between mb-10">
           <div>
-            <span className="text-primary-600 font-semibold text-sm uppercase tracking-widest">Latest Updates</span>
-            <h2 className="text-3xl font-black text-gray-900 mt-1">News & Media</h2>
-          </div>
-          <button onClick={() => navigate('/news')} className="text-primary-600 text-sm font-semibold flex items-center gap-1 hover:underline">View All <ArrowRight size={14}/></button>
-        </div>
-        <div className="grid md:grid-cols-3 gap-6">
-          {newsItems.map(n => (
-            <div key={n.id} className="border border-gray-200 rounded-2xl overflow-hidden hover:shadow-md transition group cursor-pointer" onClick={() => navigate('/news')}>
-              <div className="h-40 bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center">
-                <BookOpen size={36} className="text-primary-400"/>
-              </div>
-              <div className="p-5">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs font-semibold text-primary-600 bg-primary-50 px-2 py-0.5 rounded-full">{n.cat}</span>
-                  <span className="text-xs text-gray-400">{n.date}</span>
-                </div>
-                <h3 className="font-bold text-gray-900 mb-2 group-hover:text-primary-600 transition">{n.title}</h3>
-                <p className="text-gray-500 text-xs leading-relaxed line-clamp-3">{n.excerpt}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-// ── Gallery Preview ────────────────────────────────────────────────────────
-function GalleryPreview() {
-  const navigate = useNavigate()
-  const colors = ['from-purple-200 to-purple-300','from-blue-200 to-blue-300','from-green-200 to-green-300','from-yellow-200 to-yellow-300','from-pink-200 to-pink-300','from-orange-200 to-orange-300']
-  return (
-    <section className="py-20 bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="flex items-end justify-between mb-10">
-          <div>
             <span className="text-primary-600 font-semibold text-sm uppercase tracking-widest">Gallery</span>
-            <h2 className="text-3xl font-black text-gray-900 mt-1">Events & Moments</h2>
+            <h2 className="text-3xl font-black text-gray-900 mt-1">Events &amp; Moments</h2>
           </div>
-          <button onClick={() => navigate('/gallery')} className="text-primary-600 text-sm font-semibold flex items-center gap-1 hover:underline">View Gallery <ArrowRight size={14}/></button>
+          <button onClick={() => navigate('/gallery')}
+            className="text-primary-600 text-sm font-semibold flex items-center gap-1 hover:underline">
+            View Gallery <ArrowRight size={14}/>
+          </button>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {colors.map((c, i) => (
-            <div key={i} className={`h-40 rounded-2xl bg-gradient-to-br ${c} flex items-center justify-center cursor-pointer hover:opacity-90 transition hover:scale-[1.02] relative overflow-hidden group`}
+            <div key={i}
+              className={`h-40 rounded-2xl bg-gradient-to-br ${c} flex items-center justify-center cursor-pointer hover:opacity-90 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 relative overflow-hidden group`}
               onClick={() => navigate('/gallery')}>
-              <Image size={28} className="text-white/60"/>
-              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                <PlayCircle size={32} className="text-white"/>
+              <Image size={28} className="text-white/60 group-hover:scale-110 transition-transform"/>
+              <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                <PlayCircle size={32} className="text-white drop-shadow"/>
               </div>
             </div>
           ))}
+        </div>
+        <div className="text-center mt-6">
+          <button onClick={() => navigate('/gallery')}
+            className="inline-flex items-center gap-2 text-sm font-bold text-primary-600 border border-primary-200 px-5 py-2.5 rounded-xl hover:bg-primary-50 transition">
+            View More <ArrowRight size={14}/>
+          </button>
         </div>
       </div>
     </section>
   )
 }
 
-// ── Verify Section ─────────────────────────────────────────────────────────
+// ── Verify Section ──────────────────────────────────────────────────────────
 function VerifySection() {
   const navigate = useNavigate()
   const [input, setInput] = useState('')
   return (
     <section className="py-20 bg-gradient-to-r from-primary-700 to-primary-900 text-white">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
-        <Shield size={40} className="text-primary-300 mx-auto mb-4"/>
+        <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <Shield size={28} className="text-primary-200"/>
+        </div>
         <h2 className="text-3xl font-black mb-3">Verify Membership</h2>
         <p className="text-primary-200 mb-8">Enter a FORTI Membership ID to verify its authenticity and current status.</p>
         <form onSubmit={e => { e.preventDefault(); if (input.trim()) navigate(`/verify?id=${encodeURIComponent(input.trim())}`) }}
           className="flex gap-3 max-w-md mx-auto">
           <input type="text" placeholder="e.g. FORTI-2026-00001" value={input} onChange={e => setInput(e.target.value)}
             className="flex-1 px-4 py-3 rounded-xl text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"/>
-          <button type="submit" className="bg-white text-primary-700 font-bold px-6 py-3 rounded-xl flex items-center gap-2 hover:bg-primary-50 transition shrink-0">
+          <button type="submit"
+            className="bg-white text-primary-700 font-bold px-6 py-3 rounded-xl flex items-center gap-2 hover:bg-primary-50 transition shrink-0 shadow-lg">
             <Search size={16}/> Verify
           </button>
         </form>
@@ -472,35 +626,36 @@ function VerifySection() {
   )
 }
 
-// ── Contact Preview ────────────────────────────────────────────────────────
+// ── Contact Preview ─────────────────────────────────────────────────────────
 function ContactPreview() {
   const navigate = useNavigate()
   return (
-    <section id="contact" className="py-20 bg-white">
+    <section id="contact" className="py-20 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="text-center mb-12">
           <span className="text-primary-600 font-semibold text-sm uppercase tracking-widest">Get In Touch</span>
-          <h2 className="text-3xl font-black text-gray-900 mt-2 mb-4">Need Help?</h2>
+          <h2 className="text-3xl font-black text-gray-900 mt-2 mb-3">Need Help?</h2>
           <p className="text-gray-500">Our membership team is ready to assist you with any questions.</p>
         </div>
-        <div className="grid sm:grid-cols-3 gap-6 max-w-3xl mx-auto">
+        <div className="grid sm:grid-cols-3 gap-5 max-w-3xl mx-auto">
           {[
-            { icon: Mail,  label: 'Email Us',    value: 'membership@forti.org', href: 'mailto:membership@forti.org' },
-            { icon: Phone, label: 'Call Us',     value: '+91 98765 43210',      href: 'tel:+919876543210' },
-            { icon: MapPin,label: 'Headquarters',value: 'New Delhi, India',     href: '/contact' },
+            { icon: Mail,   label: 'Email Us',     value: 'info@forti.in',                href: 'mailto:info@forti.in' },
+            { icon: Phone,  label: 'Call Us',      value: '+91 9214007205',               href: 'tel:+919214007205' },
+            { icon: MapPin, label: 'Headquarters', value: 'A-7 Second Floor, Ganpati Enclave, Civil Lines, Jaipur – 302006', href: '/contact' },
           ].map(({ icon: Icon, label, value, href }) => (
             <a key={label} href={href}
-              className="flex flex-col items-center p-6 rounded-2xl border border-gray-200 hover:border-primary-300 hover:shadow-md transition group">
-              <div className="w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center mb-3 group-hover:bg-primary-100 transition">
-                <Icon size={22} className="text-primary-600"/>
+              className="flex flex-col items-center p-6 rounded-2xl bg-white border border-gray-200 hover:border-primary-300 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 group text-center">
+              <div className="w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center mb-3 group-hover:bg-primary-100 transition group-hover:scale-110">
+                <Icon size={20} className="text-primary-600"/>
               </div>
-              <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">{label}</p>
-              <p className="font-semibold text-gray-900 mt-1 text-sm text-center">{value}</p>
+              <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1">{label}</p>
+              <p className="font-semibold text-gray-900 text-sm">{value}</p>
             </a>
           ))}
         </div>
         <div className="text-center mt-8">
-          <button onClick={() => navigate('/contact')} className="btn-primary inline-flex items-center gap-2">
+          <button onClick={() => navigate('/contact')}
+            className="bg-gradient-to-r from-primary-600 to-primary-700 text-white font-bold px-7 py-3 rounded-xl inline-flex items-center gap-2 shadow-md hover:opacity-90 transition">
             Send Us a Message <ArrowRight size={16}/>
           </button>
         </div>
@@ -509,60 +664,126 @@ function ContactPreview() {
   )
 }
 
-// ── Footer ─────────────────────────────────────────────────────────────────
+// ── Footer ──────────────────────────────────────────────────────────────────
 function Footer() {
   const navigate = useNavigate()
+  const [email, setEmail] = useState('')
+
+  const galleryColors = [
+    'from-purple-400 to-purple-600','from-blue-400 to-blue-600',
+    'from-emerald-400 to-emerald-600','from-amber-400 to-amber-600',
+    'from-rose-400 to-rose-600','from-indigo-400 to-indigo-600',
+    'from-teal-400 to-teal-600','from-orange-400 to-orange-600',
+    'from-cyan-400 to-cyan-600',
+  ]
+
   return (
-    <footer className="bg-gray-900 text-gray-400 pt-14 pb-6">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-8 mb-10">
-          <div className="lg:col-span-2">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-9 h-9 rounded-lg bg-primary-600 flex items-center justify-center text-white font-black">F</div>
-              <span className="font-black text-white text-xl">FORTI</span>
+    <footer className="relative overflow-hidden">
+      {/* Dark bg with subtle industrial overlay pattern */}
+      <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800"/>
+      <div className="absolute inset-0 opacity-5 pointer-events-none"
+        style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '24px 24px' }}/>
+
+      <div className="relative pt-14 pb-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
+
+            {/* About */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white font-black text-base shadow-md">F</div>
+                <span className="font-black text-white text-lg">FORTI</span>
+              </div>
+              <p className="text-xs font-bold text-gray-300 uppercase tracking-widest mb-3">ABOUT US</p>
+              <p className="text-sm text-gray-400 leading-relaxed mb-4">
+                FORTI is an apex chamber of trade and industry that acts as a bridge between the Government of India at National Level and Government of Rajasthan at State level for policy advocacy with the governments and dissemination of information amongst its members.
+              </p>
+              <div className="flex gap-2">
+                {[Facebook, Instagram, Twitter, Linkedin].map((Icon, i) => (
+                  <a key={i} href="#"
+                    className="w-9 h-9 bg-gray-800 rounded-lg flex items-center justify-center text-gray-400 hover:bg-primary-600 hover:text-white transition-all duration-300">
+                    <Icon size={15}/>
+                  </a>
+                ))}
+              </div>
             </div>
-            <p className="text-sm leading-relaxed mb-4">India's premier professional membership organisation, connecting professionals across the globe since 2010.</p>
-            <div className="flex gap-3">
-              {[Facebook, Twitter, Linkedin, Instagram, Youtube].map((Icon, i) => (
-                <a key={i} href="#" className="w-8 h-8 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-primary-600 transition">
-                  <Icon size={15}/>
-                </a>
-              ))}
+
+            {/* All Contacts */}
+            <div>
+              <p className="text-xs font-bold text-gray-300 uppercase tracking-widest mb-4">ALL CONTACTS</p>
+              <div className="space-y-3 text-sm text-gray-400">
+                <div className="flex items-start gap-2.5">
+                  <MapPin size={14} className="text-primary-400 mt-0.5 shrink-0"/>
+                  <span>A-7 Second Floor, Ganpati Enclave, Civil Lines, Jaipur – 302006</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Phone size={14} className="text-primary-400 shrink-0"/>
+                  <a href="tel:+919214007205" className="hover:text-white transition">+91 9214007205</a>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Mail size={14} className="text-primary-400 shrink-0"/>
+                  <a href="mailto:info@forti.in" className="hover:text-white transition">info@forti.in</a>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <MessageCircle size={14} className="text-primary-400 shrink-0"/>
+                  <span>Mon – Sat: 10:00 A.M – 6:00 P.M</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Subscribe */}
+            <div>
+              <p className="text-xs font-bold text-gray-300 uppercase tracking-widest mb-4">SUBSCRIBE</p>
+              <p className="text-sm text-gray-400 mb-4 leading-relaxed">
+                Subscribe to receive our monthly newsletter to stay updated on our announcements, events, projects, and more.
+              </p>
+              <div className="space-y-2">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="Insert Your Email"
+                  className="w-full bg-white border-0 text-gray-900 text-sm px-4 py-2.5 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+                <button
+                  onClick={() => { if (email.trim()) { setEmail(''); } }}
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-bold text-sm hover:from-emerald-600 hover:to-emerald-700 transition shadow-md">
+                  Subscribe
+                </button>
+              </div>
+            </div>
+
+            {/* Gallery */}
+            <div>
+              <p className="text-xs font-bold text-gray-300 uppercase tracking-widest mb-4">GALLERY</p>
+              <div className="grid grid-cols-3 gap-1.5 mb-3">
+                {galleryColors.map((c, i) => (
+                  <div key={i}
+                    className={`h-14 rounded-lg bg-gradient-to-br ${c} cursor-pointer hover:opacity-80 hover:scale-105 transition-all duration-300 flex items-center justify-center`}
+                    onClick={() => navigate('/gallery')}>
+                    <Image size={14} className="text-white/60"/>
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => navigate('/gallery')}
+                className="w-full py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-bold text-xs hover:opacity-90 transition">
+                View More
+              </button>
             </div>
           </div>
-          <div>
-            <p className="font-semibold text-white mb-3 text-sm">Organisation</p>
-            <div className="space-y-2 text-sm">
-              {[['About Us', '/about'],['News & Media', '/news'],['Gallery', '/gallery'],['Contact Us', '/contact']].map(([l, to]) => (
-                <Link key={to} to={to} className="block hover:text-white transition">{l}</Link>
-              ))}
+
+          {/* Bottom bar */}
+          <div className="border-t border-gray-800 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-xs text-gray-500">
+              © {new Date().getFullYear()} All rights reserved by FORTI &nbsp;|&nbsp; Developed by{' '}
+              <a href="https://kaitensoftware.com/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors font-medium">
+                Kaiten Software
+              </a>
+            </p>
+            <div className="flex gap-4 text-xs text-gray-500">
+              <a href="#" className="hover:text-gray-300 transition">Privacy Policy</a>
+              <a href="#" className="hover:text-gray-300 transition">Terms of Service</a>
             </div>
-          </div>
-          <div>
-            <p className="font-semibold text-white mb-3 text-sm">Membership</p>
-            <div className="space-y-2 text-sm">
-              {[['Membership Plans', '/plans'],['Apply Now', '/membership'],['Verify Membership', '/verify'],['Renew Membership', '/member/dashboard']].map(([l, to]) => (
-                <Link key={to} to={to} className="block hover:text-white transition">{l}</Link>
-              ))}
-            </div>
-          </div>
-          <div>
-            <p className="font-semibold text-white mb-3 text-sm">Member Portal</p>
-            <div className="space-y-2 text-sm">
-              {[['Member Login', '/member/login'],['Member Dashboard', '/member/dashboard'],['Admin Login', '/login']].map(([l, to]) => (
-                <Link key={to} to={to} className="block hover:text-white transition">{l}</Link>
-              ))}
-            </div>
-            <p className="font-semibold text-white mt-5 mb-2 text-sm">Contact</p>
-            <p className="text-sm">membership@forti.org</p>
-            <p className="text-sm">+91 98765 43210</p>
-          </div>
-        </div>
-        <div className="border-t border-gray-800 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-          <p>&copy; {new Date().getFullYear()} FORTI. All rights reserved.</p>
-          <div className="flex gap-4">
-            <a href="#" className="hover:text-white transition">Privacy Policy</a>
-            <a href="#" className="hover:text-white transition">Terms of Service</a>
           </div>
         </div>
       </div>
@@ -570,7 +791,7 @@ function Footer() {
   )
 }
 
-// ── Landing Page (main) ────────────────────────────────────────────────────
+// ── Landing Page (main) ─────────────────────────────────────────────────────
 export default function LandingPage() {
   const [showOTPModal, setShowOTPModal] = useState(false)
   const navigate = useNavigate()
@@ -587,7 +808,7 @@ export default function LandingPage() {
       <Navbar onApply={handleApply} />
       <Hero onApply={handleApply} />
       <Stats />
-      <AboutSnippet />
+      <AboutVisionMission />
       <Benefits />
       <PlansPreview onApply={handleApply} />
       <HowItWorks onApply={handleApply} />
@@ -602,4 +823,3 @@ export default function LandingPage() {
     </div>
   )
 }
-

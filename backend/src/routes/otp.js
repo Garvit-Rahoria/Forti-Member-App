@@ -22,22 +22,44 @@ router.post('/send', async (req, res) => {
       return fail(res, 'A valid email address is required', 422);
     }
 
+    const normalizedEmail = email.toLowerCase().trim();
+
     // For 'apply' purpose, require name
     if (purpose === 'apply' && !full_name?.trim()) {
       return fail(res, 'Full name is required', 422);
     }
 
+    if (purpose === 'apply') {
+      const [existingMembers] = await pool.query(
+        'SELECT id FROM member_accounts WHERE LOWER(email) = ? LIMIT 1',
+        [normalizedEmail]
+      );
+
+      if (existingMembers.length) {
+        return fail(res, 'This email is already registered. Please login or use a different email.', 409);
+      }
+
+      const [existingApplications] = await pool.query(
+        "SELECT id FROM fb_submissions WHERE LOWER(applicant_email) = ? AND status != 'draft' LIMIT 1",
+        [normalizedEmail]
+      );
+
+      if (existingApplications.length) {
+        return fail(res, 'This email is already registered. Please login or use a different email.', 409);
+      }
+    }
+
     // For 'login' purpose, check the member has applied (active OR pending)
     if (purpose === 'login') {
       const [accounts] = await pool.query(
-        'SELECT id FROM member_accounts WHERE email = ? LIMIT 1',
-        [email.toLowerCase().trim()]
+        'SELECT id FROM member_accounts WHERE LOWER(email) = ? LIMIT 1',
+        [normalizedEmail]
       );
       if (!accounts.length) {
         // Also check if they have a submitted application (before member_account is created)
         const [subs] = await pool.query(
-          "SELECT id FROM fb_submissions WHERE applicant_email = ? AND status != 'draft' LIMIT 1",
-          [email.toLowerCase().trim()]
+          "SELECT id FROM fb_submissions WHERE LOWER(applicant_email) = ? AND status != 'draft' LIMIT 1",
+          [normalizedEmail]
         );
         if (!subs.length) {
           return fail(res, 'No membership application found for this email. Please apply for membership first.', 404);
@@ -49,7 +71,7 @@ router.post('/send', async (req, res) => {
   const [recent] = await pool.query(
     `SELECT COUNT(*) AS cnt FROM member_otps
      WHERE email = ? AND purpose = ? AND created_at > DATE_SUB(NOW(), INTERVAL 10 MINUTE)`,
-    [email.toLowerCase().trim(), purpose]
+    [normalizedEmail, purpose]
   );
   if (recent[0].cnt >= 10) {
       return fail(res, 'Too many OTP requests. Please wait 10 minutes before trying again.', 429);
@@ -61,12 +83,12 @@ router.post('/send', async (req, res) => {
     // Invalidate previous OTPs for this email + purpose
     await pool.query(
       'UPDATE member_otps SET verified = 1 WHERE email = ? AND purpose = ? AND verified = 0',
-      [email.toLowerCase().trim(), purpose]
+      [normalizedEmail, purpose]
     );
 
     await pool.query(
       'INSERT INTO member_otps (email, phone, full_name, otp_code, purpose, expires_at) VALUES (?,?,?,?,?,?)',
-      [email.toLowerCase().trim(), phone || null, full_name || null, otp, purpose, expiresAt]
+      [normalizedEmail, phone || null, full_name || null, otp, purpose, expiresAt]
     );
 
     // Send email OTP (async – don't block request)
@@ -84,7 +106,7 @@ router.post('/send', async (req, res) => {
     // In development, include OTP in response for testing
     const devPayload = process.env.NODE_ENV === 'development' ? { _dev_otp: otp } : {};
 
-    return ok(res, { email: email.toLowerCase().trim(), ...devPayload }, `OTP sent to ${email}`);
+    return ok(res, { email: normalizedEmail, ...devPayload }, `OTP sent to ${email}`);
   } catch (err) {
     console.error('[OTP /send error]', err.message);
     return fail(res, 'Failed to send OTP. Please try again.', 500);
@@ -102,8 +124,10 @@ router.post('/verify', async (req, res) => {
     return fail(res, 'Email and OTP are required', 422);
   }
 
-  // Master bypass OTP: skip DB lookup entirely
-  if (String(otp).trim() === '000000') {
+  // Master bypass OTP: for 'apply' purpose, return a short-lived verify token.
+  // For 'login' purpose, fall through to the full login flow below.
+  const isMasterBypass = String(otp).trim() === '000000';
+  if (isMasterBypass && purpose !== 'login') {
     // Try to get latest pending OTP record to carry name/phone forward
     const [bypass_rows] = await pool.query(
       `SELECT full_name, phone FROM member_otps
@@ -131,38 +155,39 @@ router.post('/verify', async (req, res) => {
     [email.toLowerCase().trim(), purpose]
   );
 
-  if (!rows.length) {
+  if (!rows.length && !isMasterBypass) {
     return fail(res, 'No pending OTP found for this email. Please request a new OTP.', 400);
   }
 
-  const record = rows[0];
+  const record = rows[0] || {};
 
-  // Check expiry
-  if (new Date() > new Date(record.expires_at)) {
+  // Check expiry (skip for master bypass)
+  if (!isMasterBypass && record.expires_at && new Date() > new Date(record.expires_at)) {
     return fail(res, 'OTP has expired. Please request a new OTP.', 400);
   }
 
-  // Increment attempts
-  await pool.query('UPDATE member_otps SET attempts = attempts + 1 WHERE id = ?', [record.id]);
+  // Increment attempts (skip if no OTP record — bypass)
+  if (record.id) {
+    await pool.query('UPDATE member_otps SET attempts = attempts + 1 WHERE id = ?', [record.id]);
+  }
 
   // Max attempts
-  if (record.attempts >= 5) {
+  if (!isMasterBypass && record.attempts >= 5) {
     return fail(res, 'Too many incorrect attempts. Please request a new OTP.', 400);
   }
 
-  // Master bypass OTP (always works, for admin/dev use)
-  const isMasterOTP = String(otp).trim() === '000000';
-
-  // Check OTP
-  if (!isMasterOTP && record.otp_code !== String(otp).trim()) {
+  // Check OTP (master bypass 000000 always passes)
+  if (!isMasterBypass && record.otp_code !== String(otp).trim()) {
     return fail(res, 'Invalid OTP. Please check and try again.', 400);
   }
 
-  // Mark verified
-  await pool.query(
-    'UPDATE member_otps SET verified = 1, verified_at = NOW() WHERE id = ?',
-    [record.id]
-  );
+  // Mark verified (skip if no OTP record — bypass)
+  if (record.id) {
+    await pool.query(
+      'UPDATE member_otps SET verified = 1, verified_at = NOW() WHERE id = ?',
+      [record.id]
+    );
+  }
 
   // For 'login' purpose, generate a member JWT
   if (purpose === 'login') {
@@ -171,7 +196,24 @@ router.post('/verify', async (req, res) => {
               s.membership_id, s.status, s.member_status, s.expiry_date
        FROM fb_submissions s
        WHERE s.applicant_email = ? AND s.status != 'draft'
-       ORDER BY s.created_at DESC, s.id DESC LIMIT 1`,
+       ORDER BY
+         CASE COALESCE(s.member_status, 'inactive')
+           WHEN 'active' THEN 0
+           ELSE 1
+         END ASC,
+         CASE s.status
+           WHEN 'active'           THEN 0
+           WHEN 'approved'         THEN 1
+           WHEN 'payment_verified' THEN 2
+           WHEN 'payment_pending'  THEN 3
+           WHEN 'payment_submitted' THEN 4
+           WHEN 'under_review'     THEN 5
+           WHEN 'submitted'        THEN 6
+           WHEN 'pending'          THEN 7
+           WHEN 'rejected'         THEN 8
+           ELSE 9
+         END ASC,
+         s.created_at DESC, s.id DESC LIMIT 1`,
       [email.toLowerCase().trim()]
     );
     if (!subs.length) return fail(res, 'Member application not found', 404);
@@ -227,9 +269,19 @@ router.post('/verify', async (req, res) => {
 
     await pool.query('UPDATE member_accounts SET last_login = NOW() WHERE id = ?', [member.id]);
 
+    // Determine role: 'member' if membership is active, 'applicant' otherwise
+    const [[subStatus]] = await pool.query(
+      'SELECT status, member_status FROM fb_submissions WHERE id = ? LIMIT 1',
+      [member.submission_id]
+    );
+    const memberRole =
+      subStatus && subStatus.status === 'active' && subStatus.member_status === 'active'
+        ? 'member'
+        : 'applicant';
+
     const jwt = require('jsonwebtoken');
     const token = jwt.sign(
-      { id: member.id, email: member.email, submission_id: member.submission_id, role: 'member' },
+      { id: member.id, email: member.email, submission_id: member.submission_id, role: memberRole },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );

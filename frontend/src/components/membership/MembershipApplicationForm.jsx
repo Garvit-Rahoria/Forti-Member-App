@@ -10,21 +10,73 @@ import {
 } from 'lucide-react'
 import { getCurrencySymbol, fmtAmount } from '../../utils/currency'
 import { QRCodeSVG } from 'qrcode.react'
-import { useMember } from '../../contexts/MemberContext'
 import {
   formatFullPhoneNumber,
-  getCountryDialDisplay,
   getFixedCurrencyByCountry,
   getFlagEmoji,
   getPhonePlaceholder,
-  ORGANISATION_TYPE_OPTIONS,
+  ORGANISATION_TYPE_OPTIONS as ORG_TYPE_DEFAULTS,
+  PHONE_COUNTRIES,
   RAJASTHAN_MAJOR_CITIES,
   OTHER_STATES,
-  OVERSEAS_COUNTRIES,
   validatePhoneNumber,
+  normalizeCountryRecord,
+  mergeCountryDatasets,
 } from '../../utils/membershipForm'
 
 const http = axios.create({ baseURL: '/api' })
+
+// Org types: fetched from API on first use, fallback to static list
+let _orgTypesCache = null
+async function fetchOrgTypes() {
+  if (_orgTypesCache) return _orgTypesCache
+  try {
+    const res = await http.get('/settings/org-types')
+    _orgTypesCache = Array.isArray(res.data?.data) && res.data.data.length ? res.data.data : ORG_TYPE_DEFAULTS
+  } catch { _orgTypesCache = ORG_TYPE_DEFAULTS }
+  return _orgTypesCache
+}
+
+// mergeCountryDatasets and normalizeCountryRecord are imported from ../../utils/membershipForm
+
+function buildCountryOption(country) {
+  const flag = getFlagEmoji(country.iso2)
+  const dial = country.phone_code || '+00'
+  const iso = country.iso2 || '--'
+  return {
+    value: iso,
+    label: country.name,
+    inputLabel: country.name,
+    secondary: `${iso} ${dial}`,
+    searchText: `${country.name} ${iso} ${dial} ${dial.replace(/^\+/, '')}`,
+    raw: country,
+    flag,
+  }
+}
+
+function renderCountryOption(option, state) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="min-w-0 flex items-center gap-3">
+        <span className="text-base leading-none">{option.flag}</span>
+        <div className="min-w-0">
+          <div className={`truncate text-sm ${state.isSelected ? 'font-semibold' : 'font-medium'}`}>{option.label}</div>
+          <div className="truncate text-xs text-gray-500">{option.secondary}</div>
+        </div>
+      </div>
+      <span className="shrink-0 text-xs font-medium text-gray-400">{option.raw?.phone_code || '+00'}</span>
+    </div>
+  )
+}
+
+function renderOrgTypeOption(option, state) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className={`truncate text-sm ${state.isSelected ? 'font-semibold' : 'font-medium'}`}>{option.label}</span>
+      {option.secondary ? <span className="shrink-0 text-xs text-gray-400">{option.secondary}</span> : null}
+    </div>
+  )
+}
 
 /* ─── Constants ─────────────────────────────────────────────────────── */
 const STEPS = [
@@ -66,6 +118,67 @@ const PLAN_OPTIONS = [
 
 const GENDER_OPTIONS = ['Male', 'Female', 'Other', 'Prefer not to say']
 
+const INDIAN_ID_TYPE_OPTIONS = [
+  { value: 'aadhaar', label: 'Aadhaar Card' },
+  { value: 'passport', label: 'Passport' },
+]
+
+const INTERNATIONAL_ID_TYPE_OPTIONS = [
+  { value: 'passport', label: 'Passport' },
+  { value: 'national_id', label: 'Government Issued ID' },
+]
+
+function isIndianCountryName(countryName) {
+  return String(countryName || 'India').trim().toLowerCase() === 'india'
+}
+
+function getIdTypeOptionsForCountry(countryName) {
+  return isIndianCountryName(countryName) ? INDIAN_ID_TYPE_OPTIONS : INTERNATIONAL_ID_TYPE_OPTIONS
+}
+
+function getDefaultIdType(countryName) {
+  return isIndianCountryName(countryName) ? 'aadhaar' : 'passport'
+}
+
+function getIdentityFieldConfig(idType) {
+  switch (idType) {
+    case 'aadhaar':
+      return {
+        field: 'aadhaar_number',
+        label: 'Aadhaar Number',
+        placeholder: 'Enter Aadhaar number',
+        inputMode: 'numeric',
+        maxLength: 12,
+        transform: value => String(value || '').replace(/\D/g, '').slice(0, 12),
+        validate: value => /^\d{12}$/.test(String(value || '')),
+        error: 'Aadhaar number must be exactly 12 digits',
+      }
+    case 'national_id':
+      return {
+        field: 'national_id_number',
+        label: 'Government ID Number',
+        placeholder: 'Enter government ID number',
+        inputMode: 'text',
+        maxLength: 20,
+        transform: value => String(value || '').replace(/[^A-Za-z0-9 -]/g, '').toUpperCase().slice(0, 20),
+        validate: value => /^[A-Za-z0-9][A-Za-z0-9 -]{4,19}$/.test(String(value || '').trim()),
+        error: 'Government ID number must be 5 to 20 alphanumeric characters',
+      }
+    case 'passport':
+    default:
+      return {
+        field: 'passport_number',
+        label: 'Passport Number',
+        placeholder: 'Enter passport number',
+        inputMode: 'text',
+        maxLength: 9,
+        transform: value => String(value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 9),
+        validate: value => /^[A-Za-z0-9]{6,9}$/.test(String(value || '')),
+        error: 'Passport number must be 6 to 9 alphanumeric characters',
+      }
+  }
+}
+
 const SOCIAL_PLATFORMS = [
   { value: 'linkedin',  label: 'LinkedIn',  placeholder: 'https://linkedin.com/in/yourname' },
   { value: 'website',   label: 'Website',   placeholder: 'https://yourwebsite.com' },
@@ -76,6 +189,32 @@ const SOCIAL_PLATFORMS = [
   { value: 'google',    label: 'Google Business', placeholder: 'https://g.co/yourprofile' },
   { value: 'other',     label: 'Other',     placeholder: 'https://...' },
 ]
+
+const STEP_VALIDATION_FIELDS = {
+  0: ['full_name', 'email', 'phone', 'gender', 'id_type', 'aadhaar_number', 'passport_number', 'national_id_number', 'pin_code', 'organisation_name', 'organisation_type', 'organisation_type_other'],
+  1: ['location_type', 'state_id', 'city_id', 'country_id'],
+  2: ['membership_type'],
+  3: ['plan_type', 'package_id'],
+  4: ['payment_method', 'payment_confirmed', 'payment_screenshot'],
+}
+
+const FIELD_SELECTOR_MAP = {
+  full_name: '[data-field="full_name"]',
+  email: '[data-field="email"]',
+  phone: '[data-field="phone"]',
+  gender: '[data-field="gender"]',
+  id_type: '[data-field="id_type"]',
+  aadhaar_number: '[data-field="aadhaar_number"]',
+  passport_number: '[data-field="passport_number"]',
+  national_id_number: '[data-field="national_id_number"]',
+  pin_code: '[data-field="pin_code"]',
+  organisation_name: '[data-field="organisation_name"]',
+  organisation_type: '[data-field="organisation_type"]',
+  organisation_type_other: '[data-field="organisation_type_other"]',
+  country_id: '[data-field="country_id"]',
+}
+
+const REQUIRED_FIELD_MESSAGE = 'This field is required'
 
 /* ─── Helpers ───────────────────────────────────────────────────────── */
 function FieldError({ msg }) {
@@ -110,13 +249,26 @@ function SearchableSelect({
   options,
   value,
   onChange,
+  onBlur,
   placeholder,
   disabled = false,
   className = '',
   inputClassName = '',
   minQueryLength = 0,
+  allowCustom = false,
+  loading = false,
+  emptyText = 'No matches found',
+  loadingText = 'Loading…',
+  inputName,
+  autoComplete = 'new-password',
+  getSearchText,
+  renderOption,
+  getDisplayValue,
+  inputAriaInvalid = false,
+  dataField,
 }) {
   const rootRef = useRef(null)
+  const optionRefs = useRef([])
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [highlightedIndex, setHighlightedIndex] = useState(0)
@@ -129,46 +281,82 @@ function SearchableSelect({
   const visibleOptions = useMemo(() => {
     const term = query.trim().toLowerCase()
     if (!term) return minQueryLength > 0 ? [] : options
-    const filtered = options.filter(option => String(option.label || '').toLowerCase().includes(term))
-    // Sort: items starting with the term appear first
-    return filtered.sort((a, b) => {
-      const aL = String(a.label || '').toLowerCase()
-      const bL = String(b.label || '').toLowerCase()
-      const aS = aL.startsWith(term)
-      const bS = bL.startsWith(term)
-      if (aS && !bS) return -1
-      if (!aS && bS) return 1
-      return 0
-    })
-  }, [options, query, minQueryLength])
+    const filtered = options
+      .map(option => {
+        const label = String(option.label || '').toLowerCase()
+        const searchText = String(getSearchText ? getSearchText(option) : option.searchText || option.secondary || '').toLowerCase()
+        const haystack = `${label} ${searchText}`.trim()
+        if (!haystack.includes(term)) return null
+        const startsWithLabel = label.startsWith(term) ? 0 : 1
+        const startsWithMeta = !startsWithLabel && searchText.startsWith(term) ? 0 : 1
+        return { option, rank: startsWithLabel + startsWithMeta }
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.rank - b.rank || String(a.option.label || '').localeCompare(String(b.option.label || '')))
+      .map(entry => entry.option)
 
+    return filtered
+  }, [getSearchText, minQueryLength, options, query])
+
+  // Sync query text with value (for pre-fill / external changes)
   useEffect(() => {
-    setQuery(selectedOption?.label || '')
-  }, [selectedOption])
+    if (selectedOption) {
+      setQuery(getDisplayValue ? getDisplayValue(selectedOption) : (selectedOption.inputLabel || selectedOption.label))
+      return
+    }
+    // allowCustom: keep the raw value as display text even if not in options
+    if (allowCustom && value) { setQuery(String(value)); return }
+    if (!value) setQuery('')
+  }, [selectedOption, value, allowCustom, getDisplayValue])
+
+  function commitCustom() {
+    const trimmed = query.trim()
+    if (allowCustom && trimmed && !selectedOption) {
+      onChange(trimmed, { value: trimmed, label: trimmed })
+    } else if (!trimmed) {
+      onChange('', null)
+      setQuery('')
+    } else {
+      setQuery(selectedOption?.label || (allowCustom ? String(value || '') : ''))
+    }
+  }
 
   useEffect(() => {
     function handleOutsideClick(event) {
       if (!rootRef.current?.contains(event.target)) {
         setOpen(false)
-        setQuery(selectedOption?.label || '')
+        commitCustom()
       }
     }
     document.addEventListener('mousedown', handleOutsideClick)
     return () => document.removeEventListener('mousedown', handleOutsideClick)
-  }, [selectedOption])
+  }, [selectedOption, query, allowCustom, value])
 
   useEffect(() => {
     setHighlightedIndex(0)
   }, [query, open])
 
+  useEffect(() => {
+    if (!open) return
+    const node = optionRefs.current[highlightedIndex]
+    node?.scrollIntoView({ block: 'nearest' })
+  }, [highlightedIndex, open, visibleOptions])
+
   function selectOption(option) {
     onChange(option.value, option)
-    setQuery(option.label)
+    setQuery(getDisplayValue ? getDisplayValue(option) : (option.inputLabel || option.label))
     setOpen(false)
+  }
+
+  function handleOpen() {
+    if (disabled) return
+    if (minQueryLength === 0) setQuery('')
+    setOpen(true)
   }
 
   function handleKeyDown(event) {
     if (!open && (event.key === 'ArrowDown' || event.key === 'Enter')) {
+      event.preventDefault()
       setOpen(true)
       return
     }
@@ -176,7 +364,7 @@ function SearchableSelect({
 
     if (event.key === 'ArrowDown') {
       event.preventDefault()
-      setHighlightedIndex(index => Math.min(index + 1, visibleOptions.length - 1))
+      setHighlightedIndex(index => Math.min(index + 1, Math.max(visibleOptions.length - 1, 0)))
       return
     }
     if (event.key === 'ArrowUp') {
@@ -188,11 +376,15 @@ function SearchableSelect({
       event.preventDefault()
       const option = visibleOptions[highlightedIndex]
       if (option) selectOption(option)
+      else if (allowCustom && query.trim()) {
+        onChange(query.trim(), { value: query.trim(), label: query.trim() })
+        setOpen(false)
+      }
       return
     }
     if (event.key === 'Escape') {
       setOpen(false)
-      setQuery(selectedOption?.label || '')
+      setQuery(selectedOption ? (getDisplayValue ? getDisplayValue(selectedOption) : (selectedOption.inputLabel || selectedOption.label)) : (allowCustom ? String(value || '') : ''))
     }
   }
 
@@ -201,37 +393,55 @@ function SearchableSelect({
       <input
         className={`input pr-10 ${inputClassName}`}
         value={query}
+        name={inputName}
+        data-field={dataField}
         disabled={disabled}
         placeholder={placeholder}
-        onFocus={() => { if (!disabled) { if (minQueryLength === 0) { setQuery(''); setOpen(true) } } }}
-        onClick={() => { if (!disabled) { if (minQueryLength === 0) { setQuery(''); setOpen(true) } } }}
+        autoComplete={autoComplete}
+        autoCorrect="off"
+        autoCapitalize="none"
+        spellCheck={false}
+        data-lpignore="true"
+        data-1p-ignore="true"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={open}
+        aria-invalid={inputAriaInvalid}
+        onFocus={handleOpen}
+        onClick={handleOpen}
         onChange={event => {
           setQuery(event.target.value)
-          setOpen(event.target.value.trim().length >= minQueryLength)
+          setOpen(event.target.value.trim().length >= minQueryLength || minQueryLength === 0)
         }}
+        onBlur={onBlur}
         onKeyDown={handleKeyDown}
       />
       {minQueryLength === 0 && <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"/>}
       {open && !disabled && (
-        <div className="absolute left-0 right-0 top-full mt-2 z-[9999] rounded-xl border border-gray-200 bg-white shadow-xl max-h-64 overflow-auto">
-          {visibleOptions.length ? visibleOptions.map((option, index) => {
+        <div className="absolute left-0 right-0 top-full mt-2 z-[9999] rounded-xl border border-gray-200 bg-white shadow-xl max-h-72 overflow-auto overscroll-contain">
+          {loading ? (
+            <div className="px-3 py-3 text-sm text-gray-400">{loadingText}</div>
+          ) : visibleOptions.length ? visibleOptions.map((option, index) => {
             const isSelected = String(option.value) === String(value)
             const isHighlighted = index === highlightedIndex
             return (
               <button
                 key={option.value}
+                ref={node => { optionRefs.current[index] = node }}
                 type="button"
                 onMouseDown={event => event.preventDefault()}
                 onClick={() => selectOption(option)}
                 className={`w-full px-3 py-2.5 text-left text-sm transition flex items-center justify-between gap-3
                   ${isHighlighted ? 'bg-primary-50' : 'bg-white'}
                   ${isSelected ? 'text-primary-700 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}>
-                <span>{option.label}</span>
+                <span className="min-w-0 flex-1">
+                  {renderOption ? renderOption(option, { isSelected, isHighlighted }) : option.label}
+                </span>
                 {isSelected && <CheckCircle size={14} className="text-primary-500 shrink-0"/>}
               </button>
             )
           }) : (
-            <div className="px-3 py-3 text-sm text-gray-400">No matches found</div>
+            <div className="px-3 py-3 text-sm text-gray-400">{emptyText}</div>
           )}
         </div>
       )}
@@ -243,9 +453,18 @@ function SearchableSelect({
 export default function MembershipApplicationForm({ prefill = {} }) {
   const navigate = useNavigate()
   const topRef = useRef()
-  const { token: memberToken, member, refetch: refetchMember } = useMember()
 
   const [step, setStep] = useState(0)
+  const [orgTypes, setOrgTypes] = useState(ORG_TYPE_DEFAULTS)
+  const [orgTypesLoading, setOrgTypesLoading] = useState(true)
+  useEffect(() => {
+    let active = true
+    setOrgTypesLoading(true)
+    fetchOrgTypes()
+      .then(items => { if (active) setOrgTypes(items) })
+      .finally(() => { if (active) setOrgTypesLoading(false) })
+    return () => { active = false }
+  }, [])
 
   const [form, setForm] = useState({
     full_name: prefill?.full_name || '',
@@ -256,8 +475,10 @@ export default function MembershipApplicationForm({ prefill = {} }) {
     country_name: prefill?.country_name || 'India',
     profile_photo: null,
     gender: '',
+    id_type: prefill?.id_type || '',
     aadhaar_number: '',
     passport_number: '',
+    national_id_number: '',
     pin_code: '',
     organisation_name: '',
     organisation_type: '',
@@ -276,11 +497,16 @@ export default function MembershipApplicationForm({ prefill = {} }) {
     payment_method: '',
     payment_screenshot: null,
   })
+  const formRef = useRef(form)
+  useEffect(() => {
+    formRef.current = form
+  }, [form])
 
   /* Social links: array of { platform, url } */
   const [socialLinks, setSocialLinks] = useState([{ platform: '', url: '' }])
 
   const [errors, setErrors]       = useState({})
+  const [touched, setTouched]     = useState({})
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted]   = useState(null)
 
@@ -301,6 +527,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
   const [cities, setCities]     = useState([])
   const [citiesLoading, setCitiesLoading] = useState(false)
   const [countries, setCountries] = useState([])
+  const [countriesLoading, setCountriesLoading] = useState(true)
   const [pkg, setPkg]           = useState(null)
   const [pkgLoading, setPkgLoading] = useState(false)
   const [pkgError, setPkgError] = useState('')
@@ -315,15 +542,253 @@ export default function MembershipApplicationForm({ prefill = {} }) {
   // Stable reference ID generated once per form session
   const referenceId = useMemo(() => `FORTI-${Math.floor(100000 + Math.random() * 900000)}`, [])
   const normalizedCountryName = String(form.country_name || 'India').trim()
-  const isIndianApplicant = normalizedCountryName.toLowerCase() === 'india'
+  const isIndianApplicant = isIndianCountryName(normalizedCountryName)
+  const idTypeOptions = useMemo(() => getIdTypeOptionsForCountry(normalizedCountryName), [normalizedCountryName])
+  const defaultIdType = getDefaultIdType(normalizedCountryName)
+  const activeIdType = idTypeOptions.some(option => option.value === form.id_type) ? form.id_type : defaultIdType
+  const identityFieldConfig = useMemo(() => getIdentityFieldConfig(activeIdType), [activeIdType])
   const formCurrency = getFixedCurrencyByCountry(normalizedCountryName)
   const supportPhoneDigits = String(paymentSettings.support_whatsapp || paymentSettings.support_phone || '916367063168')
     .replace(/\D/g, '')
   const whatsappLink = supportPhoneDigits ? `https://wa.me/${supportPhoneDigits}` : ''
 
+  function getInputClassName(fieldName, baseClassName = 'input') {
+    return errors[fieldName]
+      ? `${baseClassName} border-red-300 focus:border-red-500 focus:ring-red-200 bg-red-50/30`
+      : baseClassName
+  }
+
+  function focusField(fieldName) {
+    const selector = FIELD_SELECTOR_MAP[fieldName]
+    if (!selector) return
+    const element = document.querySelector(selector)
+    if (!element) return
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    window.setTimeout(() => {
+      if (typeof element.focus === 'function') {
+        element.focus({ preventScroll: true })
+      }
+    }, 120)
+  }
+
   function set(key, value) {
-    setForm(f => ({ ...f, [key]: value }))
+    const nextForm = { ...formRef.current, [key]: value }
+    formRef.current = nextForm
+    setForm(nextForm)
     setErrors(e => ({ ...e, [key]: '' }))
+  }
+
+  function markTouched(...fieldNames) {
+    if (!fieldNames.length) return
+    setTouched(current => {
+      let changed = false
+      const next = { ...current }
+      fieldNames.forEach(fieldName => {
+        if (!next[fieldName]) {
+          next[fieldName] = true
+          changed = true
+        }
+      })
+      return changed ? next : current
+    })
+  }
+
+  function setFieldError(fieldName, message) {
+    setErrors(current => {
+      if (!message && !current[fieldName]) return current
+      if (message && current[fieldName] === message) return current
+      const next = { ...current }
+      if (message) next[fieldName] = message
+      else delete next[fieldName]
+      return next
+    })
+  }
+
+  function getFieldError(fieldName, currentForm = formRef.current, stepIndex = step) {
+    const currentCountryName = String(currentForm.country_name || 'India').trim()
+    const currentIsIndianApplicant = isIndianCountryName(currentCountryName)
+    const currentIdTypeOptions = getIdTypeOptionsForCountry(currentCountryName)
+    const currentDefaultIdType = getDefaultIdType(currentCountryName)
+    const currentActiveIdType = currentIdTypeOptions.some(option => option.value === currentForm.id_type)
+      ? currentForm.id_type
+      : currentDefaultIdType
+    const currentIdentityFieldConfig = getIdentityFieldConfig(currentActiveIdType)
+    if (stepIndex === 0) {
+      switch (fieldName) {
+        case 'full_name':
+          return currentForm.full_name?.trim() ? '' : 'Full name is required'
+        case 'email':
+          if (!currentForm.email?.trim()) return REQUIRED_FIELD_MESSAGE
+          return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(currentForm.email)
+            ? ''
+            : 'Valid email is required'
+        case 'phone': {
+          if (!String(currentForm.phone || '').trim()) return REQUIRED_FIELD_MESSAGE
+          return validatePhoneNumber(currentForm.phone, selectedPhoneCountry) || ''
+        }
+        case 'gender':
+          return currentForm.gender ? '' : REQUIRED_FIELD_MESSAGE
+        case 'id_type':
+          return currentActiveIdType ? '' : REQUIRED_FIELD_MESSAGE
+        case 'aadhaar_number':
+        case 'passport_number':
+        case 'national_id_number':
+          if (fieldName !== currentIdentityFieldConfig.field) return ''
+          if (!String(currentForm[currentIdentityFieldConfig.field] || '').trim()) return REQUIRED_FIELD_MESSAGE
+          return currentIdentityFieldConfig.validate(currentForm[currentIdentityFieldConfig.field])
+            ? ''
+            : currentIdentityFieldConfig.error
+        case 'organisation_name':
+          return currentForm.organisation_name?.trim() ? '' : REQUIRED_FIELD_MESSAGE
+        case 'pin_code':
+          if (currentIsIndianApplicant) {
+            if (!String(currentForm.pin_code || '').trim()) return REQUIRED_FIELD_MESSAGE
+            return /^\d{6}$/.test(currentForm.pin_code || '') ? '' : 'Valid 6-digit PIN code is required'
+          }
+          return currentForm.pin_code?.trim() ? '' : REQUIRED_FIELD_MESSAGE
+        case 'organisation_type':
+          return currentForm.organisation_type?.trim() ? '' : REQUIRED_FIELD_MESSAGE
+        case 'organisation_type_other':
+          return currentForm.organisation_type === 'Other' && !currentForm.organisation_type_other?.trim()
+            ? REQUIRED_FIELD_MESSAGE
+            : ''
+        default:
+          return ''
+      }
+    }
+
+    if (stepIndex === 1) {
+      switch (fieldName) {
+        case 'location_type':
+          return currentForm.location_type ? '' : REQUIRED_FIELD_MESSAGE
+        case 'state_id':
+          return currentForm.location_type === 'other_states' && !currentForm.state_id ? REQUIRED_FIELD_MESSAGE : ''
+        case 'city_id':
+          if (currentForm.location_type === 'rajasthan' && !currentForm.city_id) return REQUIRED_FIELD_MESSAGE
+          if (currentForm.location_type === 'other_states' && !currentForm.city_id) return REQUIRED_FIELD_MESSAGE
+          return ''
+        case 'country_id':
+          return currentForm.location_type === 'overseas' && !currentForm.country_id && !currentForm.country_name?.trim()
+            ? REQUIRED_FIELD_MESSAGE
+            : ''
+        default:
+          return ''
+      }
+    }
+
+    if (stepIndex === 2) {
+      return fieldName === 'membership_type' && !currentForm.membership_type ? REQUIRED_FIELD_MESSAGE : ''
+    }
+
+    if (stepIndex === 3) {
+      if (fieldName === 'plan_type') return currentForm.plan_type ? '' : REQUIRED_FIELD_MESSAGE
+      if (fieldName === 'package_id') {
+        if (pkgLoading) return 'Please wait while the package loads'
+        if (pkgError) return 'No package available for this selection. Please contact admin.'
+        return currentForm.package_id && pkg ? '' : 'No package found for this selection'
+      }
+      return ''
+    }
+
+    if (stepIndex === 4) {
+      if (fieldName === 'payment_method') return currentForm.payment_method ? '' : REQUIRED_FIELD_MESSAGE
+      if (fieldName === 'payment_confirmed') {
+        const selMethod = methods.find(m => String(m.id) === String(currentForm.payment_method))
+        const isManualMethod = selMethod && ['bank_transfer', 'international_wire', 'cash', 'cheque', 'other'].includes(selMethod.type)
+        return isManualMethod && !paymentConfirmed ? 'Please confirm you have completed the payment before uploading proof' : ''
+      }
+      if (fieldName === 'payment_screenshot') return currentForm.payment_screenshot ? '' : REQUIRED_FIELD_MESSAGE
+    }
+
+    return ''
+  }
+
+  function getStepErrors(stepIndex, currentForm = formRef.current) {
+    const nextErrors = {}
+    ;(STEP_VALIDATION_FIELDS[stepIndex] || []).forEach(fieldName => {
+      const message = getFieldError(fieldName, currentForm, stepIndex)
+      if (message) nextErrors[fieldName] = message
+    })
+    return nextErrors
+  }
+
+  function updateFieldErrors(fieldNames, nextForm = formRef.current, stepIndex = step) {
+    if (!fieldNames.length) return
+    setErrors(current => {
+      const next = { ...current }
+      let changed = false
+      fieldNames.forEach(fieldName => {
+        const nextMessage = getFieldError(fieldName, nextForm, stepIndex)
+        if (nextMessage) {
+          if (next[fieldName] !== nextMessage) {
+            next[fieldName] = nextMessage
+            changed = true
+          }
+        } else if (next[fieldName]) {
+          delete next[fieldName]
+          changed = true
+        }
+      })
+      return changed ? next : current
+    })
+  }
+
+  function handleFieldChange(fieldName, value, options = {}) {
+    const relatedFields = options.relatedFields || [fieldName]
+    const nextForm = { ...formRef.current, [fieldName]: value }
+    formRef.current = nextForm
+    setForm(nextForm)
+    if (errors._global) {
+      setErrors(current => ({ ...current, _global: '' }))
+    }
+    const shouldValidate = relatedFields.some(name => touched[name] || errors[name])
+    if (shouldValidate) {
+      updateFieldErrors(relatedFields, nextForm)
+      return
+    }
+    setErrors(current => {
+      const next = { ...current }
+      let changed = false
+      relatedFields.forEach(name => {
+        if (next[name]) {
+          delete next[name]
+          changed = true
+        }
+      })
+      return changed ? next : current
+    })
+  }
+
+  function validateField(fieldName, options = {}) {
+    const relatedFields = options.relatedFields || [fieldName]
+    const nextForm = options.nextForm || formRef.current
+    markTouched(...relatedFields)
+    updateFieldErrors(relatedFields, nextForm)
+  }
+
+  function applyCountrySelection(countryLike) {
+    const country = normalizeCountryRecord(countryLike)
+    if (!country) return
+
+    const nextForm = {
+      ...formRef.current,
+      country_name: country.name || formRef.current.country_name,
+      country_id: country.id ? String(country.id) : '',
+      phone_country_iso2: country.iso2 || formRef.current.phone_country_iso2,
+      phone_country_code: country.phone_code || formRef.current.phone_country_code,
+    }
+    formRef.current = nextForm
+    setForm(nextForm)
+
+    setErrors(current => ({
+      ...current,
+      country_id: '',
+      id_type: '',
+      aadhaar_number: '',
+      passport_number: '',
+      national_id_number: '',
+      phone: '',
+    }))
   }
 
   const selectedPhoneCountry = useMemo(() => {
@@ -372,27 +837,13 @@ export default function MembershipApplicationForm({ prefill = {} }) {
   )
 
   const countryOptions = useMemo(() => {
-    const map = new Map()
-    // DB countries first (with flags)
-    countries.forEach(c => {
-      map.set(String(c.name).toLowerCase(), {
-        value: String(c.id),
-        label: `${getFlagEmoji(c.iso2 || '')} ${c.name}`,
-        raw: c,
-      })
-    })
-    // Static fallback so dropdown is never empty
-    OVERSEAS_COUNTRIES.forEach(name => {
-      const key = name.toLowerCase()
-      if (!map.has(key)) map.set(key, { value: name, label: name, raw: { name } })
-    })
-    return [...map.values()].sort((a, b) => {
-      // Sort by plain name (strip emoji prefix if present)
-      const la = a.label.replace(/^[^\w]+/, '').trim()
-      const lb = b.label.replace(/^[^\w]+/, '').trim()
-      return la.localeCompare(lb)
-    })
+    return countries.map(buildCountryOption)
   }, [countries])
+
+  const organisationTypeOptions = useMemo(
+    () => orgTypes.map(type => ({ value: type, label: type, inputLabel: type, searchText: type })),
+    [orgTypes],
+  )
 
   /* ── Social link helpers ─────────────────────────────────────────── */
   function updateSocialLink(i, field, value) {
@@ -413,9 +864,11 @@ export default function MembershipApplicationForm({ prefill = {} }) {
   }, [])
 
   useEffect(() => {
+    setCountriesLoading(true)
     http.get('/locations/countries')
-      .then(r => setCountries(r.data.data || []))
-      .catch(() => setCountries([]))
+      .then(r => setCountries(mergeCountryDatasets(r.data.data || [], PHONE_COUNTRIES)))
+      .catch(() => setCountries(mergeCountryDatasets([], PHONE_COUNTRIES)))
+      .finally(() => setCountriesLoading(false))
   }, [])
 
   useEffect(() => {
@@ -440,6 +893,33 @@ export default function MembershipApplicationForm({ prefill = {} }) {
   }, [countries, normalizedCountryName])
 
   useEffect(() => {
+    setForm(current => {
+      const nextIdType = idTypeOptions.some(option => option.value === current.id_type)
+        ? current.id_type
+        : defaultIdType
+
+      const next = {
+        ...current,
+        id_type: nextIdType,
+        aadhaar_number: nextIdType === 'aadhaar' ? current.aadhaar_number : '',
+        passport_number: nextIdType === 'passport' ? current.passport_number : '',
+        national_id_number: nextIdType === 'national_id' ? current.national_id_number : '',
+      }
+
+      if (
+        next.id_type === current.id_type &&
+        next.aadhaar_number === current.aadhaar_number &&
+        next.passport_number === current.passport_number &&
+        next.national_id_number === current.national_id_number
+      ) {
+        return current
+      }
+
+      return next
+    })
+  }, [defaultIdType, idTypeOptions])
+
+  useEffect(() => {
     if (!form.state_id) { setCities([]); return }
     setCitiesLoading(true)
     http.get(`/locations/cities?state_id=${form.state_id}`)
@@ -456,34 +936,53 @@ export default function MembershipApplicationForm({ prefill = {} }) {
 
   useEffect(() => {
     if (!form.location_type || !form.membership_type || !form.plan_type) {
-      setPkg(null); set('package_id', null); setPkgError(''); return
+      setPkg(null)
+      setForm(f => ({ ...f, package_id: null }))
+      setPkgError('')
+      setPkgLoading(false)
+      return
     }
+
+    // Use AbortController so stale in-flight requests cannot clobber later ones
+    const controller = new AbortController()
     setPkgLoading(true)
     setPkgError('')
-    const params = {
+    setPkg(null)
+
+    const qp = new URLSearchParams({
       membership_type: form.membership_type,
       plan_type:       form.plan_type,
       location_type:   form.location_type,
-    }
-    // For overseas, pass country_id so backend can try country-specific package first
+    })
     if (form.location_type === 'overseas' && form.country_id) {
-      params.country_id = form.country_id
+      qp.set('country_id', form.country_id)
     }
-    http.get('/membership/packages/match', { params })
+
+    http.get(`/membership/packages/match?${qp}`, { signal: controller.signal })
       .then(r => {
-        const p = r.data.data
-        if (!p || Number(p.price) === 0) {
-          setPkg(null); set('package_id', null)
-          setPkgError('Plan not configured. Please contact admin.')
+        if (controller.signal.aborted) return
+        const p = r.data?.data
+        if (p && p.id && Number(p.price) > 0) {
+          setPkg(p)
+          setForm(f => ({ ...f, package_id: p.id }))
+          setPkgError('')
         } else {
-          setPkg(p); set('package_id', p.id)
+          setPkg(null)
+          setForm(f => ({ ...f, package_id: null }))
+          setPkgError('No package configured for this selection. Please contact the administrator.')
         }
       })
-      .catch(() => {
-        setPkg(null); set('package_id', null)
-        setPkgError('Plan not configured. Please contact admin.')
+      .catch(err => {
+        if (controller.signal.aborted) return
+        setPkg(null)
+        setForm(f => ({ ...f, package_id: null }))
+        setPkgError('Unable to load package. Please check your connection and try again.')
       })
-      .finally(() => setPkgLoading(false))
+      .finally(() => {
+        if (!controller.signal.aborted) setPkgLoading(false)
+      })
+
+    return () => controller.abort()
   }, [form.location_type, form.membership_type, form.plan_type, form.country_id])
 
   useEffect(() => {
@@ -503,7 +1002,14 @@ export default function MembershipApplicationForm({ prefill = {} }) {
   }, [form.location_type, form.country_id, countries])
 
   // Reset payment confirmation + instructions toggle whenever the user picks a different method
-  useEffect(() => { setPaymentConfirmed(false); setShowInstructions(false) }, [form.payment_method])
+  useEffect(() => {
+    setPaymentConfirmed(false)
+    setShowInstructions(false)
+    // Reset screenshot when payment method changes
+    set('payment_screenshot', null)
+    setSsPreview(null)
+    if (ssRef.current) ssRef.current.value = ''
+  }, [form.payment_method])
 
   function handleFile(key, file, setPreview) {
     if (!file) return
@@ -565,68 +1071,18 @@ export default function MembershipApplicationForm({ prefill = {} }) {
 
   /* ── Validations ────────────────────────────────────────────────── */
   function validateStep(s) {
-    const e = {}
-    if (s === 0) {
-      if (!form.full_name?.trim()) e.full_name = 'Full name is required'
-      if (!form.email?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
-        e.email = 'Valid email is required'
-      const phoneError = validatePhoneNumber(form.phone, selectedPhoneCountry)
-      if (phoneError) e.phone = phoneError
-      if (!form.gender) e.gender = 'Please select your gender'
-      if (isIndianApplicant) {
-        if (!/^\d{12}$/.test(form.aadhaar_number || '')) e.aadhaar_number = 'Aadhaar number must be exactly 12 digits'
-      } else if (!/^[A-Za-z0-9]{6,9}$/.test(form.passport_number || '')) {
-        e.passport_number = 'Passport number must be 6 to 9 alphanumeric characters'
-      }
-      if (!form.organisation_name?.trim()) e.organisation_name = 'Organisation name is required'
-      if (!form.organisation_type?.trim()) e.organisation_type = 'Please select an organization type'
-      if (form.organisation_type === 'Other' && !form.organisation_type_other?.trim()) {
-        e.organisation_type_other = 'Please specify your organization type'
-      }
-    }
-    if (s === 1) {
-      if (!form.location_type) e.location_type = 'Please select your location'
-      if (form.location_type === 'rajasthan' && !form.city_id) e.city_id = 'Please select your city'
-      if (form.location_type === 'other_states' && !form.state_id) e.state_id = 'Please select your state'
-      if (form.location_type === 'other_states' && !form.city_id) e.city_id = 'Please select your city'
-      if (form.location_type === 'overseas' && !form.country_id && !form.country_name?.trim()) e.country_id = 'Country is required'
-    }
-    if (s === 2) {
-      if (!form.membership_type) e.membership_type = 'Please select membership type'
-    }
-    if (s === 3) {
-      if (!form.plan_type) e.plan_type = 'Please select plan duration'
-      if (!form.package_id) e.package_id = 'No package available for this selection'
-    }
-    if (s === 4) {
-      if (!form.payment_method) e.payment_method = 'Please select payment method'
-      const selMethod = methods.find(m => String(m.id) === String(form.payment_method))
-      const isManual = selMethod && ['bank_transfer', 'international_wire', 'cash', 'cheque', 'other'].includes(selMethod.type)
-      if (isManual && !paymentConfirmed) e.payment_confirmed = 'Please confirm you have completed the payment before uploading proof'
-      if (!form.payment_screenshot) e.payment_screenshot = 'Payment screenshot is required'
+    const e = getStepErrors(s)
+    if (Object.keys(e).length > 0) {
+      markTouched(...(STEP_VALIDATION_FIELDS[s] || []))
+      toast.error('Please complete all required fields before continuing.', { id: `membership-step-${s}-validation` })
+      focusField(Object.keys(e)[0])
     }
     setErrors(e)
     return Object.keys(e).length === 0
   }
 
   function isStepComplete(stepIndex) {
-    const currentErrors = {}
-    if (stepIndex === 0) {
-      currentErrors.full_name = !form.full_name?.trim()
-      currentErrors.email = !form.email?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)
-      currentErrors.phone = !!validatePhoneNumber(form.phone, selectedPhoneCountry)
-      currentErrors.document = isIndianApplicant
-        ? !/^\d{12}$/.test(form.aadhaar_number || '')
-        : !/^[A-Za-z0-9]{6,9}$/.test(form.passport_number || '')
-      currentErrors.organisation_name = !form.organisation_name?.trim()
-      currentErrors.organisation_type = !form.organisation_type?.trim() || (form.organisation_type === 'Other' && !form.organisation_type_other?.trim())
-    }
-    if (stepIndex === 4) {
-      const selMethod = methods.find(m => String(m.id) === String(form.payment_method))
-      const isManual = selMethod && ['bank_transfer', 'international_wire', 'cash', 'cheque', 'other'].includes(selMethod.type)
-      currentErrors.payment = !form.payment_method || (isManual && !paymentConfirmed) || !form.payment_screenshot
-    }
-    return !Object.values(currentErrors).some(Boolean)
+    return Object.keys(getStepErrors(stepIndex)).length === 0
   }
 
   function handleNext() {
@@ -652,8 +1108,10 @@ export default function MembershipApplicationForm({ prefill = {} }) {
       fd.append('phone_country_iso2', form.phone_country_iso2)
       fd.append('country_name', form.country_name)
       if (form.gender) fd.append('gender', form.gender)
-      if (form.aadhaar_number) fd.append('aadhaar_number', form.aadhaar_number)
-      if (form.passport_number) fd.append('passport_number', form.passport_number)
+      fd.append('id_type', activeIdType)
+      if (activeIdType === 'aadhaar' && form.aadhaar_number) fd.append('aadhaar_number', form.aadhaar_number)
+      if (activeIdType === 'passport' && form.passport_number) fd.append('passport_number', form.passport_number)
+      if (activeIdType === 'national_id' && form.national_id_number) fd.append('national_id_number', form.national_id_number)
       if (form.pin_code) fd.append('pin_code', form.pin_code)
       if (form.organisation_name) fd.append('organisation_name', form.organisation_name)
       if (form.organisation_type) fd.append('organisation_type', form.organisation_type)
@@ -680,15 +1138,21 @@ export default function MembershipApplicationForm({ prefill = {} }) {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       const resData = res.data.data
-      if (memberToken || member) {
-        // Already logged-in member: go directly to dashboard (don't await refetch to avoid logout race)
-        navigate('/member/dashboard', { replace: true })
-        refetchMember?.() // fire-and-forget
-        return
-      }
-      setSubmitted(resData)
+      const membershipId = resData?.membership_id || resData?.application_id || ''
+      navigate(`/track${membershipId ? `?membership_id=${encodeURIComponent(membershipId)}` : ''}`, {
+        replace: true,
+        state: { application: resData },
+      })
     } catch (err) {
-      setErrors({ _global: err.response?.data?.message || 'Submission failed. Please try again.' })
+      const message = err.response?.data?.message || 'Submission failed. Please try again.'
+      if (/aadhaar number must be exactly 12 digits/i.test(message)) {
+        setStep(0)
+        markTouched('id_type', 'aadhaar_number')
+        setFieldError('aadhaar_number', 'Aadhaar number must be exactly 12 digits')
+        topRef.current?.scrollIntoView({ behavior: 'smooth' })
+      } else {
+        setErrors({ _global: message })
+      }
     } finally { setSubmitting(false) }
   }
 
@@ -850,84 +1314,162 @@ export default function MembershipApplicationForm({ prefill = {} }) {
             onChange={e => handleFile('profile_photo', e.target.files[0], setProfilePreview)} />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
-          <div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3.5 items-start">
+          <div className="space-y-1.5">
             <label className="label">Country</label>
-            <input className="input bg-gray-50 text-gray-600" value={form.country_name} readOnly disabled />
+            <SearchableSelect
+              options={countryOptions}
+              value={form.phone_country_iso2}
+              placeholder={countriesLoading ? 'Loading countries…' : 'Search country (e.g. India, IN, +91)'}
+              loading={countriesLoading}
+              inputName="member-country-search"
+              autoComplete="new-password"
+              getSearchText={option => option.searchText}
+              getDisplayValue={option => option.label}
+              renderOption={renderCountryOption}
+              onChange={(_, option) => applyCountrySelection(option?.raw)}
+            />
           </div>
-          <div>
+          <div className="space-y-1.5">
             <label className="label">Mobile Number *</label>
-            <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-3">
-              <input className="input bg-gray-50 text-gray-600" value={getCountryDialDisplay(selectedPhoneCountry)} readOnly disabled />
-              <input className="input" type="tel" inputMode="numeric" placeholder={getPhonePlaceholder(selectedPhoneCountry)}
+            <div className="grid grid-cols-[minmax(150px,190px)_minmax(0,1fr)] gap-3">
+              <SearchableSelect
+                options={countryOptions}
+                value={form.phone_country_iso2}
+                placeholder={countriesLoading ? 'Loading countries…' : 'Search country'}
+                loading={countriesLoading}
+                inputName="member-phone-country-search"
+                autoComplete="new-password"
+                getSearchText={option => option.searchText}
+                getDisplayValue={option => `${option.raw?.iso2 || '--'} ${option.raw?.phone_code || '+00'}`}
+                renderOption={renderCountryOption}
+                onChange={(_, option) => applyCountrySelection(option?.raw)}
+                inputClassName="text-sm"
+              />
+              <input className={getInputClassName('phone')} type="tel" inputMode="numeric" placeholder={getPhonePlaceholder(selectedPhoneCountry)}
+                data-field="phone"
+                aria-invalid={!!errors.phone}
                 value={form.phone}
-                onChange={e => set('phone', String(e.target.value || '').replace(/\D/g, '').slice(0, 15))} />
+                onChange={e => handleFieldChange('phone', String(e.target.value || '').replace(/\D/g, '').slice(0, 15))}
+                onBlur={() => validateField('phone')} />
             </div>
             <FieldError msg={errors.phone} />
           </div>
-          <div>
+          <div className="space-y-1.5">
+            <label className="label">ID Type *</label>
+            <select
+              className={getInputClassName('id_type')}
+              value={activeIdType}
+              data-field="id_type"
+              aria-invalid={!!errors.id_type}
+              name="membership_identity_type"
+              autoComplete="off"
+              data-lpignore="true"
+              data-1p-ignore="true"
+              data-form-type="other"
+              onChange={e => handleFieldChange('id_type', e.target.value, { relatedFields: ['id_type', identityFieldConfig.field] })}
+              onBlur={() => validateField('id_type', { relatedFields: ['id_type', identityFieldConfig.field] })}>
+              {idTypeOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+            <FieldError msg={errors.id_type} />
+          </div>
+          <div className="space-y-1.5">
             <label className="label">Full Name *</label>
-            <input className="input" placeholder="Enter your full name"
-              value={form.full_name} onChange={e => set('full_name', e.target.value)} />
+            <input className={getInputClassName('full_name')} placeholder="Enter your full name"
+              data-field="full_name"
+              aria-invalid={!!errors.full_name}
+              value={form.full_name}
+              onChange={e => handleFieldChange('full_name', e.target.value)}
+              onBlur={() => validateField('full_name')} />
             <FieldError msg={errors.full_name} />
           </div>
-          <div>
+          <div className="space-y-1.5">
             <label className="label">Email Address *</label>
-            <input className="input" type="email" placeholder="email@example.com"
-              value={form.email} onChange={e => set('email', e.target.value)} />
+            <input className={getInputClassName('email')} type="email" placeholder="email@example.com"
+              data-field="email"
+              aria-invalid={!!errors.email}
+              value={form.email}
+              onChange={e => handleFieldChange('email', e.target.value)}
+              onBlur={() => validateField('email')} />
             <FieldError msg={errors.email} />
           </div>
-          <div>
+          <div className="space-y-1.5">
             <label className="label">Gender *</label>
-            <select className="input" value={form.gender} onChange={e => set('gender', e.target.value)}>
+            <select
+              className={getInputClassName('gender')}
+              value={form.gender}
+              data-field="gender"
+              aria-invalid={!!errors.gender}
+              onChange={e => handleFieldChange('gender', e.target.value)}
+              onBlur={() => validateField('gender')}>
               <option value="">Select gender</option>
               {GENDER_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
             </select>
             <FieldError msg={errors.gender} />
           </div>
-          <div>
-            <label className="label">{isIndianApplicant ? 'Aadhaar Number *' : 'Passport Number *'}</label>
-            {isIndianApplicant ? (
-              <>
-                <input className="input" placeholder="12-digit Aadhaar number" maxLength={12}
-                  value={form.aadhaar_number}
-                  onChange={e => set('aadhaar_number', e.target.value.replace(/\D/g, '').slice(0, 12))} />
-                <FieldError msg={errors.aadhaar_number} />
-              </>
-            ) : (
-              <>
-                <input className="input" placeholder="Passport number" maxLength={9}
-                  value={form.passport_number}
-                  onChange={e => set('passport_number', e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 9))} />
-                <FieldError msg={errors.passport_number} />
-              </>
-            )}
+          <div className="space-y-1.5">
+            <label className="label">{identityFieldConfig.label} *</label>
+            <input
+              className={getInputClassName(identityFieldConfig.field)}
+              placeholder={identityFieldConfig.placeholder}
+              data-field={identityFieldConfig.field}
+              aria-invalid={!!errors[identityFieldConfig.field]}
+              inputMode={identityFieldConfig.inputMode}
+              maxLength={identityFieldConfig.maxLength}
+              value={form[identityFieldConfig.field] || ''}
+              onChange={e => handleFieldChange(identityFieldConfig.field, identityFieldConfig.transform(e.target.value))}
+              onBlur={() => validateField(identityFieldConfig.field)}
+            />
+            <FieldError msg={errors[identityFieldConfig.field]} />
           </div>
-          <div>
-            <label className="label">{isIndianApplicant ? 'PIN Code' : 'Postal Code'}</label>
+          <div className="space-y-1.5">
+            <label className="label">{isIndianApplicant ? 'PIN Code *' : 'Postal Code *'}</label>
             {isIndianApplicant ? (
-              <input className="input" placeholder="6-digit PIN code" maxLength={6}
+              <input className={getInputClassName('pin_code')} placeholder="6-digit PIN code" maxLength={6}
+                data-field="pin_code"
+                aria-invalid={!!errors.pin_code}
                 value={form.pin_code}
-                onChange={e => set('pin_code', e.target.value.replace(/\D/g, '').slice(0, 6))} />
+                onChange={e => handleFieldChange('pin_code', e.target.value.replace(/\D/g, '').slice(0, 6))}
+                onBlur={() => validateField('pin_code')} />
             ) : (
-              <input className="input" placeholder="Enter postal / zip code" maxLength={20}
+              <input className={getInputClassName('pin_code')} placeholder="Enter postal / zip code" maxLength={20}
+                data-field="pin_code"
+                aria-invalid={!!errors.pin_code}
                 value={form.pin_code}
-                onChange={e => set('pin_code', e.target.value.replace(/[^A-Za-z0-9 -]/g, '').slice(0, 20))} />
+                onChange={e => handleFieldChange('pin_code', e.target.value.replace(/[^A-Za-z0-9 -]/g, '').slice(0, 20))}
+                onBlur={() => validateField('pin_code')} />
             )}
+            <FieldError msg={errors.pin_code} />
           </div>
-          <div>
+          <div className="space-y-1.5">
             <label className="label">Organisation Name *</label>
-            <input className="input" placeholder="Company / Organisation name"
-              value={form.organisation_name} onChange={e => set('organisation_name', e.target.value)} />
+            <input className={getInputClassName('organisation_name')} placeholder="Company / Organisation name"
+              data-field="organisation_name"
+              aria-invalid={!!errors.organisation_name}
+              value={form.organisation_name}
+              onChange={e => handleFieldChange('organisation_name', e.target.value)}
+              onBlur={() => validateField('organisation_name')} />
             <FieldError msg={errors.organisation_name} />
           </div>
-          <div>
+          <div className="space-y-1.5">
             <label className="label">Organisation Type *</label>
             <SearchableSelect
-              options={ORGANISATION_TYPE_OPTIONS.map(t => ({ value: t, label: t }))}
+              options={organisationTypeOptions}
               value={form.organisation_type}
-              onChange={v => set('organisation_type', v)}
-              placeholder="Select type"
+              onChange={v => handleFieldChange('organisation_type', v, { relatedFields: ['organisation_type', 'organisation_type_other'] })}
+              placeholder={orgTypesLoading ? 'Loading organization types…' : 'Select type'}
+              minQueryLength={0}
+              loading={orgTypesLoading}
+              inputName="organization-type-search"
+              dataField="organisation_type"
+              inputAriaInvalid={!!errors.organisation_type}
+              inputClassName={errors.organisation_type ? 'border-red-300 focus:border-red-500 focus:ring-red-200 bg-red-50/30' : ''}
+              onBlur={() => validateField('organisation_type', { relatedFields: ['organisation_type', 'organisation_type_other'] })}
+              autoComplete="new-password"
+              getSearchText={option => option.searchText}
+              renderOption={renderOrgTypeOption}
+              emptyText="No organization types found"
+              allowCustom
             />
             <FieldError msg={errors.organisation_type} />
           </div>
@@ -935,10 +1477,13 @@ export default function MembershipApplicationForm({ prefill = {} }) {
             <div className="sm:col-span-2">
               <label className="label">Specify your organization type</label>
               <input
-                className="input"
+                className={getInputClassName('organisation_type_other')}
                 placeholder="Enter your organization type"
+                data-field="organisation_type_other"
+                aria-invalid={!!errors.organisation_type_other}
                 value={form.organisation_type_other}
-                onChange={e => set('organisation_type_other', e.target.value)}
+                onChange={e => handleFieldChange('organisation_type_other', e.target.value)}
+                onBlur={() => validateField('organisation_type_other')}
               />
               <FieldError msg={errors.organisation_type_other} />
             </div>
@@ -1034,7 +1579,11 @@ export default function MembershipApplicationForm({ prefill = {} }) {
               <button key={loc.value} type="button"
                 onClick={() => {
                   set('location_type', loc.value)
-                  setForm(f => ({ ...f, state_id: '', city_id: '', state_other: '', city_other: '', overseas_city: '', country_id: '' }))
+                  setForm(f => ({ ...f, state_id: '', city_id: '', state_other: '', city_other: '', overseas_city: '', country_id: loc.value === 'overseas' ? f.country_id : '' }))
+                  if (loc.value !== 'overseas') {
+                    const india = countries.find(country => String(country.iso2 || '').toUpperCase() === 'IN')
+                    if (india) applyCountrySelection(india)
+                  }
                   setCities([])
                 }}
                 className={`relative p-5 rounded-xl border-2 text-left transition-all duration-200 group
@@ -1154,11 +1703,15 @@ export default function MembershipApplicationForm({ prefill = {} }) {
             </div>
             <SearchableSelect
               options={countryOptions}
-              value={form.country_id}
+              value={form.phone_country_iso2}
               placeholder={countries.length ? 'Search country...' : 'Loading countries…'}
-              onChange={(nextValue, option) => {
-                set('country_id', nextValue)
-                set('country_name', option?.raw?.name || '')
+              loading={countriesLoading}
+              inputName="overseas-country-search"
+              autoComplete="new-password"
+              getSearchText={option => option.searchText}
+              renderOption={renderCountryOption}
+              onChange={(_, option) => {
+                applyCountrySelection(option?.raw)
                 set('overseas_city', '')
               }}
               inputClassName="bg-white border-emerald-200 focus:border-emerald-400 focus:ring-emerald-200"
@@ -1177,6 +1730,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
         )}
       </SectionCard>
     )
+
   }
 
   /* ─── Step 3: Membership Type ───────────────────────────────────── */
@@ -1213,7 +1767,34 @@ export default function MembershipApplicationForm({ prefill = {} }) {
   }
 
   /* ─── Step 4: Plan & Package ────────────────────────────────────── */
+  /* ─── Step 4: Plan & Package ────────────────────────────────────── */
   function renderPlanPackage() {
+    // Derive display values from current pkg
+    const effectiveCurrency = form.location_type === 'overseas'
+      ? (formCurrency || pkg?.currency || 'USD')
+      : (formCurrency || pkg?.currency || 'INR')
+    const currSymbol = getCurrencySymbol(effectiveCurrency)
+    const locale = effectiveCurrency === 'INR' ? 'en-IN'
+      : effectiveCurrency === 'JPY' ? 'ja-JP'
+      : 'en-US'
+    const hiddenBenefits = new Set([
+      'forti membership certificate',
+      'access to member events',
+      'industry networking',
+      'directory listing',
+    ])
+    const benefits = Array.isArray(pkg?.benefits)
+      ? pkg.benefits
+        .filter(Boolean)
+        .filter(benefit => !hiddenBenefits.has(String(benefit).trim().toLowerCase()))
+      : []
+    const showPackageBenefits = form.membership_type !== 'corporate' && benefits.length > 0
+    const durMonths = pkg?.duration_months ?? 0
+    const durationLabel = pkg?.duration === 'lifetime' ? 'Lifetime (valid forever)'
+      : durMonths >= 36 ? `${Math.round(durMonths / 12)} Years`
+      : durMonths > 0  ? `${durMonths} months`
+      : PLAN_OPTIONS.find(p => p.value === form.plan_type)?.label || ''
+
     return (
       <SectionCard icon={Package} title="Select Plan Duration" desc="Choose your membership plan">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -1247,68 +1828,77 @@ export default function MembershipApplicationForm({ prefill = {} }) {
         </div>
         <FieldError msg={errors.plan_type} />
 
+        {/* ── Loading state ── */}
         {pkgLoading && (
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-5 flex items-center gap-3 text-gray-400 text-sm">
-            <Loader2 size={18} className="animate-spin text-primary-500"/>Finding your package…
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-5 flex items-center gap-3 text-gray-500 text-sm mt-2">
+            <Loader2 size={18} className="animate-spin text-primary-500 shrink-0"/>
+            <span>Loading package details…</span>
           </div>
         )}
 
+        {/* ── Error / not configured state ── */}
         {pkgError && !pkgLoading && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 flex items-center gap-3 text-amber-700">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 flex items-center gap-3 text-amber-700 mt-2">
             <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
               <AlertCircle size={20} className="text-amber-500"/>
             </div>
             <div>
-              <p className="text-sm font-semibold">Package Not Configured</p>
+              <p className="text-sm font-semibold">Package Not Available</p>
               <p className="text-xs mt-0.5">{pkgError}</p>
             </div>
           </div>
         )}
 
-        {pkg && !pkgLoading && (() => {
-          // For overseas: always derive currency from the selected country (formCurrency),
-          // which uses DB country.currency field. pkg.currency may be the generic 'USD'
-          // stored at auto-generation time, which is overridden by country-level mapping.
-          const effectiveCurrency = form.location_type === 'overseas'
-            ? (formCurrency || 'USD')
-            : (formCurrency || pkg.currency || 'INR')
-          const currSymbol = getCurrencySymbol(effectiveCurrency)
-          const locale = effectiveCurrency === 'JPY' ? 'ja-JP'
-            : effectiveCurrency === 'INR' ? 'en-IN'
-            : 'en-US'
-          return (
-            <div className="bg-gradient-to-r from-primary-50 via-purple-50 to-primary-50 border border-primary-200 rounded-xl p-5 shadow-sm">
-              <div className="flex items-center justify-between flex-wrap gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center">
-                    <Package size={18} className="text-primary-600"/>
-                  </div>
-                  <div>
-                    <p className="text-xs text-primary-500 font-semibold uppercase tracking-widest">Your Package</p>
-                    <p className="font-bold text-gray-900 mt-0.5">{pkg.name}</p>
-                    {pkg.code && <p className="text-xs text-gray-500 font-mono">{pkg.code}</p>}
-                  </div>
+        {/* ── Package card ── rendered explicitly (no IIFE) ── */}
+        {pkg && !pkgLoading && !pkgError && (
+          <div className="bg-gradient-to-r from-primary-50 via-purple-50 to-primary-50 border border-primary-200 rounded-xl p-5 shadow-sm mt-2">
+            {/* Header: name + price */}
+            <div className="flex items-start justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center shrink-0">
+                  <Package size={18} className="text-primary-600"/>
                 </div>
-                <div className="text-right">
-                  <p className="text-3xl font-extrabold text-primary-700">
-                    {currSymbol}{Number(pkg.price).toLocaleString(locale)}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-0.5">{effectiveCurrency}</p>
+                <div>
+                  <p className="text-xs text-primary-500 font-semibold uppercase tracking-widest">Selected Package</p>
+                  <p className="font-bold text-gray-900 mt-0.5 text-base">{pkg.name}</p>
+                  {pkg.code && (
+                    <p className="text-xs text-gray-500 font-mono mt-0.5 select-all">{pkg.code}</p>
+                  )}
                 </div>
               </div>
-              {Array.isArray(pkg.benefits) && pkg.benefits.length > 0 && (
-                <ul className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-1.5 border-t border-primary-100 pt-3">
-                  {pkg.benefits.map((b, i) => (
-                    <li key={i} className="text-xs text-gray-600 flex items-center gap-1.5">
-                      <CheckCircle size={11} className="text-primary-500 shrink-0"/>{b}
+              <div className="text-right shrink-0">
+                <p className="text-3xl font-extrabold text-primary-700">
+                  {currSymbol}{Number(pkg.price).toLocaleString(locale)}
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">{effectiveCurrency}</p>
+              </div>
+            </div>
+
+            {/* Duration badge */}
+            {durationLabel && (
+              <div className="flex items-center gap-2 mt-3 pt-3 border-t border-primary-100">
+                <Clock size={14} className="text-primary-500 shrink-0"/>
+                <span className="text-sm text-gray-700">
+                  Duration: <span className="font-semibold text-primary-700">{durationLabel}</span>
+                </span>
+              </div>
+            )}
+
+            {/* Benefits list */}
+            {showPackageBenefits && (
+              <div className="mt-3 pt-3 border-t border-primary-100">
+                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  {benefits.map((benefit, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
+                      <CheckCircle size={13} className="text-green-500 mt-0.5 shrink-0"/>
+                      <span>{benefit}</span>
                     </li>
                   ))}
                 </ul>
-              )}
-            </div>
-          )
-        })()}
-
+              </div>
+            )}
+          </div>
+        )}
 
         <FieldError msg={errors.package_id} />
       </SectionCard>
@@ -1826,8 +2416,9 @@ export default function MembershipApplicationForm({ prefill = {} }) {
         )}
 
         {step < STEPS.length - 1 ? (
-          <button type="button" onClick={handleNext}
-            className="btn-primary flex items-center gap-2 shadow-md shadow-primary-200 hover:shadow-lg">
+          <button type="button" onClick={handleNext} disabled={submitting}
+            className="btn-primary flex items-center gap-2 shadow-md shadow-primary-200 hover:shadow-lg disabled:opacity-60 disabled:shadow-none"
+            aria-disabled={submitting}>
             Save & Next <ChevronRight size={16}/>
           </button>
         ) : (

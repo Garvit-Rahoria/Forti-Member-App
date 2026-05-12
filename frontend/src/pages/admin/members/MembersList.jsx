@@ -5,12 +5,14 @@ import {
   Loader2, X, MoreVertical, ChevronUp, ChevronDown,
 } from 'lucide-react'
 import api from '../../../api/client'
+import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from 'react-hot-toast'
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
 async function downloadWithAuth(url, filename) {
-  const token = localStorage.getItem('forti_token')
+  const token = sessionStorage.getItem('forti_token')
+  if (!token) throw new Error('No token provided')
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
@@ -134,39 +136,41 @@ function ActionMenu({ row, onView, onCert, certLoading, onInvoice, invoiceLoadin
 function SuspendModal({ member, onClose, onConfirm, pending }) {
   const [reason, setReason] = useState('')
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center gap-2">
-          <UserX size={18} className="text-red-500" />
-          <h3 className="font-bold text-gray-900">Suspend Member</h3>
-        </div>
-        <p className="text-sm text-gray-600">
-          Are you sure you want to suspend <strong>{member.applicant_name}</strong>?{' '}
-          They will lose portal access until reactivated.
-        </p>
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 mb-1">Reason for suspension <span className="text-red-500">*</span></label>
-          <textarea
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-300"
-            rows={3}
-            placeholder="Enter reason for suspension…"
-            value={reason}
-            onChange={e => setReason(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => onConfirm(reason)}
-            disabled={pending || !reason.trim()}
-            className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-lg px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {pending && <Loader2 size={13} className="animate-spin" />}
-            Suspend
-          </button>
-          <button className="btn-outline flex-1" onClick={onClose}>Cancel</button>
+    <AdminModalPortal>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={onClose}>
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center gap-2">
+            <UserX size={18} className="text-red-500" />
+            <h3 className="font-bold text-gray-900">Suspend Member</h3>
+          </div>
+          <p className="text-sm text-gray-600">
+            Are you sure you want to suspend <strong>{member.applicant_name}</strong>?{' '}
+            They will lose portal access until reactivated.
+          </p>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Reason for suspension <span className="text-red-500">*</span></label>
+            <textarea
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-300"
+              rows={3}
+              placeholder="Enter reason for suspension…"
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => onConfirm(reason)}
+              disabled={pending || !reason.trim()}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-lg px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {pending && <Loader2 size={13} className="animate-spin" />}
+              Suspend
+            </button>
+            <button className="btn-outline flex-1" onClick={onClose}>Cancel</button>
+          </div>
         </div>
       </div>
-    </div>
+    </AdminModalPortal>
   )
 }
 
@@ -194,10 +198,19 @@ export default function MembersList() {
 
   const statusMut = useMutation({
     mutationFn: ({ id, status, reason }) => api.patch(`/members/${id}/status`, { status, reason }),
-    onSuccess: () => {
-      qc.invalidateQueries(['members'])
-      toast.success('Status updated')
+    onSuccess: (_, vars) => {
+      qc.getQueriesData({ queryKey: ['members'] }).forEach(([queryKey, old]) => {
+        if (!old?.data || !Array.isArray(old.data)) return
+        const filters = queryKey?.[1] || {}
+        const nextData = old.data
+          .map(row => row.id === vars.id ? { ...row, member_status: vars.status } : row)
+          .filter(row => !filters.memberStatus || row.member_status === filters.memberStatus)
+        qc.setQueryData(queryKey, { ...old, data: nextData, total: old.total })
+      })
+      qc.invalidateQueries({ queryKey: ['members'] })
+      toast.success(vars.status === 'suspended' ? 'Member suspended' : 'Member reactivated')
       setSuspendTarget(null)
+      setViewMember(current => current?.id === vars.id ? { ...current, member_status: vars.status } : current)
     },
     onError: err => toast.error(err.response?.data?.message || 'Error'),
   })
@@ -227,6 +240,15 @@ export default function MembersList() {
       toast.success('Invoice downloaded')
     } catch (err) { toast.error(err.response?.data?.message || err.message || 'Invoice failed') }
     finally { setInvoiceLoading(null) }
+  }
+
+  async function handleExportCsv() {
+    try {
+      await downloadWithAuth(`${BASE}/api/reports/export/members`, 'members.csv')
+      toast.success('CSV downloaded')
+    } catch (err) {
+      toast.error(err.message || 'Export failed')
+    }
   }
 
   const allRows    = data?.data || []
@@ -288,13 +310,13 @@ export default function MembersList() {
           <h2 className="text-2xl font-bold text-gray-900">Members</h2>
           <p className="text-gray-500 text-sm">Total: {total}</p>
         </div>
-        <a
-          href={`${BASE}/api/reports/export/members`}
-          target="_blank" rel="noreferrer"
+        <button
+          type="button"
+          onClick={handleExportCsv}
           className="btn-outline btn-sm flex items-center gap-1"
         >
           <Download size={14} /> Export CSV
-        </a>
+        </button>
       </div>
 
       {/* ── Filters ── */}
@@ -387,7 +409,7 @@ export default function MembersList() {
                     </td>
 
                     {/* Organization */}
-                    <td className="px-4 py-3 text-xs text-gray-600">{row.organisation_name || '—'}</td>
+                    <td className="px-4 py-3 text-xs text-gray-600">{row.organisation_name || row.organization_name || '—'}</td>
 
                     {/* Type */}
                     <td className="px-4 py-3">
@@ -478,14 +500,15 @@ export default function MembersList() {
 
       {/* ── View Detail Modal ── */}
       {viewMember && (
-        <div
-          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-          onClick={() => setViewMember(null)}
-        >
+        <AdminModalPortal>
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden"
-            onClick={e => e.stopPropagation()}
+            className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]"
+            onClick={() => setViewMember(null)}
           >
+            <div
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
             <div className="flex items-center justify-between px-6 py-4 border-b bg-gray-50">
               <div>
                 <h3 className="font-bold text-gray-900">{viewMember.applicant_name}</h3>
@@ -501,7 +524,7 @@ export default function MembersList() {
                 ['Full Name',       viewMember.applicant_name],
                 ['Email',           viewMember.applicant_email],
                 ['Phone',           viewMember.applicant_phone],
-                ['Organization',    viewMember.organisation_name],
+                ['Organization',    viewMember.organisation_name || viewMember.organization_name],
                 ['Membership Type', viewMember.membership_type?.toUpperCase()],
                 ['Package',         viewMember.package_name || viewMember.form_name],
                 ['Duration',        durationLabel(viewMember)],
@@ -530,8 +553,9 @@ export default function MembersList() {
                 </button>
               </div>
             </div>
+            </div>
           </div>
-        </div>
+        </AdminModalPortal>
       )}
 
       {/* ── Suspend Confirm Modal ── */}

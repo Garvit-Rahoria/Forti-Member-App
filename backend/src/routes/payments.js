@@ -176,9 +176,9 @@ router.patch('/:id([0-9]+)/credit-inr', requireRole('super_admin', 'admin', 'off
 
     createAuditLog(req.user.id, 'PAYMENT_CREDITED_INR', 'payments', String(payment.id), req.ip);
 
-    // Send payment confirmed email
+    // Send payment confirmed email — fire-and-forget
     if (payment.applicant_email) {
-      await sendTemplatedEmail(
+      sendTemplatedEmail(
         'payment_verified',
         payment.applicant_email,
         {
@@ -189,7 +189,7 @@ router.patch('/:id([0-9]+)/credit-inr', requireRole('super_admin', 'admin', 'off
           credited_inr: credited_inr_amount,
         },
         async (to, subject, body) => sendMail({ to, subject, html: body, template: 'payment_verified', refId: membershipId })
-      );
+      ).catch(e => console.error('[payment_credited email]', e.message));
     }
 
     return ok(res, { status: 'verified', credited_inr_amount, membership_id: membershipId }, 'Payment credited in INR and verified');
@@ -265,9 +265,9 @@ router.patch('/:id/verify', requireRole('super_admin', 'admin', 'office_staff'),
       // Create audit log
       createAuditLog(req.user.id, 'PAYMENT_APPROVED', 'payments', String(payment.id), req.ip);
 
-      // Send event-driven email for payment verified
+      // Send email — fire-and-forget (do NOT await — prevents slow SMTP blocking the response)
       if (payment.applicant_email) {
-        await sendTemplatedEmail(
+        sendTemplatedEmail(
           'payment_verified',
           payment.applicant_email,
           {
@@ -277,7 +277,7 @@ router.patch('/:id/verify', requireRole('super_admin', 'admin', 'office_staff'),
             currency: payment.currency || 'INR',
           },
           async (to, subject, body) => sendMail({ to, subject, html: body, template: 'payment_verified', refId: membershipId })
-        );
+        ).catch(e => console.error('[payment_verified email]', e.message));
       }
     } else {
       // Rejection

@@ -116,7 +116,7 @@ router.get('/packages/match', async (req, res) => {
            AND membership_type = ?
            AND duration = ?
            AND country_id = ?
-         ORDER BY sort_order ASC LIMIT 1`,
+         ORDER BY auto_generated ASC, sort_order ASC, id ASC LIMIT 1`,
         [mtype, dur, country_id]
       );
       console.log(`[PKG MATCH] country-specific search → found ${countryRows.length} rows`);
@@ -124,6 +124,7 @@ router.get('/packages/match', async (req, res) => {
     }
 
     // Base package lookup (country_id IS NULL for base packages)
+    // Prefer manually created packages (auto_generated=0) over auto-generated ones
     const [rows] = await pool.query(
       `SELECT * FROM portal_packages
        WHERE is_active = 1
@@ -131,7 +132,7 @@ router.get('/packages/match', async (req, res) => {
          AND membership_type = ?
          AND duration = ?
          AND country_id IS NULL
-       ORDER BY sort_order ASC LIMIT 1`,
+       ORDER BY auto_generated ASC, sort_order ASC, id ASC LIMIT 1`,
       [loc, mtype, dur]
     );
     console.log(`[PKG MATCH] base lookup (loc=${loc} mtype=${mtype} dur=${dur}) → found ${rows.length} rows${rows[0] ? ` id=${rows[0].id} price=${rows[0].price}` : ''}`);
@@ -174,12 +175,7 @@ router.get('/packages/match', async (req, res) => {
 
     const autoName = `${locLabel} – ${typeLabel} (${durationLabel})`;
     const autoCode = `AUTO-${loc.toUpperCase().slice(0,3)}-${mtype.toUpperCase().slice(0,3)}-${dur.toUpperCase()}`;
-    const autoBenefits = JSON.stringify([
-      'FORTI Membership Certificate',
-      'Access to member events',
-      'Industry networking',
-      'Directory listing',
-    ]);
+    const autoBenefits = JSON.stringify([]);
 
     // Duration in months for expiry calculation
     const DURATION_MONTHS_MAP = {
@@ -271,7 +267,7 @@ router.post(
     const {
       full_name, email, phone, gender,
       phone_country_code, phone_country_iso2, country_name,
-      aadhaar_number, passport_number, pin_code, organisation_name, organisation_type, organisation_type_other, social_links,
+      id_type, aadhaar_number, passport_number, national_id_number, pin_code, organisation_name, organisation_type, organisation_type_other, social_links,
       location_type, state_id, city_id, country_id,
       state_other, city_other, overseas_city,
       membership_type, plan_type, package_id,
@@ -286,6 +282,35 @@ router.post(
     if (!req.files?.payment_screenshot?.[0]) return fail(res, 'Payment screenshot is required', 422);
 
     const resolvedCountryName = country_name || (location_type === 'overseas' ? 'Other' : 'India');
+    const isIndianApplicant = String(resolvedCountryName || '').trim().toLowerCase() === 'india';
+    const resolvedIdType = String(id_type || (isIndianApplicant ? 'aadhaar' : 'passport')).trim().toLowerCase();
+
+    if (isIndianApplicant) {
+      if (!['aadhaar', 'passport'].includes(resolvedIdType)) {
+        return fail(res, 'Indian members must provide either Aadhaar or Passport details', 422);
+      }
+      if (resolvedIdType === 'aadhaar' && !/^\d{12}$/.test(String(aadhaar_number || ''))) {
+        return fail(res, 'Aadhaar number must be exactly 12 digits for Indian members', 422);
+      }
+      if (resolvedIdType === 'passport' && !/^[A-Za-z0-9]{6,9}$/.test(String(passport_number || ''))) {
+        return fail(res, 'Passport number must be 6 to 9 alphanumeric characters', 422);
+      }
+    } else {
+      if (!['passport', 'national_id'].includes(resolvedIdType)) {
+        return fail(res, 'International members must provide either Passport or National ID details', 422);
+      }
+      if (resolvedIdType === 'passport' && !/^[A-Za-z0-9]{6,9}$/.test(String(passport_number || ''))) {
+        return fail(res, 'Passport number must be 6 to 9 alphanumeric characters for international members', 422);
+      }
+      if (resolvedIdType === 'national_id' && !/^[A-Za-z0-9][A-Za-z0-9 -]{4,19}$/.test(String(national_id_number || '').trim())) {
+        return fail(res, 'National ID number must be 5 to 20 characters', 422);
+      }
+    }
+
+    const resolvedAadhaarNumber = resolvedIdType === 'aadhaar' ? String(aadhaar_number || '').trim() : null;
+    const resolvedPassportNumber = resolvedIdType === 'passport' ? String(passport_number || '').trim().toUpperCase() : null;
+    const resolvedNationalIdNumber = resolvedIdType === 'national_id' ? String(national_id_number || '').trim().toUpperCase() : null;
+
     const fixedCurrency = currency || getCurrencyCodeByCountry(resolvedCountryName);
     const paymentReferenceForStorage = payment_reference || `PAY-${Date.now()}`;
 
@@ -309,8 +334,10 @@ router.post(
       country_name:       resolvedCountryName,
       phone_country_code: phone_country_code || null,
       phone_country_iso2: phone_country_iso2 || null,
-      aadhaar_number,
-      passport_number,
+      id_type: resolvedIdType,
+      aadhaar_number: resolvedAadhaarNumber,
+      passport_number: resolvedPassportNumber,
+      national_id_number: resolvedNationalIdNumber,
       pin_code,
       organisation_name,
       organisation_type:  organisation_type || null,
@@ -449,7 +476,12 @@ router.post(
       }
 
       const memberToken = jwt.sign(
-        { id: memberAccountId, email: email.toLowerCase().trim(), submission_id: submissionId, role: 'member' },
+        {
+          id: memberAccountId,
+          email: email.toLowerCase().trim(),
+          submission_id: submissionId,
+          role: autoActivated ? 'member' : 'applicant',
+        },
         JWT_SECRET,
         { expiresIn: '24h' }
       );
@@ -485,7 +517,13 @@ router.post(
       }
 
       return ok(res,
-        { submission_uuid: submUuid, membership_id: finalMembershipId, member_token: memberToken },
+        {
+          submission_uuid: submUuid,
+          email: email.toLowerCase().trim(),
+          applicationId: finalMembershipId,
+          membership_id: finalMembershipId,
+          membershipStatus: autoActivated ? 'active' : 'submitted',
+        },
         autoActivated ? 'Membership activated successfully' : 'Application submitted successfully',
         201
       );

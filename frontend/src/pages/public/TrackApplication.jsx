@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import api from '../../api/client'
 
 function fmt(dateStr) {
@@ -49,26 +49,41 @@ function buildSteps(result) {
 }
 
 export default function TrackApplication() {
+  const location = useLocation()
+  const [searchParams] = useSearchParams()
+  const initialMembershipId = searchParams.get('membership_id') || location.state?.application?.membership_id || ''
   const [input, setInput]     = useState('')
   const [result, setResult]   = useState(null)
   const [error, setError]     = useState('')
   const [loading, setLoading] = useState(false)
 
-  async function handleTrack(e) {
-    e.preventDefault()
-    const id = input.trim()
-    if (!id) return
+  async function fetchApplication(id) {
+    const membershipId = String(id || '').trim()
+    if (!membershipId) return
+    setInput(membershipId)
     setError('')
     setResult(null)
     setLoading(true)
     try {
-      const res = await api.get(`/member/track?membership_id=${encodeURIComponent(id)}`)
+      const res = await api.get(`/member/track?membership_id=${encodeURIComponent(membershipId)}`)
       setResult(res.data.data)
     } catch (err) {
       setError(err.response?.data?.message || 'Application not found. Please check your Application ID.')
     } finally {
       setLoading(false)
     }
+  }
+
+  useEffect(() => {
+    if (!initialMembershipId) return
+    fetchApplication(initialMembershipId)
+  }, [initialMembershipId])
+
+  async function handleTrack(e) {
+    e.preventDefault()
+    const id = input.trim()
+    if (!id) return
+    await fetchApplication(id)
   }
 
   const steps = buildSteps(result)

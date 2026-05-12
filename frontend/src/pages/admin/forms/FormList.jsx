@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { Plus, Edit, Trash2, Eye, ToggleLeft, ToggleRight, Copy } from 'lucide-react'
 import api from '../../../api/client'
+import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from 'react-hot-toast'
 
 function FormModal({ form, onClose, onSave }) {
@@ -14,8 +15,9 @@ function FormModal({ form, onClose, onSave }) {
   const autoSlug = name => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="card w-full max-w-lg" onClick={e => e.stopPropagation()}>
+    <AdminModalPortal>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={onClose}>
+        <div className="card w-full max-w-lg" onClick={e => e.stopPropagation()}>
         <div className="card-header">
           <h3 className="font-semibold">{form ? 'Edit Form' : 'New Form'}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
@@ -67,9 +69,10 @@ function FormModal({ form, onClose, onSave }) {
             <button type="submit" className="btn-primary flex-1">Save Form</button>
             <button type="button" onClick={onClose} className="btn-outline">Cancel</button>
           </div>
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
+    </AdminModalPortal>
   )
 }
 

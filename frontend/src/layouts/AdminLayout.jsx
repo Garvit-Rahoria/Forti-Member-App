@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../api/client'
@@ -68,6 +68,17 @@ const ROLE_BADGE = {
 
 function NavItem({ item }) {
   const [open, setOpen] = useState(false)
+  const location = useLocation()
+
+  const normalizePath = value => {
+    if (!value) return '/'
+    return value !== '/' && value.endsWith('/') ? value.slice(0, -1) : value
+  }
+
+  const currentPath = normalizePath(location.pathname)
+  const itemPath = normalizePath(item.to)
+  const isItemActive = currentPath === itemPath || currentPath.startsWith(`${itemPath}/`)
+
   if (item.children) {
     return (
       <div>
@@ -96,9 +107,7 @@ function NavItem({ item }) {
     )
   }
   return (
-    <NavLink to={item.to} className={({ isActive }) =>
-      `sidebar-link ${isActive ? 'active' : ''}`
-    }>
+    <NavLink to={item.to} className={`sidebar-link ${isItemActive ? 'active' : ''}`}>
       <item.icon size={18} />
       {item.label}
     </NavLink>
@@ -122,15 +131,21 @@ export default function AdminLayout() {
   const panelLabel = PANEL_LABEL[role] || 'Admin Panel'
   const roleBadge = ROLE_BADGE[role] || { label: role, cls: 'bg-gray-100 text-gray-600' }
 
-  const handleLogout = () => { logout(); navigate('/login') }
+  const handleLogout = () => {
+    // Clear all auth data from storage
+    sessionStorage.clear()
+    localStorage.clear()
+    logout()
+    navigate('/', { replace: true })
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       {/* Sidebar */}
       {sidebarOpen && (
-      <aside className="w-64 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col transition-all duration-200 z-20">
+      <aside className="w-64 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col transition-all duration-200">
         {/* Logo + close */}
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-3">
+        <div className="px-5 py-3.5 border-b border-gray-200 flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-primary-500 flex items-center justify-center text-white font-bold text-sm">
             F
           </div>
@@ -140,25 +155,48 @@ export default function AdminLayout() {
           </button>
         </div>
 
+        {/* User profile */}
+        <div className="px-3.5 pt-3 pb-2.5 border-b border-gray-100">
+          <div className="rounded-xl border border-gray-200 bg-gray-50/70 px-3 py-2.5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold shrink-0">
+                {(user?.full_name || user?.name)?.[0]?.toUpperCase() || 'A'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">{user?.full_name || user?.name}</p>
+                <span className={`inline-flex mt-0.5 text-[11px] font-semibold px-2 py-0.5 rounded-full ${roleBadge.cls}`}>{roleBadge.label}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 min-h-0 px-2.5 py-3 flex flex-col">
+          <div className="space-y-0.5">
           {navItems.map(item => <NavItem key={item.label} item={item} />)}
+          </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="sidebar-link w-full mt-auto"
+          >
+            <LogOut size={18} />
+            Logout
+          </button>
         </nav>
 
-        {/* User info */}
-        <div className="px-4 py-3 border-t border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold">
-              {(user?.full_name || user?.name)?.[0]?.toUpperCase() || 'A'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{user?.full_name || user?.name}</p>
-              <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${roleBadge.cls}`}>{roleBadge.label}</span>
-            </div>
-            <button onClick={handleLogout} title="Logout" className="text-gray-400 hover:text-red-500 transition-colors">
-              <LogOut size={16} />
-            </button>
-          </div>
+        <div className="px-4 pb-3 pt-1">
+          <p className="text-center text-[10px] leading-4 text-gray-400/80">
+            Developed by{' '}
+            <a
+              href="https://kaitensoftware.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-gray-500/80 transition-colors underline-offset-2 hover:text-primary-600 hover:underline"
+            >
+              Kaiten Software
+            </a>
+          </p>
         </div>
       </aside>
       )}
@@ -177,9 +215,10 @@ export default function AdminLayout() {
               {regionData.region_name}
             </span>
           )}
-          <div className="ml-auto flex items-center gap-2 text-xs text-gray-400">
-            <span className="w-2 h-2 bg-green-400 rounded-full inline-block" />
-            Live
+          <div className="ml-auto flex items-center gap-3 text-xs text-gray-400">
+            <button onClick={handleLogout} title="Logout" className="ml-1 flex items-center gap-1 text-gray-400 hover:text-red-500 transition-colors">
+              <LogOut size={15} />
+            </button>
           </div>
         </header>
 
