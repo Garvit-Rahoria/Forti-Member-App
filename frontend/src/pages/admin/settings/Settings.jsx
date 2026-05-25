@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Save, Loader2, Settings2 } from 'lucide-react'
 import api from '../../../api/client'
 import toast from 'react-hot-toast'
+import WingsPositionsSettings from './WingsPositionsSettings'
 
 function SectionCard({ icon: Icon, title, children }) {
   return (
@@ -54,7 +55,7 @@ export default function Settings() {
   })
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-4xl">
       <h2 className="text-2xl font-bold text-gray-900">Settings</h2>
 
       {settingsLoading ? (
@@ -107,6 +108,10 @@ export default function Settings() {
           </div>
         </SectionCard>
       )}
+
+      <SectionCard icon={Settings2} title="Wings & positions">
+        <WingsPositionsSettings />
+      </SectionCard>
     </div>
   )
 }

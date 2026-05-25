@@ -4,28 +4,8 @@ import {
   Target, Heart, Lightbulb, TrendingUp, MapPin, Building2,
   User, Star, ArrowRight
 } from 'lucide-react'
-
-function SiteHeader() {
-  return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center text-white font-black">F</div>
-          <div>
-            <span className="font-bold text-gray-900">FORTI</span>
-            <p className="text-xs text-gray-400 leading-none">Membership Portal</p>
-          </div>
-        </Link>
-        <div className="hidden md:flex items-center gap-5 text-sm">
-          {[['Home','/'],['Plans','/plans'],['News','/news'],['Gallery','/gallery'],['Contact','/contact'],['Verify','/verify']].map(([l,to])=>(
-            <Link key={to} to={to} className="text-gray-600 hover:text-primary-600 transition font-medium">{l}</Link>
-          ))}
-        </div>
-        <Link to="/member/login" className="btn-outline text-sm hidden md:flex">Member Login</Link>
-      </div>
-    </header>
-  )
-}
+import PublicHeader from '../../components/public/PublicHeader'
+import PublicFooter from '../../components/public/PublicFooter'
 
 export default function AboutPage() {
   const milestones = [
@@ -52,8 +32,8 @@ export default function AboutPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-white">
-      <SiteHeader />
+    <div className="page-shell">
+      <PublicHeader />
 
       {/* Hero */}
       <section className="bg-gradient-to-br from-primary-900 to-primary-600 text-white py-20">
@@ -196,12 +176,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 py-8">
-        <div className="max-w-7xl mx-auto px-4 text-center text-sm">
-          <p>&copy; {new Date().getFullYear()} FORTI. All rights reserved. · <Link to="/" className="hover:text-white transition">Home</Link> · <Link to="/contact" className="hover:text-white transition">Contact</Link></p>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   )
 }

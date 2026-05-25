@@ -13,6 +13,8 @@ import {
   Upload, IndianRupee, Building2, Banknote, Info, RotateCcw, Edit2
 } from 'lucide-react'
 import { getCurrencySymbol, fmtAmount } from '../../utils/currency'
+import { assetUrl } from '../../utils/assetUrl'
+import MemberPublicProfileSection from '../../components/member/MemberPublicProfileSection'
 
 // ── Status helpers ─────────────────────────────────────────────────────────
 const STATUS_MAP = {
@@ -66,55 +68,53 @@ function Sidebar({ activeTab, onTab, member, onLogout }) {
     { id: 'renewal',     label: 'Renew Membership', icon: RefreshCw },
   ]
   return (
-    <div className="w-64 bg-white border-r border-gray-200 flex flex-col h-screen sticky top-0 shrink-0">
+    <div className="w-64 bg-gradient-sidebar border-r border-white/10 flex flex-col h-screen sticky top-0 shrink-0 text-white shadow-soft-lg">
       {/* Logo */}
-      <div className="p-5 border-b border-gray-100">
+      <div className="p-5 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center text-white font-black">F</div>
+          <div className="w-9 h-9 rounded-xl bg-gradient-cta flex items-center justify-center text-white font-display font-black shadow-glow">F</div>
           <div>
-            <p className="font-bold text-gray-900 text-sm">FORTI</p>
-            <p className="text-xs text-gray-400">Member Dashboard</p>
+            <p className="font-display font-bold text-sm">FORTI</p>
+            <p className="text-xs text-primary-200/70">Member Dashboard</p>
           </div>
         </div>
       </div>
 
       {/* Member info */}
       {member && (
-        <div className="p-4 border-b border-gray-100">
+        <div className="p-4 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold text-lg">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-gold flex items-center justify-center text-white font-bold text-lg">
               {(member.full_name || member.email || '?').charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0">
-              <p className="font-semibold text-gray-900 text-sm truncate">{member.full_name || 'Member'}</p>
-              <p className="text-xs text-gray-400 truncate">{member.membership_id}</p>
+              <p className="font-semibold text-white text-sm truncate">{member.full_name || 'Member'}</p>
+              <p className="text-xs text-primary-200/70 truncate">{member.membership_id}</p>
             </div>
           </div>
           {getMembershipStatus(member) && <div className="mt-2"><MemberStatusBadge status={getMembershipStatus(member)}/></div>}
         </div>
       )}
 
-      {/* Navigation */}
       <nav className="flex-1 p-3 space-y-1">
         {nav.map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => onTab(id)}
-            className={`w-full px-3 py-2.5 rounded-lg text-sm font-medium flex items-center gap-3 transition
+            className={`w-full px-3 py-2.5 rounded-xl text-sm font-medium flex items-center gap-3 transition
               ${activeTab === id
-                ? 'bg-primary-50 text-primary-700 border border-primary-100'
-                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
+                ? 'bg-white/15 text-white border-l-[3px] border-accent-gold pl-[9px]'
+                : 'text-primary-100/80 hover:bg-white/10 hover:text-white'}`}>
             <Icon size={17}/>{label}
             {activeTab === id && <ChevronRight size={14} className="ml-auto opacity-50"/>}
           </button>
         ))}
       </nav>
 
-      {/* Logout + Branding */}
-      <div className="p-3 border-t border-gray-100">
+      <div className="p-3 border-t border-white/10">
         <button onClick={onLogout}
-          className="w-full px-3 py-2.5 rounded-lg text-sm font-medium flex items-center gap-3 text-red-600 hover:bg-red-50 transition mb-2">
+          className="w-full px-3 py-2.5 rounded-xl text-sm font-medium flex items-center gap-3 text-red-300 hover:bg-red-500/10 transition mb-2">
           <LogOut size={17}/>Logout
         </button>
-        <p className="text-center text-xs text-gray-400">
+        <p className="text-center text-xs text-primary-300/50">
           Developed by{' '}
           <a
             href="https://kaitensoftware.com/"
@@ -511,7 +511,7 @@ function ProfileTab({ member, apiClient, refetch }) {
           {/* Avatar */}
           <div className="flex items-center gap-4">
             {data.profile_photo ? (
-              <img src={data.profile_photo} alt="Profile" className="w-20 h-20 rounded-full object-cover border-2 border-primary-200"/>
+              <img src={assetUrl(data.profile_photo)} alt="Profile" className="w-20 h-20 rounded-full object-cover border-2 border-primary-200"/>
             ) : (
               <div className="w-20 h-20 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-black text-3xl">
                 {(member.full_name || '?').charAt(0)}
@@ -586,6 +586,8 @@ function ProfileTab({ member, apiClient, refetch }) {
           )}
         </div>
       </div>
+
+      <MemberPublicProfileSection apiClient={apiClient} />
 
       {/* Social links */}
       {Array.isArray(data.social_links) && data.social_links.filter(l => l.url).length > 0 && (
@@ -865,11 +867,6 @@ function RenewalTab({ member, apiClient }) {
     setTimeout(() => setNotification(null), 6000)
   }
 
-  function assetUrl(path) {
-    if (!path) return ''
-    if (path.startsWith('http://') || path.startsWith('https://')) return path
-    return path.startsWith('/') ? path : `/${path}`
-  }
 
   useEffect(() => {
     const memberType  = member?.data?.membership_type

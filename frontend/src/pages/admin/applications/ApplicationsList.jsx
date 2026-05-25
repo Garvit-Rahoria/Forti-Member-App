@@ -10,13 +10,7 @@ import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from "react-hot-toast"
 import { useAuth } from "../../../contexts/AuthContext"
 
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
-
-function resolveAssetUrl(path) {
-  if (!path) return ''
-  if (path.startsWith('http://') || path.startsWith('https://')) return path
-  return `${BASE}${path.startsWith('/') ? path : `/${path}`}`
-}
+import { assetUrl as resolveAssetUrl } from '../../../utils/assetUrl'
 
 // ── Status config ─────────────────────────────────────────────────────────────
 const STATUS_TABS = [

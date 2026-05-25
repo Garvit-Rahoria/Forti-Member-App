@@ -1,43 +1,11 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Image, PlayCircle, X, ChevronLeft, ChevronRight, Filter } from 'lucide-react'
+import { Image, PlayCircle, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { GALLERY_ITEMS } from '../../data/siteAssets'
+import PublicHeader from '../../components/public/PublicHeader'
+import PublicFooter from '../../components/public/PublicFooter'
 
-function SiteHeader() {
-  return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center text-white font-black">F</div>
-          <div><span className="font-bold text-gray-900">FORTI</span><p className="text-xs text-gray-400 leading-none">Membership Portal</p></div>
-        </Link>
-        <div className="hidden md:flex items-center gap-5 text-sm">
-          {[['Home','/'],['About','/about'],['Plans','/plans'],['News','/news'],['Contact','/contact']].map(([l,to])=>(
-            <Link key={to} to={to} className="text-gray-600 hover:text-primary-600 transition font-medium">{l}</Link>
-          ))}
-        </div>
-        <Link to="/member/login" className="btn-outline text-sm hidden md:flex">Member Login</Link>
-      </div>
-    </header>
-  )
-}
-
-// Gallery data — gradient placeholders until real photos are uploaded
-const GALLERY_ITEMS = [
-  { id: 1, cat: 'AGM 2026',       title: 'Annual General Meeting 2026', subtitle: 'New Delhi', gradient: 'from-purple-200 to-purple-400', span: 'col-span-2 row-span-2' },
-  { id: 2, cat: 'Awards',         title: 'National Excellence Awards', subtitle: 'Mumbai 2025', gradient: 'from-yellow-200 to-orange-300', span: '' },
-  { id: 3, cat: 'Events',         title: 'National Summit 2025', subtitle: 'Mumbai', gradient: 'from-blue-200 to-blue-400', span: '' },
-  { id: 4, cat: 'Certification',  title: 'Certificate Distribution', subtitle: 'Chennai Chapter', gradient: 'from-green-200 to-green-400', span: '' },
-  { id: 5, cat: 'Events',         title: 'State Chapter Launch', subtitle: 'Jaipur 2025', gradient: 'from-pink-200 to-pink-400', span: '' },
-  { id: 6, cat: 'Networking',     title: 'Member Networking Night', subtitle: 'Bangalore', gradient: 'from-indigo-200 to-indigo-400', span: '' },
-  { id: 7, cat: 'Events',         title: 'International Members Meet', subtitle: 'Dubai 2025', gradient: 'from-cyan-200 to-cyan-400', span: '' },
-  { id: 8, cat: 'AGM 2026',       title: 'AGM Panel Discussion', subtitle: 'New Delhi', gradient: 'from-rose-200 to-rose-400', span: '' },
-  { id: 9, cat: 'Awards',         title: 'Best New Member Awards', subtitle: 'Mumbai 2025', gradient: 'from-amber-200 to-amber-400', span: '' },
-  { id: 10, cat: 'Certification', title: 'Batch Certification 2025', subtitle: 'Hyderabad', gradient: 'from-teal-200 to-teal-400', span: '' },
-  { id: 11, cat: 'Networking',    title: 'Women in Business Summit', subtitle: 'Delhi 2025', gradient: 'from-fuchsia-200 to-fuchsia-400', span: '' },
-  { id: 12, cat: 'Events',        title: 'FORTI Leadership Forum', subtitle: 'Pune 2025', gradient: 'from-lime-200 to-lime-400', span: '' },
-]
-
-const CATS = ['All', 'AGM 2026', 'Events', 'Awards', 'Certification', 'Networking']
+const CATS = ['All', ...Array.from(new Set(GALLERY_ITEMS.map(g => g.cat)))]
 
 export default function GalleryPage() {
   const [filter, setFilter] = useState('All')
@@ -57,10 +25,9 @@ export default function GalleryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <SiteHeader />
+    <div className="page-shell">
+      <PublicHeader />
 
-      {/* Hero */}
       <section className="bg-gradient-to-br from-primary-900 to-primary-600 text-white py-14">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <span className="text-primary-300 font-semibold text-sm uppercase tracking-widest">Gallery</span>
@@ -70,7 +37,6 @@ export default function GalleryPage() {
       </section>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
-        {/* Filter tabs */}
         <div className="flex gap-2 flex-wrap mb-8">
           {CATS.map(c => (
             <button key={c} onClick={() => setFilter(c)}
@@ -80,7 +46,6 @@ export default function GalleryPage() {
           ))}
         </div>
 
-        {/* Masonry-like grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {filtered.map((item, i) => (
             <div key={item.id}
@@ -88,7 +53,7 @@ export default function GalleryPage() {
                 ${i === 0 ? 'col-span-2 row-span-2' : ''}`}
               style={{ height: i === 0 ? '320px' : '160px' }}
               onClick={() => open(item)}>
-              <div className={`absolute inset-0 bg-gradient-to-br ${item.gradient}`}/>
+              <img src={item.src} alt={item.title} className="absolute inset-0 w-full h-full object-cover"/>
               <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
                 <PlayCircle size={36} className="text-white drop-shadow-lg"/>
               </div>
@@ -106,39 +71,27 @@ export default function GalleryPage() {
         <p className="text-center text-sm text-gray-400 mt-10">Gallery images will be updated regularly as events take place. <Link to="/contact" className="text-primary-600 hover:underline">Submit your event photos</Link>.</p>
       </div>
 
-      {/* Lightbox */}
       {lightbox && (
         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={close}>
-          <div className="relative max-w-2xl w-full" onClick={e => e.stopPropagation()}>
-            <div className={`w-full rounded-2xl bg-gradient-to-br ${lightbox.gradient} flex items-center justify-center`} style={{ height: '400px' }}>
-              <Image size={64} className="text-white/30"/>
-            </div>
+          <div className="relative max-w-3xl w-full" onClick={e => e.stopPropagation()}>
+            <img src={lightbox.src} alt={lightbox.title} className="w-full max-h-[70vh] object-contain rounded-t-2xl bg-black"/>
             <div className="bg-white rounded-b-2xl p-4">
               <span className="text-xs text-primary-600 font-semibold">{lightbox.cat}</span>
               <h3 className="font-bold text-gray-900 mt-0.5">{lightbox.title}</h3>
               <p className="text-sm text-gray-500">{lightbox.subtitle}</p>
             </div>
-            {/* Navigation */}
-            <button onClick={prev} className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition">
-              <ChevronLeft size={20}/>
-            </button>
-            <button onClick={next} className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition">
-              <ChevronRight size={20}/>
-            </button>
-            <button onClick={close} className="absolute -top-3 -right-3 w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-lg text-gray-600 hover:text-primary-600 transition">
-              <X size={18}/>
-            </button>
+            <button onClick={close} className="absolute top-3 right-3 w-9 h-9 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70"><X size={18}/></button>
+            {filtered.length > 1 && (
+              <>
+                <button onClick={e => { e.stopPropagation(); prev() }} className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/50 rounded-full flex items-center justify-center text-white"><ChevronLeft size={20}/></button>
+                <button onClick={e => { e.stopPropagation(); next() }} className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/50 rounded-full flex items-center justify-center text-white"><ChevronRight size={20}/></button>
+              </>
+            )}
           </div>
         </div>
       )}
 
-      {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 py-8 mt-8">
-        <div className="max-w-7xl mx-auto px-4 text-center text-sm space-y-1">
-          <p>&copy; {new Date().getFullYear()} FORTI. All rights reserved. · <Link to="/" className="hover:text-white">Home</Link> · <Link to="/contact" className="hover:text-white">Contact</Link></p>
-          <p className="text-xs text-gray-600">Developed by <a href="https://kaitensoftware.com/" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">Kaiten Software</a></p>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   )
 }

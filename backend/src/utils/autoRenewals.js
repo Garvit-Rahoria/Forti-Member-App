@@ -34,7 +34,7 @@ async function runAutoRenewals() {
      WHERE s.status IN ('active','approved')
        AND s.member_status IN ('active','expired')
        AND s.expiry_date IS NOT NULL
-       AND s.expiry_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+       AND s.expiry_date <= CURRENT_DATE + INTERVAL '30 days'
        AND NOT EXISTS (
          SELECT 1
          FROM portal_renewals r

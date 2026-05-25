@@ -1,19 +1,22 @@
 services:
   db:
-    image: mysql:8.0
+    image: postgres:16-alpine
     container_name: forti_db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root@2026
-      MYSQL_DATABASE: forti_membership
-      MYSQL_USER: forti
-      MYSQL_PASSWORD: forti@2026
+      POSTGRES_DB: forti_membership
+      POSTGRES_USER: forti
+      POSTGRES_PASSWORD: forti@2026
     ports:
-      - "3307:3306"
+      - "5435:5432"
     volumes:
-      - forti_db_data:/var/lib/mysql
+      - forti_db_data:/var/lib/postgresql/data
       - ./database/init:/docker-entrypoint-initdb.d
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forti -d forti_membership"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 volumes:
   forti_db_data:

@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+// NewsPage kept for reference; /news redirects to content hub
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { MemberProvider, useMember } from './contexts/MemberContext'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -29,13 +30,18 @@ import LandingPage from './pages/public/LandingPage'
 import AboutPage from './pages/public/AboutPage'
 import PlansPage from './pages/public/PlansPage'
 import VerifyMembership from './pages/public/VerifyMembership'
-import NewsPage from './pages/public/NewsPage'
 import GalleryPage from './pages/public/GalleryPage'
 import ContactPage from './pages/public/ContactPage'
 import MemberLogin from './pages/member/MemberLogin'
 import MemberDashboard from './pages/member/MemberDashboard'
 import MemberStatus from './pages/member/MemberStatus'
 import TrackApplication from './pages/public/TrackApplication'
+import PublicProfilePage from './pages/public/PublicProfilePage'
+import ContentHubPage from './pages/public/ContentHubPage'
+import ContentCategoryPage from './pages/public/ContentCategoryPage'
+import BlogPostPage from './pages/public/BlogPostPage'
+import BlogManagerPage from './pages/admin/blog/BlogManagerPage'
+import ContentTagPage from './pages/public/ContentTagPage'
 import CurrencySettings from './pages/admin/currency/CurrencySettings'
 import ManagerReports from './pages/admin/reports/ManagerReports'
 import { getMemberLandingPath, hasMemberDashboardAccess } from './utils/memberAccess'
@@ -87,7 +93,11 @@ export default function App() {
             <Route path="/about" element={<AboutPage />} />
             <Route path="/plans" element={<PlansPage />} />
             <Route path="/verify" element={<VerifyMembership />} />
-            <Route path="/news" element={<NewsPage />} />
+            <Route path="/news" element={<Navigate to="/content/insights" replace />} />
+            <Route path="/tags/:tagSlug" element={<ContentTagPage />} />
+            <Route path="/content/:menuSlug/posts/:postSlug" element={<BlogPostPage />} />
+            <Route path="/content/:menuSlug/:categorySlug" element={<ContentCategoryPage />} />
+            <Route path="/content/:menuSlug" element={<ContentHubPage />} />
             <Route path="/gallery" element={<GalleryPage />} />
             <Route path="/contact" element={<ContactPage />} />
 
@@ -96,6 +106,7 @@ export default function App() {
             <Route path="/member/dashboard" element={<MemberRoute><MemberDashboard /></MemberRoute>} />
             <Route path="/member/status" element={<MemberStatusRoute><MemberStatus /></MemberStatusRoute>} />
             <Route path="/track" element={<TrackApplication />} />
+            <Route path="/m/:slug" element={<PublicProfilePage />} />
 
             {/* ── Admin Login ── */}
             <Route path="/login" element={<Login />} />
@@ -139,6 +150,7 @@ export default function App() {
                 <Route path="reports" element={<Reports />} />
                 <Route path="manager-reports" element={<RoleRoute roles={['branch_manager']}><ManagerReports /></RoleRoute>} />
                 <Route path="audit" element={<RoleRoute roles={['super_admin']}><AuditLog /></RoleRoute>} />
+                <Route path="blog" element={<RoleRoute roles={['super_admin','admin']}><BlogManagerPage /></RoleRoute>} />
                 <Route path="settings" element={<RoleRoute roles={['super_admin','admin']}><Settings /></RoleRoute>} />
                 <Route path="users" element={<RoleRoute roles={['super_admin']}><UsersList /></RoleRoute>} />
                 <Route path="currency-settings" element={<RoleRoute roles={['super_admin','admin']}><CurrencySettings /></RoleRoute>} />

@@ -4,7 +4,7 @@ import { Award, CreditCard, Download, Search, RefreshCw } from 'lucide-react'
 import api from '../../../api/client'
 import toast from 'react-hot-toast'
 
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
 
 function downloadFile(url, filename) {
   const a = document.createElement('a')
@@ -30,8 +30,8 @@ export default function CertificatesPage() {
   const totalPages = data?.totalPages || 1
   const total = data?.total || 0
 
-  const genCert = (m) => downloadFile(`${BASE}/api/certificates/${m.id}`, `certificate-${m.membership_id || m.id}.pdf`)
-  const genCard = (m) => downloadFile(`${BASE}/api/certificates/card/${m.id}`, `idcard-${m.membership_id || m.id}.pdf`)
+  const genCert = (m) => downloadFile(`${API_BASE}/api/certificates/${m.id}`, `certificate-${m.membership_id || m.id}.pdf`)
+  const genCard = (m) => downloadFile(`${API_BASE}/api/certificates/card/${m.id}`, `idcard-${m.membership_id || m.id}.pdf`)
 
   return (
     <div className="space-y-5">

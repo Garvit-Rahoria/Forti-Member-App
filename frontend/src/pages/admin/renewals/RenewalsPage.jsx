@@ -28,7 +28,7 @@ import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from 'react-hot-toast'
 import { fmtAmount } from '../../../utils/currency'
 
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+import { assetUrl as resolveAssetUrl } from '../../../utils/assetUrl'
 const VERIFY_DEFAULT = { action: 'approve', newExpiryDate: '', notes: '' }
 const NEW_DEFAULT = { submission_id: '', new_expiry_date: '', amount: '', notes: '' }
 const SORT_OPTIONS = [
@@ -42,11 +42,6 @@ const RENEWAL_MODAL_VIEWPORT_GUTTER = 16
 const STATUS_BADGE_BASE = 'inline-flex min-h-[30px] items-center justify-center rounded-full px-3 py-1 text-xs font-semibold leading-none ring-1'
 const NEEDS_ACTION_BADGE = 'inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-700 ring-1 ring-amber-200/80'
 
-function resolveAssetUrl(path) {
-  if (!path) return ''
-  if (path.startsWith('http://') || path.startsWith('https://')) return path
-  return `${BASE}${path.startsWith('/') ? path : `/${path}`}`
-}
 
 function formatDate(value) {
   if (!value) return ' - '

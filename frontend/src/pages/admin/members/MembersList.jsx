@@ -8,7 +8,7 @@ import api from '../../../api/client'
 import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from 'react-hot-toast'
 
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
 
 async function downloadWithAuth(url, filename) {
   const token = sessionStorage.getItem('forti_token')
@@ -181,6 +181,7 @@ export default function MembersList() {
   const [memberStatus, setMemberStatus]     = useState('active')
   const [typeFilter, setTypeFilter]         = useState('')
   const [pkgFilter, setPkgFilter]           = useState('')
+  const [wingFilter, setWingFilter]         = useState('')
   const [page, setPage]                     = useState(1)
   const [viewMember, setViewMember]         = useState(null)
   const [suspendTarget, setSuspendTarget]   = useState(null)
@@ -189,10 +190,21 @@ export default function MembersList() {
   const [sortBy, setSortBy]                 = useState(null)   // 'name' | 'expiry'
   const [sortDir, setSortDir]               = useState('asc')
 
+  const { data: wings = [] } = useQuery({
+    queryKey: ['wings'],
+    queryFn: () => api.get('/wings').then(r => r.data.data),
+  })
+
   const { data, isLoading } = useQuery({
-    queryKey: ['members', { q, memberStatus, page }],
+    queryKey: ['members', { q, memberStatus, wingFilter, page }],
     queryFn: () => api.get('/members', {
-      params: { q, member_status: memberStatus || undefined, page, per_page: 20 },
+      params: {
+        q,
+        member_status: memberStatus || undefined,
+        wing_id: wingFilter || undefined,
+        page,
+        per_page: 20,
+      },
     }).then(r => r.data.data),
   })
 
@@ -219,7 +231,7 @@ export default function MembersList() {
     setCertLoading(row.id)
     try {
       await downloadWithAuth(
-        `${BASE}/api/certificates/${row.id}`,
+        `${API_BASE}/api/certificates/${row.id}`,
         `certificate_${row.membership_id || row.id}.pdf`,
       )
       toast.success('Certificate downloaded')
@@ -234,7 +246,7 @@ export default function MembersList() {
       const invId = res.data.data?.id
       if (!invId) throw new Error('Invoice ID not returned')
       await downloadWithAuth(
-        `${BASE}/api/invoices/${invId}/download`,
+        `${API_BASE}/api/invoices/${invId}/download`,
         `invoice_${row.membership_id || row.id}.pdf`,
       )
       toast.success('Invoice downloaded')
@@ -244,7 +256,7 @@ export default function MembersList() {
 
   async function handleExportCsv() {
     try {
-      await downloadWithAuth(`${BASE}/api/reports/export/members`, 'members.csv')
+      await downloadWithAuth(`${API_BASE}/api/reports/export/members`, 'members.csv')
       toast.success('CSV downloaded')
     } catch (err) {
       toast.error(err.message || 'Export failed')
@@ -346,6 +358,10 @@ export default function MembersList() {
           <option value="">All Packages</option>
           {packageNames.map(p => <option key={p} value={p}>{p}</option>)}
         </select>
+        <select className="input w-36" value={wingFilter} onChange={e => { setWingFilter(e.target.value); setPage(1) }}>
+          <option value="">All Wings</option>
+          {wings.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+        </select>
       </div>
 
       {/* ── Table ── */}
@@ -362,6 +378,7 @@ export default function MembersList() {
                   <span className="flex items-center gap-1">Name <SortIcon col="name" /></span>
                 </th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Organization</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">Wing</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Type</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Package</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Duration</th>
@@ -379,14 +396,14 @@ export default function MembersList() {
             <tbody className="divide-y divide-gray-100">
               {isLoading ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-12 text-gray-400">
+                  <td colSpan={11} className="text-center py-12 text-gray-400">
                     <Loader2 size={20} className="animate-spin mx-auto mb-2" />
                     Loading…
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-12 text-gray-400">No members found</td>
+                  <td colSpan={11} className="text-center py-12 text-gray-400">No members found</td>
                 </tr>
               ) : rows.map(row => {
                 const isExpiringSoon = row.days_to_expiry != null && row.days_to_expiry >= 0 && row.days_to_expiry <= 30
@@ -410,6 +427,8 @@ export default function MembersList() {
 
                     {/* Organization */}
                     <td className="px-4 py-3 text-xs text-gray-600">{row.organisation_name || row.organization_name || '—'}</td>
+
+                    <td className="px-4 py-3 text-xs text-gray-600">{row.wing_name || '—'}</td>
 
                     {/* Type */}
                     <td className="px-4 py-3">

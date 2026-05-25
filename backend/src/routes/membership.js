@@ -270,12 +270,13 @@ router.post(
       id_type, aadhaar_number, passport_number, national_id_number, pin_code, organisation_name, organisation_type, organisation_type_other, social_links,
       location_type, state_id, city_id, country_id,
       state_other, city_other, overseas_city,
-      membership_type, plan_type, package_id,
+      membership_type, plan_type, package_id, wing_id,
       payment_method, payment_reference, currency,
     } = req.body;
 
     // Basic validation
     if (!full_name || !email)        return fail(res, 'Full name and email are required', 422);
+    if (!wing_id)                    return fail(res, 'Wing selection is required', 422);
     if (!membership_type)            return fail(res, 'Membership type is required', 422);
     if (!plan_type)                  return fail(res, 'Plan type is required', 422);
     if (!payment_method)             return fail(res, 'Payment method is required', 422);
@@ -390,15 +391,28 @@ router.post(
         }
       }
 
+      const resolvedWingId = Number(wing_id) || null;
+      if (resolvedWingId) {
+        const [[wingRow]] = await conn.query(
+          'SELECT id FROM portal_wings WHERE id = ? AND is_active = TRUE LIMIT 1',
+          [resolvedWingId]
+        );
+        if (!wingRow) {
+          await conn.rollback();
+          return fail(res, 'Invalid wing selected', 422);
+        }
+      }
+
       const [r] = await conn.query(
         `INSERT INTO fb_submissions
            (uuid, form_id, user_id, status, current_step, submitted_at,
-            applicant_name, applicant_email, applicant_phone, membership_id, ip_address, \`data\`,
-            plan_type, membership_type, package_id)
-         VALUES (?,?,0,'submitted',5,NOW(),?,?,?,?,?,?,?,?,?)`,
+            applicant_name, applicant_email, applicant_phone, membership_id, ip_address, data,
+            plan_type, membership_type, package_id, wing_id)
+         VALUES (?,?,0,'submitted',5,NOW(),?,?,?,?,?,?,?,?,?,?)`,
         [submUuid, formId, full_name, email, phone || null,
          membershipId, req.ip, JSON.stringify(formData),
-         plan_type || null, membership_type || null, package_id ? Number(package_id) : null]
+         plan_type || null, membership_type || null, package_id ? Number(package_id) : null,
+         resolvedWingId]
       );
       const submissionId = r.insertId;
 
@@ -487,6 +501,16 @@ router.post(
       );
 
       await conn.commit();
+
+      if (resolvedWingId) {
+        const { assignWing } = require('../utils/memberOrg');
+        await assignWing({
+          submissionId,
+          wingId: resolvedWingId,
+          assignedBy: null,
+          notes: 'Selected at application',
+        }).catch(e => console.error('[wing assign on apply]', e.message));
+      }
 
       // Send email notifications (non-blocking)
       if (autoActivated) {

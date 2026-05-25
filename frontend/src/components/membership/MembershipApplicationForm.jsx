@@ -193,7 +193,7 @@ const SOCIAL_PLATFORMS = [
 const STEP_VALIDATION_FIELDS = {
   0: ['full_name', 'email', 'phone', 'gender', 'id_type', 'aadhaar_number', 'passport_number', 'national_id_number', 'pin_code', 'organisation_name', 'organisation_type', 'organisation_type_other'],
   1: ['location_type', 'state_id', 'city_id', 'country_id'],
-  2: ['membership_type'],
+  2: ['wing_id', 'membership_type'],
   3: ['plan_type', 'package_id'],
   4: ['payment_method', 'payment_confirmed', 'payment_screenshot'],
 }
@@ -491,6 +491,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
     state_other: '',
     city_other: '',
     overseas_city: '',
+    wing_id: '',
     membership_type: '',
     plan_type: '',
     package_id: null,
@@ -504,6 +505,11 @@ export default function MembershipApplicationForm({ prefill = {} }) {
 
   /* Social links: array of { platform, url } */
   const [socialLinks, setSocialLinks] = useState([{ platform: '', url: '' }])
+  const [wings, setWings] = useState([])
+
+  useEffect(() => {
+    http.get('/wings').then(r => setWings(r.data.data || [])).catch(() => setWings([]))
+  }, [])
 
   const [errors, setErrors]       = useState({})
   const [touched, setTouched]     = useState({})
@@ -677,6 +683,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
     }
 
     if (stepIndex === 2) {
+      if (fieldName === 'wing_id' && !currentForm.wing_id) return REQUIRED_FIELD_MESSAGE
       return fieldName === 'membership_type' && !currentForm.membership_type ? REQUIRED_FIELD_MESSAGE : ''
     }
 
@@ -1126,6 +1133,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
       if (form.city_id) fd.append('city_id', form.city_id)
       if (form.country_id) fd.append('country_id', form.country_id)
       if (form.overseas_city) fd.append('overseas_city', form.overseas_city)
+      fd.append('wing_id', form.wing_id)
       fd.append('membership_type', form.membership_type)
       fd.append('plan_type', form.plan_type)
       fd.append('package_id', form.package_id || '')
@@ -1736,6 +1744,25 @@ export default function MembershipApplicationForm({ prefill = {} }) {
   /* ─── Step 3: Membership Type ───────────────────────────────────── */
   function renderMembershipType() {
     return (
+      <>
+      <SectionCard icon={Users} title="Choose Your Wing" desc="Select the FORTI wing you are joining">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" data-field="wing_id">
+          {wings.map(w => {
+            const selected = String(form.wing_id) === String(w.id)
+            return (
+              <button key={w.id} type="button"
+                onClick={() => set('wing_id', String(w.id))}
+                className={`p-4 rounded-xl border-2 text-left transition-all ${selected
+                  ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200'
+                  : 'border-gray-200 hover:border-gray-300'}`}>
+                <p className={`font-bold ${selected ? 'text-primary-700' : 'text-gray-900'}`}>{w.name}</p>
+                {w.description && <p className="text-xs text-gray-500 mt-1">{w.description}</p>}
+              </button>
+            )
+          })}
+        </div>
+        <FieldError msg={errors.wing_id} />
+      </SectionCard>
       <SectionCard icon={Users} title="Choose Membership Type" desc="Select the type of membership you want">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           {MEMBERSHIP_OPTIONS.map(opt => {
@@ -1763,6 +1790,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
         </div>
         <FieldError msg={errors.membership_type} />
       </SectionCard>
+      </>
     )
   }
 

@@ -7,7 +7,10 @@ import toast from 'react-hot-toast'
 export default function Login() {
   const { login, token, loading: authLoading } = useAuth()
   const navigate = useNavigate()
-  const [form, setForm] = useState({ email: '', password: '' })
+  const [form, setForm] = useState({
+    email: import.meta.env.DEV ? 'admin@forti.org' : '',
+    password: import.meta.env.DEV ? 'Admin@12345' : '',
+  })
   const [loading, setLoading] = useState(false)
   const [mode, setMode] = useState('login') // 'login' | 'forgot'
   const [forgotEmail, setForgotEmail] = useState('')

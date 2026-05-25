@@ -76,7 +76,6 @@ function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries, du
   })
   const [isCustomDuration, setIsCustomDuration] = useState(initCustom)
   const [customYears, setCustomYears] = useState(initYears)
-  const [duplicate, setDuplicate] = useState(false)
 
   // The effective duration value used in save/validation
   const effectiveDuration = isCustomDuration
@@ -84,13 +83,6 @@ function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries, du
         ? (Number(customYears) === 1 ? '1year' : `${customYears}years`)
         : '')
     : d.duration
-
-  function checkDuplicate(loc, type, dur, countryId) {
-    if (!loc || !type || !dur) { setDuplicate(false); return }
-    const key = comboKey(loc, type, dur, countryId)
-    const exists = existingCombos.has(key) && !(isEdit && comboKey(pkg.location, pkg.membership_type, pkg.duration, pkg.country_id) === key)
-    setDuplicate(exists)
-  }
 
   const currencyLocked = !!d.location  // lock once location is selected
   const autoCurrencyForLoc = (loc) => loc === 'overseas' ? 'USD' : 'INR'
@@ -103,7 +95,6 @@ function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries, du
     const code = (loc && type && dur) ? generatePlanCode(loc, type, dur) : d.code
     const currency = autoCurrencyForLoc(loc)
     setD(x => ({ ...x, location: loc, name, code, country_id: loc === 'overseas' ? x.country_id : '', currency }))
-    checkDuplicate(loc, type, dur, cid)
   }
 
   function handleTypeChange(type) {
@@ -112,7 +103,6 @@ function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries, du
     const name = (loc && type && dur) ? generatePlanName(loc, type, dur, durations) : d.name
     const code = (loc && type && dur) ? generatePlanCode(loc, type, dur) : d.code
     setD(x => ({ ...x, membership_type: type, name, code }))
-    checkDuplicate(loc, type, dur, d.country_id)
   }
 
   function handleDurationChange(dur) {
@@ -122,7 +112,6 @@ function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries, du
       const loc = d.location
       const type = d.membership_type
       setD(x => ({ ...x, duration: '' }))
-      checkDuplicate(loc, type, '', d.country_id)
       return
     }
     setIsCustomDuration(false)
@@ -132,20 +121,18 @@ function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries, du
     const name = (loc && type && dur) ? generatePlanName(loc, type, dur, durations) : d.name
     const code = (loc && type && dur) ? generatePlanCode(loc, type, dur) : d.code
     setD(x => ({ ...x, duration: dur, name, code }))
-    checkDuplicate(loc, type, dur, d.country_id)
   }
 
   function handleCustomYearsChange(val) {
     setCustomYears(val)
     const yrs = Number(val)
-    if (!yrs || yrs <= 0) { checkDuplicate(d.location, d.membership_type, '', d.country_id); return }
+    if (!yrs || yrs <= 0) return
     const durValue = yrs === 1 ? '1year' : `${yrs}years`
     const loc = d.location
     const type = d.membership_type
     const name = (loc && type) ? generatePlanName(loc, type, durValue, durations) : d.name
     const code = (loc && type) ? generatePlanCode(loc, type, durValue) : d.code
     setD(x => ({ ...x, name, code }))
-    checkDuplicate(loc, type, durValue, d.country_id)
   }
 
   function handleCountryChange(cid) {
@@ -164,7 +151,6 @@ function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries, du
         : generatePlanCode(loc, type, dur)
     }
     setD(x => ({ ...x, country_id: cid, name, code }))
-    checkDuplicate(loc, type, dur, cid)
   }
 
   return (
@@ -176,7 +162,7 @@ function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries, du
           <h3 className="font-semibold text-gray-900">{isEdit ? 'Edit Package' : 'New Membership Package'}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
         </div>
-        <form className="p-5 space-y-4" onSubmit={e => { e.preventDefault(); if (!duplicate) onSave({ ...d, duration: effectiveDuration }) }}>
+        <form className="p-5 space-y-4" onSubmit={e => { e.preventDefault(); onSave({ ...d, duration: effectiveDuration }) }}>
           {/* Location */}
           <div>
             <label className="label">Location *</label>
@@ -236,14 +222,6 @@ function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries, du
             </div>
           </div>
 
-          {/* Duplicate warning */}
-          {duplicate && (
-            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-700">
-              <AlertCircle size={16} />
-              Package already exists for this combination!
-            </div>
-          )}
-
           {/* Auto-generated Plan Name & Code */}
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -302,7 +280,7 @@ function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries, du
           </label>
 
           <div className="flex gap-3 pt-2 border-t border-gray-100">
-            <button type="submit" className="btn-primary flex-1" disabled={duplicate || saving}>
+            <button type="submit" className="btn-primary flex-1" disabled={saving}>
               {saving ? 'Saving...' : isEdit ? 'Update Package' : 'Create Package'}
             </button>
             <button type="button" className="btn-outline" onClick={onClose}>Cancel</button>

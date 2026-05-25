@@ -3,8 +3,11 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import OTPModal from '../../components/membership/OTPModal'
-import { useMember } from '../../contexts/MemberContext'
-import { getMemberLandingPath } from '../../utils/memberAccess'
+import { SITE_LOGO, PRESIDENT_PHOTO, GALLERY_PREVIEW } from '../../data/siteAssets'
+import PublicHeader from '../../components/public/PublicHeader'
+import PublicFooter from '../../components/public/PublicFooter'
+import MeshBackground from '../../components/public/MeshBackground'
+import SectionHeading from '../../components/public/SectionHeading'
 import {
   Shield, Globe, Award, Users, ChevronRight, CheckCircle,
   FileText, CreditCard, UserCheck, Download, Star,
@@ -17,197 +20,50 @@ import {
 
 const http = axios.create({ baseURL: '/api' })
 
-// ── Navigation ──────────────────────────────────────────────────────────────
-function Navbar({ onApply }) {
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [scrolled, setScrolled] = useState(false)
-  const navigate = useNavigate()
-  const { token: memberToken, member } = useMember()
-
-  function handleMemberNav() {
-    navigate(memberToken ? getMemberLandingPath(member) : '/member/login')
-  }
-
-  useEffect(() => {
-    const fn = () => setScrolled(window.scrollY > 10)
-    window.addEventListener('scroll', fn)
-    return () => window.removeEventListener('scroll', fn)
-  }, [])
-
-  const links = [
-    { label: 'Home',        to: '/' },
-    { label: 'About Us',    to: '/about' },
-    { label: 'Plans',       to: '/plans' },
-    { label: 'News',        to: '/news' },
-    { label: 'Gallery',     to: '/gallery' },
-    { label: 'Contact',     to: '/contact' },
-    { label: 'Verify',      to: '/verify' },
-  ]
-
-  return (
-    <nav className={`sticky top-0 z-40 transition-all duration-300 ${scrolled ? 'bg-white shadow-lg shadow-gray-200/60' : 'bg-white/98 backdrop-blur-md border-b border-gray-100'}`}>
-      {/* Top info bar */}
-      <div className="hidden lg:block bg-gradient-to-r from-primary-700 to-primary-900 text-white text-xs py-1.5">
-        <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <span className="flex items-center gap-1.5"><Mail size={11}/> info@forti.in</span>
-            <span className="flex items-center gap-1.5"><Phone size={11}/> Mon – Sat: 10:00 AM – 6:00 PM</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-primary-300">Follow us:</span>
-            {[Facebook, Instagram, Twitter, Linkedin].map((Icon, i) => (
-              <a key={i} href="#" className="hover:text-yellow-300 transition"><Icon size={12}/></a>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-3 shrink-0">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-600 to-primary-800 flex items-center justify-center text-white font-black text-lg shadow-md shadow-primary-200">F</div>
-            <div>
-              <span className="font-black text-gray-900 text-base tracking-tight leading-none">FORTI</span>
-              <p className="text-[10px] text-gray-400 leading-none mt-0.5 font-medium tracking-wide">Membership Portal</p>
-            </div>
-          </Link>
-
-          {/* Desktop nav links */}
-          <div className="hidden lg:flex items-center gap-0.5">
-            {links.map(l => (
-              <Link key={l.to} to={l.to}
-                className="text-sm text-gray-600 hover:text-primary-600 transition-colors font-medium px-3 py-2 rounded-lg hover:bg-primary-50 relative group">
-                {l.label}
-                <span className="absolute bottom-0.5 left-3 right-3 h-0.5 bg-primary-600 rounded-full scale-x-0 group-hover:scale-x-100 transition-transform origin-left"/>
-              </Link>
-            ))}
-          </div>
-
-          {/* CTA buttons */}
-          <div className="hidden lg:flex items-center gap-1.5">
-            <button onClick={() => navigate('/admin/login')}
-              className="text-xs text-gray-600 hover:text-primary-600 font-semibold px-3 py-1.5 rounded-lg hover:bg-gray-50 transition border border-gray-200">
-              Admin Login
-            </button>
-            <button onClick={() => navigate('/track')}
-              className="text-xs text-gray-600 hover:text-gray-900 font-semibold px-3 py-1.5 rounded-lg hover:bg-gray-50 transition border border-gray-200">
-              Track Status
-            </button>
-            <button onClick={handleMemberNav}
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-primary-300 text-primary-700 hover:bg-primary-50 transition">
-              {memberToken ? 'My Dashboard' : 'Member Login'}
-            </button>
-            <button onClick={onApply}
-              className="text-xs font-bold px-4 py-2 rounded-lg bg-gradient-to-r from-primary-600 to-primary-700 text-white hover:from-primary-700 hover:to-primary-800 transition shadow-md shadow-primary-200">
-              Apply Now
-            </button>
-          </div>
-
-          <button className="lg:hidden p-2 text-gray-600 rounded-lg hover:bg-gray-100" onClick={() => setMenuOpen(o => !o)}>
-            {menuOpen ? <X size={22}/> : <Menu size={22}/>}
-          </button>
-        </div>
-
-        {/* Mobile menu */}
-        {menuOpen && (
-          <div className="lg:hidden border-t border-gray-100 py-4 space-y-1">
-            {links.map(l => (
-              <Link key={l.to} to={l.to}
-                className="block text-sm text-gray-700 hover:text-primary-600 py-2.5 px-3 font-medium rounded-xl hover:bg-primary-50 transition"
-                onClick={() => setMenuOpen(false)}>{l.label}</Link>
-            ))}
-            <div className="pt-3 space-y-2 border-t border-gray-100">
-              <button onClick={() => { navigate('/admin/login'); setMenuOpen(false) }}
-                className="w-full text-sm text-gray-700 font-medium border border-gray-200 rounded-xl py-2.5 hover:bg-gray-50 transition">Admin Login</button>
-              <button onClick={() => { navigate('/track'); setMenuOpen(false) }}
-                className="w-full text-sm text-gray-700 font-medium border border-gray-200 rounded-xl py-2.5 hover:bg-gray-50 transition">Track Status</button>
-              <button onClick={() => { handleMemberNav(); setMenuOpen(false) }}
-                className="w-full text-sm text-primary-700 font-semibold border border-primary-200 rounded-xl py-2.5 hover:bg-primary-50 transition">
-                {memberToken ? 'My Dashboard' : 'Member Login'}
-              </button>
-              <button onClick={onApply}
-                className="w-full text-sm font-bold py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 text-white">
-                Apply Now
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </nav>
-  )
-}
-
 // ── Hero — President Message ────────────────────────────────────────────────
 function Hero({ onApply }) {
   const navigate = useNavigate()
   return (
-    <section className="relative bg-white overflow-hidden">
-      {/* Subtle background pattern */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-primary-50/60 to-transparent"/>
-        <div className="absolute -top-20 -right-20 w-96 h-96 bg-primary-100/40 rounded-full blur-3xl"/>
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-amber-50/60 rounded-full blur-3xl"/>
-      </div>
+    <section className="relative mesh-bg bg-surface-base overflow-hidden">
+      <MeshBackground variant="light" />
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
+      <div className="relative container-page section-padding !pb-16">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-
-          {/* Left: President Image */}
-          <div className="flex justify-center lg:justify-start">
+          <div className="flex justify-center lg:justify-start order-2 lg:order-1">
             <div className="relative">
-              {/* Decorative ring */}
-              <div className="absolute -inset-3 rounded-3xl bg-gradient-to-br from-primary-200 via-amber-100 to-primary-100 opacity-60"/>
-              <div className="relative w-72 h-80 sm:w-80 sm:h-96 rounded-2xl overflow-hidden shadow-2xl shadow-gray-300/50">
-                <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
-                  <div className="text-center text-gray-400">
-                    <Users size={64} className="mx-auto mb-2 opacity-30"/>
-                    <p className="text-sm font-medium opacity-50">President Photo</p>
-                  </div>
-                </div>
-              </div>
-              {/* Verified badge */}
-              <div className="absolute -top-3 -right-3 bg-gradient-to-br from-amber-400 to-amber-500 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-lg">
-                ✓ Verified
+              <div className="absolute -inset-4 rounded-3xl bg-gradient-to-br from-primary-300/40 via-accent-gold/30 to-primary-200/50 blur-sm animate-shimmer" />
+              <div className="relative w-72 h-80 sm:w-80 sm:h-96 rounded-2xl overflow-hidden shadow-soft-lg ring-1 ring-white/80">
+                <img src={PRESIDENT_PHOTO} alt="Mr. Suresh Agarwal, President of FORTI" className="w-full h-full object-cover object-top" />
               </div>
             </div>
           </div>
 
-          {/* Right: Message */}
-          <div className="space-y-6">
-            <div className="inline-flex items-center gap-2 bg-primary-50 border border-primary-100 rounded-full px-4 py-1.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-primary-500"/>
-              <span className="text-primary-700 text-sm font-semibold">Message From the President</span>
-            </div>
-
+          <div className="space-y-6 order-1 lg:order-2 animate-fade-in-up">
+            <span className="badge-gold">Message From the President</span>
             <div>
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-gray-900 leading-tight">
-                Mr. Suresh Agarwal
+              <h1 className="heading-display text-4xl sm:text-5xl lg:text-[3.25rem] leading-[1.1]">
+                Mr. Suresh <span className="text-gradient">Agarwal</span>
               </h1>
-              <p className="text-primary-600 font-semibold mt-1">President, FORTI</p>
+              <p className="text-primary-600 font-semibold mt-2 text-lg">President, FORTI</p>
             </div>
 
-            {/* Quote card */}
-            <div className="relative bg-gradient-to-br from-primary-800 to-primary-900 rounded-2xl p-6 text-white shadow-xl">
-              <div className="absolute top-4 left-5 text-6xl text-white/10 font-serif leading-none select-none">"</div>
-              <p className="relative text-sm sm:text-base leading-relaxed text-primary-100 italic">
-                FORTI is one big happy family that stays united and weathers every storm it faces.
-                It is an ever-increasing family with branches in every single district in Rajasthan
-                that cares about the smooth functioning of businesses and trade. Together, we address
-                issues that businessmen and traders face and bring about a positive change that
-                ensures a market that brims with opportunities for generations to come.
-              </p>
-              <div className="absolute bottom-4 right-5 text-6xl text-white/10 font-serif leading-none select-none rotate-180">"</div>
+            <div className="relative rounded-2xl overflow-hidden shadow-soft-lg">
+              <div className="absolute inset-0 bg-gradient-chamber" />
+              <div className="relative p-6 sm:p-7 text-white">
+                <div className="absolute top-3 left-4 text-7xl text-white/10 font-serif leading-none select-none">"</div>
+                <p className="relative text-sm sm:text-base leading-relaxed text-primary-50/95 italic pt-4">
+                  FORTI is one big happy family that stays united and weathers every storm it faces.
+                  It is an ever-increasing family with branches in every single district in Rajasthan
+                  that cares about the smooth functioning of businesses and trade.
+                </p>
+              </div>
             </div>
 
-            {/* CTA */}
             <div className="flex flex-wrap gap-3 pt-2">
-              <button onClick={onApply}
-                className="bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 shadow-md shadow-primary-200 transition">
-                Apply for Membership <ArrowRight size={16}/>
+              <button type="button" onClick={onApply} className="btn-gold btn-lg">
+                Apply for Membership <ArrowRight size={18} />
               </button>
-              <button onClick={() => navigate('/member/login')}
-                className="border border-gray-200 text-gray-700 hover:border-primary-300 hover:text-primary-700 font-semibold px-6 py-3 rounded-xl flex items-center gap-2 transition hover:bg-primary-50">
+              <button type="button" onClick={() => navigate('/member/login')} className="btn-outline btn-lg">
                 Member Login
               </button>
             </div>
@@ -230,20 +86,17 @@ function Stats() {
   ]
   return (
     <section className="py-16 relative overflow-hidden">
-      {/* Golden gradient bg matching forti.in */}
-      <div className="absolute inset-0 bg-gradient-to-br from-amber-500 via-amber-400 to-yellow-400"/>
-      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0di00aDJ2NGg0djJoLTR2NGgtMnYtNGgtNHYtMmg0em0wLTMwVjBoMnY0aDR2MmgtNHY0aC0yVjZoLTRWNGg0eiIvPjwvZz48L2c+PC9zdmc+')] opacity-30"/>
-
-      <div className="relative max-w-6xl mx-auto px-4 sm:px-6">
+      <div className="absolute inset-0 bg-gradient-to-br from-accent-gold via-amber-400 to-accent-gold-dark" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.25),transparent_50%)]" />
+      <div className="relative container-page">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           {items.map(({ icon: Icon, num, label, color }) => (
-            <div key={label}
-              className="bg-white/90 backdrop-blur-sm rounded-2xl p-4 text-center hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group border border-white/60">
-              <div className={`w-10 h-10 rounded-xl mx-auto mb-3 flex items-center justify-center ${color} group-hover:scale-110 transition-transform`}>
+            <div key={label} className="glass-card p-4 text-center hover:shadow-soft-lg hover:-translate-y-1 transition-all duration-300 group">
+              <div className={`w-11 h-11 rounded-xl mx-auto mb-3 flex items-center justify-center ${color} group-hover:scale-110 transition-transform shadow-sm`}>
                 <Icon size={20}/>
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-gray-900">{num}</p>
-              <p className="text-xs text-gray-500 mt-1 font-medium leading-tight">{label}</p>
+              <p className="text-2xl sm:text-3xl font-display font-black text-ink">{num}</p>
+              <p className="text-xs text-ink-muted mt-1 font-medium leading-tight">{label}</p>
             </div>
           ))}
         </div>
@@ -292,16 +145,9 @@ function AboutVisionMission() {
   ]
 
   return (
-    <section className="py-20 bg-gray-50" id="about">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="text-center mb-12">
-          <span className="inline-flex items-center gap-2 text-primary-600 font-semibold text-sm uppercase tracking-widest">
-            <span className="w-6 h-px bg-primary-400"/>
-            Organisation Overview
-            <span className="w-6 h-px bg-primary-400"/>
-          </span>
-          <h2 className="text-3xl sm:text-4xl font-black text-gray-900 mt-2">Who We Are &amp; What We Stand For</h2>
-        </div>
+    <section className="section-padding bg-gradient-section" id="about">
+      <div className="container-page">
+        <SectionHeading eyebrow="Organisation Overview" title="Who We Are & What We Stand For" />
 
         <div className="grid md:grid-cols-3 gap-6">
           {cards.map(({ icon: Icon, tag, title, color, iconBg, borderHover, content, cta, href }) => (
@@ -476,74 +322,75 @@ function HowItWorks({ onApply }) {
 }
 
 // ── News / Blog Section ─────────────────────────────────────────────────────
+const POST_TYPE_LABELS = {
+  news: 'News',
+  industry_update: 'Industry',
+  tax_update: 'Tax Update',
+  announcement: 'Announcement',
+  event: 'Event',
+}
+
 function NewsPreview() {
   const navigate = useNavigate()
-  const newsItems = [
-    {
-      id: 1, cat: 'BLOGS',
-      title: 'The Importance of Small and Medium Enterprises in the Indian Economy',
-      date: 'March 2026',
-      excerpt: 'Small businesses have been the backbone of the Indian economy for centuries, providing employment to millions of people. Learn how FORTI supports SME growth across Rajasthan.',
-    },
-    {
-      id: 2, cat: 'NEWS',
-      title: 'FORTI News',
-      date: 'April 2026',
-      excerpt: 'Stay informed about the latest developments, happenings, and news updates from FORTI — India\'s apex chamber of Trade and Industry in Rajasthan.',
-    },
-    {
-      id: 3, cat: 'ANNOUNCEMENT',
-      title: 'FORTI Launches New Online Membership Portal',
-      date: 'March 2026',
-      excerpt: 'FORTI has launched its new digital membership management portal, enabling faster application processing and instant certificate delivery.',
-    },
+  const { data: hub } = useQuery({
+    queryKey: ['blog-hub', 'insights'],
+    queryFn: () => http.get('/blog/menus/insights').then(r => r.data.data),
+    staleTime: 60_000,
+  })
+
+  const newsItems = (hub?.recent_posts?.length ? hub.recent_posts : hub?.featured_posts || []).slice(0, 3).map(p => ({
+    id: p.id,
+    cat: POST_TYPE_LABELS[p.post_type] || p.category_name || 'News',
+    title: p.title,
+    date: p.published_at ? new Date(p.published_at).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }) : '',
+    excerpt: p.excerpt,
+    image: p.featured_image_path || '/images/news/01.jpg',
+    path: `/content/insights/posts/${p.slug}`,
+  }))
+
+  const fallbackItems = [
+    { id: 'f1', cat: 'News', title: 'News & Insights', date: '', excerpt: 'Browse chamber news, industry updates, and tax briefings.', image: '/images/news/01.jpg', path: '/content/insights' },
   ]
+  const displayItems = newsItems.length ? newsItems : fallbackItems
 
   const catColors = {
-    BLOGS: 'bg-primary-100 text-primary-700',
-    NEWS: 'bg-emerald-100 text-emerald-700',
-    ANNOUNCEMENT: 'bg-amber-100 text-amber-700',
+    News: 'bg-primary-100 text-primary-700',
+    Industry: 'bg-blue-100 text-blue-700',
+    'Tax Update': 'bg-amber-100 text-amber-800',
+    Announcement: 'bg-emerald-100 text-emerald-700',
+    Event: 'bg-purple-100 text-purple-700',
   }
 
   return (
-    <section className="py-20 bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        {/* Section header */}
-        <div className="text-center mb-12">
-          <span className="inline-flex items-center gap-2 text-primary-600 font-semibold text-sm uppercase tracking-widest">
-            <span className="w-6 h-px bg-primary-400"/>
-            Stay Informed With Us
-            <span className="w-6 h-px bg-primary-400"/>
-          </span>
-          <h2 className="text-3xl sm:text-4xl font-black text-gray-900 mt-2">All Our Latest News &amp; Updates</h2>
-          <p className="text-gray-500 mt-3 max-w-lg mx-auto">Stay informed and be the first to know about the latest developments, happenings, and news updates from our organisation.</p>
-        </div>
+    <section className="section-padding bg-surface-base">
+      <div className="container-page">
+        <SectionHeading
+          eyebrow="Stay Informed With Us"
+          title="Latest News & Updates"
+          subtitle="Chamber announcements, industry intelligence, and regulatory briefings for members and partners."
+        />
 
         <div className="grid md:grid-cols-3 gap-6">
-          {newsItems.map(n => (
+          {displayItems.map(n => (
             <div key={n.id}
-              className="bg-white rounded-2xl border border-gray-200 hover:border-primary-200 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden group cursor-pointer"
-              onClick={() => navigate('/news')}>
-              {/* Image placeholder */}
-              <div className="h-44 bg-gradient-to-br from-primary-50 via-primary-100 to-primary-200 relative overflow-hidden">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <BookOpen size={40} className="text-primary-300 group-hover:scale-110 transition-transform duration-500"/>
-                </div>
+              className="card-hover overflow-hidden group cursor-pointer"
+              onClick={() => navigate(n.path || '/content/insights')}>
+              <div className="h-44 relative overflow-hidden bg-surface-muted">
+                <img src={n.image} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
+                <div className="absolute inset-0 bg-gradient-to-t from-ink/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <div className="absolute top-4 left-4">
-                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${catColors[n.cat] || 'bg-gray-100 text-gray-600'}`}>
+                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full backdrop-blur-sm ${catColors[n.cat] || 'bg-white/90 text-ink'}`}>
                     {n.cat}
                   </span>
                 </div>
               </div>
               <div className="p-5 space-y-3">
-                <p className="text-xs text-gray-400 font-medium">{n.date}</p>
-                <h3 className="font-black text-gray-900 text-sm leading-snug group-hover:text-primary-600 transition-colors">{n.title}</h3>
-                <p className="text-gray-500 text-xs leading-relaxed line-clamp-3">{n.excerpt}</p>
-                <button
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-primary-600 border border-primary-200 px-3 py-1.5 rounded-lg hover:bg-primary-50 transition"
-                  onClick={e => { e.stopPropagation(); navigate('/news') }}>
+                <p className="text-xs text-ink-subtle font-medium">{n.date}</p>
+                <h3 className="font-display font-bold text-ink text-sm leading-snug group-hover:text-primary-600 transition-colors">{n.title}</h3>
+                <p className="text-ink-muted text-xs leading-relaxed line-clamp-3">{n.excerpt}</p>
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-primary-600 group-hover:gap-2.5 transition-all">
                   Read More <ArrowRight size={12}/>
-                </button>
+                </span>
               </div>
             </div>
           ))}
@@ -556,11 +403,6 @@ function NewsPreview() {
 // ── Gallery Preview ─────────────────────────────────────────────────────────
 function GalleryPreview() {
   const navigate = useNavigate()
-  const colors = [
-    'from-purple-200 to-purple-300','from-blue-200 to-blue-300',
-    'from-emerald-200 to-emerald-300','from-amber-200 to-amber-300',
-    'from-rose-200 to-rose-300','from-indigo-200 to-indigo-300',
-  ]
   return (
     <section className="py-20 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -575,12 +417,12 @@ function GalleryPreview() {
           </button>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {colors.map((c, i) => (
-            <div key={i}
-              className={`h-40 rounded-2xl bg-gradient-to-br ${c} flex items-center justify-center cursor-pointer hover:opacity-90 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 relative overflow-hidden group`}
+          {GALLERY_PREVIEW.map((item, i) => (
+            <div key={item.id}
+              className={`h-40 rounded-2xl cursor-pointer hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 relative overflow-hidden group ${i === 0 ? 'md:col-span-2 md:row-span-2 md:h-full min-h-[168px]' : ''}`}
               onClick={() => navigate('/gallery')}>
-              <Image size={28} className="text-white/60 group-hover:scale-110 transition-transform"/>
-              <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+              <img src={item.src} alt={item.title} className="absolute inset-0 w-full h-full object-cover"/>
+              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
                 <PlayCircle size={32} className="text-white drop-shadow"/>
               </div>
             </div>
@@ -669,14 +511,6 @@ function Footer() {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
 
-  const galleryColors = [
-    'from-purple-400 to-purple-600','from-blue-400 to-blue-600',
-    'from-emerald-400 to-emerald-600','from-amber-400 to-amber-600',
-    'from-rose-400 to-rose-600','from-indigo-400 to-indigo-600',
-    'from-teal-400 to-teal-600','from-orange-400 to-orange-600',
-    'from-cyan-400 to-cyan-600',
-  ]
-
   return (
     <footer className="relative overflow-hidden">
       {/* Dark bg with subtle industrial overlay pattern */}
@@ -757,11 +591,11 @@ function Footer() {
             <div>
               <p className="text-xs font-bold text-gray-300 uppercase tracking-widest mb-4">GALLERY</p>
               <div className="grid grid-cols-3 gap-1.5 mb-3">
-                {galleryColors.map((c, i) => (
-                  <div key={i}
-                    className={`h-14 rounded-lg bg-gradient-to-br ${c} cursor-pointer hover:opacity-80 hover:scale-105 transition-all duration-300 flex items-center justify-center`}
+                {GALLERY_PREVIEW.slice(0, 9).map(item => (
+                  <div key={item.id}
+                    className="h-14 rounded-lg overflow-hidden cursor-pointer hover:opacity-90 hover:scale-105 transition-all duration-300"
                     onClick={() => navigate('/gallery')}>
-                    <Image size={14} className="text-white/60"/>
+                    <img src={item.src} alt="" className="w-full h-full object-cover"/>
                   </div>
                 ))}
               </div>
@@ -804,8 +638,8 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen">
-      <Navbar onApply={handleApply} />
+    <div className="page-shell">
+      <PublicHeader variant="landing" onApply={handleApply} />
       <Hero onApply={handleApply} />
       <Stats />
       <AboutVisionMission />
@@ -816,7 +650,7 @@ export default function LandingPage() {
       <GalleryPreview />
       <VerifySection />
       <ContactPreview />
-      <Footer />
+      <PublicFooter />
       {showOTPModal && (
         <OTPModal onVerified={handleOTPVerified} onClose={() => setShowOTPModal(false)} />
       )}

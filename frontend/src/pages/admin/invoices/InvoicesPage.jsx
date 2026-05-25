@@ -25,7 +25,8 @@ export default function InvoicesPage() {
 
   const downloadPdf = (id) => {
     const token = localStorage.getItem('token')
-    const url = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/invoices/${id}/download`
+    const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+    const url = `${apiBase}/api/invoices/${id}/download`
     const a = document.createElement('a')
     a.href = url
     a.target = '_blank'

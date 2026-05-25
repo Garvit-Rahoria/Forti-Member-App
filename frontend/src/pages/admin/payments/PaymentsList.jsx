@@ -10,8 +10,9 @@ import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from 'react-hot-toast'
 import { fmtAmount } from '../../../utils/currency'
 import { DatePicker } from '../../../components/DatePicker'
+import { assetUrl as resolveAssetUrl } from '../../../utils/assetUrl'
 
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
 
 const LOCATIONS = [
   { value: 'rajasthan',    label: 'Rajasthan' },
@@ -26,12 +27,6 @@ const LOC_BADGE = {
 }
 
 const DROPDOWN_OFFSET = 4
-
-function resolveAssetUrl(path) {
-  if (!path) return ''
-  if (path.startsWith('http://') || path.startsWith('https://')) return path
-  return `${BASE}${path.startsWith('/') ? path : `/${path}`}`
-}
 
 function getDropdownViewportBounds(node) {
   let parent = node?.parentElement
@@ -776,7 +771,7 @@ function TransactionsTab() {
       if (!invId) { toast.error('Invoice ID not returned'); return }
       // Download with auth token so the protected PDF route works
       const token = sessionStorage.getItem('forti_token')
-      const resp = await fetch(`${BASE}/api/invoices/${invId}/download`, {
+      const resp = await fetch(`${API_BASE}/api/invoices/${invId}/download`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (!resp.ok) throw new Error('Download failed')

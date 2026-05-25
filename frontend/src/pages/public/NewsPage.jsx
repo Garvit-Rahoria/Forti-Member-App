@@ -1,36 +1,19 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BookOpen, Calendar, Tag, ArrowRight, Search, ExternalLink } from 'lucide-react'
-
-function SiteHeader() {
-  return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center text-white font-black">F</div>
-          <div><span className="font-bold text-gray-900">FORTI</span><p className="text-xs text-gray-400 leading-none">Membership Portal</p></div>
-        </Link>
-        <div className="hidden md:flex items-center gap-5 text-sm">
-          {[['Home','/'],['About','/about'],['Plans','/plans'],['Gallery','/gallery'],['Contact','/contact']].map(([l,to])=>(
-            <Link key={to} to={to} className="text-gray-600 hover:text-primary-600 transition font-medium">{l}</Link>
-          ))}
-        </div>
-        <Link to="/member/login" className="btn-outline text-sm hidden md:flex">Member Login</Link>
-      </div>
-    </header>
-  )
-}
+import { BookOpen, Calendar, Tag, ArrowRight, Search } from 'lucide-react'
+import PublicHeader from '../../components/public/PublicHeader'
+import PublicFooter from '../../components/public/PublicFooter'
 
 const NEWS_ITEMS = [
-  { id: 1, cat: 'Announcement', date: 'March 2026', title: 'FORTI Launches New Online Membership Portal', excerpt: 'FORTI has launched its new fully integrated digital membership management portal, enabling faster application processing, instant certificate delivery, and seamless member dashboard access.', featured: true },
-  { id: 2, cat: 'Event',        date: 'February 2026', title: 'Annual General Meeting 2026 — New Delhi', excerpt: 'FORTI hosted its Annual General Meeting in New Delhi with over 500 members attending in person and virtually. Key decisions about membership expansion and new state chapters were made.' },
-  { id: 3, cat: 'Update',       date: 'January 2026', title: 'Expansion to 5 New States Announced', excerpt: 'FORTI announces expansion of its State Chapter network to 5 new states — Rajasthan, Assam, Uttarakhand, Jharkhand, and Chhattisgarh — bringing the total active chapters to 25.' },
-  { id: 4, cat: 'Partnership',  date: 'December 2025', title: 'International Partnership with FICCI', excerpt: 'FORTI signed a Memorandum of Understanding with FICCI to collaborate on professional development programs and industry initiatives across India.' },
-  { id: 5, cat: 'Award',        date: 'November 2025', title: 'FORTI Wins Best Professional Association Award', excerpt: 'At the National Professional Excellence Awards 2025, FORTI was recognised as the Best Professional Membership Association for its outstanding contribution to professional development.' },
-  { id: 6, cat: 'Update',       date: 'October 2025', title: 'Overseas Membership Reaches 5,000 Members', excerpt: 'FORTI\'s international membership has crossed the 5,000 member mark with representation from 50+ countries. The overseas chapter continues to grow rapidly.' },
-  { id: 7, cat: 'Event',        date: 'September 2025', title: 'National Summit on Professional Excellence 2025', excerpt: 'FORTI\'s flagship annual summit was held in Mumbai, bringing together 2,000+ professionals for two days of keynotes, workshops, and networking.' },
-  { id: 8, cat: 'Announcement', date: 'August 2025', title: 'New Institutional Membership Tier Launched', excerpt: 'FORTI introduces a dedicated Institutional membership tier for universities, colleges, and professional training institutions, with special pricing and benefits.' },
-  { id: 9, cat: 'Update',       date: 'July 2025', title: 'Digital ID Card QR Verification Live', excerpt: 'All FORTI membership ID cards now feature QR codes that can be instantly verified at forti.org/verify — confirming the member\'s name, status, and validity in real time.' },
+  { id: 1, cat: 'Announcement', date: 'March 2026', title: 'FORTI Launches New Online Membership Portal', excerpt: 'FORTI has launched its new fully integrated digital membership management portal, enabling faster application processing, instant certificate delivery, and seamless member dashboard access.', featured: true, image: '/images/news/01.jpg' },
+  { id: 2, cat: 'Event',        date: 'February 2026', title: 'Annual General Meeting 2026 — New Delhi', excerpt: 'FORTI hosted its Annual General Meeting in New Delhi with over 500 members attending in person and virtually. Key decisions about membership expansion and new state chapters were made.', image: '/images/gallery/01.jpg' },
+  { id: 3, cat: 'Update',       date: 'January 2026', title: 'Expansion to 5 New States Announced', excerpt: 'FORTI announces expansion of its State Chapter network to 5 new states — Rajasthan, Assam, Uttarakhand, Jharkhand, and Chhattisgarh — bringing the total active chapters to 25.', image: '/images/gallery/02.jpg' },
+  { id: 4, cat: 'Partnership',  date: 'December 2025', title: 'International Partnership with FICCI', excerpt: 'FORTI signed a Memorandum of Understanding with FICCI to collaborate on professional development programs and industry initiatives across India.', image: '/images/news/02.jpg' },
+  { id: 5, cat: 'Award',        date: 'November 2025', title: 'FORTI Wins Best Professional Association Award', excerpt: 'At the National Professional Excellence Awards 2025, FORTI was recognised as the Best Professional Membership Association for its outstanding contribution to professional development.', image: '/images/news/03.jpg' },
+  { id: 6, cat: 'Update',       date: 'October 2025', title: 'Overseas Membership Reaches 5,000 Members', excerpt: 'FORTI\'s international membership has crossed the 5,000 member mark with representation from 50+ countries. The overseas chapter continues to grow rapidly.', image: '/images/gallery/03.jpg' },
+  { id: 7, cat: 'Event',        date: 'September 2025', title: 'National Summit on Professional Excellence 2025', excerpt: 'FORTI\'s flagship annual summit was held in Mumbai, bringing together 2,000+ professionals for two days of keynotes, workshops, and networking.', image: '/images/gallery/04.jpg' },
+  { id: 8, cat: 'Announcement', date: 'August 2025', title: 'New Institutional Membership Tier Launched', excerpt: 'FORTI introduces a dedicated Institutional membership tier for universities, colleges, and professional training institutions, with special pricing and benefits.', image: '/images/gallery/05.jpg' },
+  { id: 9, cat: 'Update',       date: 'July 2025', title: 'Digital ID Card QR Verification Live', excerpt: 'All FORTI membership ID cards now feature QR codes that can be instantly verified at forti.org/verify — confirming the member\'s name, status, and validity in real time.', image: '/images/gallery/06.jpg' },
 ]
 
 const CATS = ['All', 'Announcement', 'Event', 'Update', 'Partnership', 'Award']
@@ -56,8 +39,8 @@ export default function NewsPage() {
   const rest = filtered.slice(1)
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <SiteHeader />
+    <div className="page-shell">
+      <PublicHeader />
 
       {/* Hero */}
       <section className="bg-gradient-to-br from-primary-900 to-primary-600 text-white py-14">
@@ -97,8 +80,8 @@ export default function NewsPage() {
             {featured && (
               <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-8 hover:shadow-md transition">
                 <div className="md:flex">
-                  <div className="md:w-2/5 bg-gradient-to-br from-primary-100 to-primary-200 h-48 md:h-auto flex items-center justify-center">
-                    <BookOpen size={48} className="text-primary-400"/>
+                  <div className="md:w-2/5 h-48 md:h-auto min-h-[12rem] bg-gray-100">
+                    <img src={featured.image} alt="" className="w-full h-full object-cover"/>
                   </div>
                   <div className="md:w-3/5 p-6 flex flex-col justify-center">
                     <div className="flex items-center gap-2 mb-3">
@@ -117,8 +100,8 @@ export default function NewsPage() {
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {rest.map(n => (
                 <div key={n.id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden hover:shadow-md transition group">
-                  <div className="h-36 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                    <BookOpen size={32} className="text-gray-300"/>
+                  <div className="h-36 bg-gray-100 overflow-hidden">
+                    <img src={n.image} alt="" className="w-full h-full object-cover"/>
                   </div>
                   <div className="p-5">
                     <div className="flex items-center gap-2 mb-2">
@@ -135,13 +118,7 @@ export default function NewsPage() {
         )}
       </div>
 
-      {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 py-8 mt-8">
-        <div className="max-w-7xl mx-auto px-4 text-center text-sm space-y-1">
-          <p>&copy; {new Date().getFullYear()} FORTI. All rights reserved. · <Link to="/" className="hover:text-white">Home</Link> · <Link to="/contact" className="hover:text-white">Contact</Link></p>
-          <p className="text-xs text-gray-600">Developed by <a href="https://kaitensoftware.com/" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">Kaiten Software</a></p>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   )
 }

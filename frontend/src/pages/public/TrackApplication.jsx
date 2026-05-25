@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import api from '../../api/client'
+import PublicHeader from '../../components/public/PublicHeader'
+import PublicFooter from '../../components/public/PublicFooter'
 
 function fmt(dateStr) {
   if (!dateStr) return null
@@ -90,20 +92,8 @@ export default function TrackApplication() {
   const lastIdx = steps.length - 1
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-white">
-      {/* Simple top bar */}
-      <div className="bg-white border-b border-gray-100 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-primary-600 flex items-center justify-center text-white font-black text-base shadow-md">F</div>
-            <span className="font-black text-gray-900 tracking-tight">FORTI</span>
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link to="/member/login" className="text-sm text-gray-600 hover:text-primary-600 font-medium transition">Member Login</Link>
-            <Link to="/" className="text-sm text-primary-600 hover:text-primary-700 font-medium transition">← Back to Home</Link>
-          </div>
-        </div>
-      </div>
+    <div className="page-shell bg-gradient-to-br from-primary-50 to-white">
+      <PublicHeader />
 
       <div className="flex items-center justify-center p-4 py-12">
       <div className="w-full max-w-lg space-y-6">
@@ -219,6 +209,8 @@ export default function TrackApplication() {
         </p>
       </div>
       </div>
+
+      <PublicFooter />
     </div>
   )
 }

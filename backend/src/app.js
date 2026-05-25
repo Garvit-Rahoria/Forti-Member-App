@@ -5,7 +5,7 @@ const cors = require('cors');
 const morgan = require('morgan');
 const { testConnection, pool } = require('./config/database');
 const { apiLimiter, otpLimiter, uploadLimiter } = require('./middleware/rateLimiter');
-const { startRenewalReminderCron } = require('./cron/renewalReminders');
+const { seedLocationsIfEmpty } = require('./utils/seedLocations');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -54,6 +54,11 @@ app.use('/api/member',           require('./routes/member-portal'));
 app.use('/api/currency-settings',require('./routes/currency-settings'));
 app.use('/api/pricing-rules',       require('./routes/pricing-rules'));
 app.use('/api/application-fields',  require('./routes/application-fields'));
+app.use('/api/wings',               require('./routes/wings'));
+app.use('/api/positions',           require('./routes/positions'));
+app.use('/api/member/public-profile', require('./routes/member-profile'));
+app.use('/api/public/profile',      require('./routes/public-profile'));
+app.use('/api/blog',                require('./routes/blog'));
 
 // Email Templates direct API for frontend
 app.use('/api/email-templates', require('./emailTemplatesRouter'));
@@ -83,6 +88,16 @@ app.get('/api/status', async (req, res) => {
     console.error('[GET /api/status]', err);
     return res.status(500).json({ success: false, message: 'Server error' });
   }
+});
+
+// Root – API has no HTML UI; use the frontend app
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'FORTI Portal API',
+    health: '/api/health',
+    frontend: process.env.FRONTEND_URL || 'http://localhost:3000',
+  });
 });
 
 // Health check
@@ -143,7 +158,7 @@ async function seedCurrencyData() {
     // 1. Back-fill countries.currency where NULL
     for (const s of COUNTRY_SEEDS) {
       await pool.query(
-        'UPDATE countries SET currency = ? WHERE iso_code = ? AND (currency IS NULL OR currency = "")',
+        'UPDATE countries SET currency = ? WHERE iso_code = ? AND (currency IS NULL OR currency = \'\')',
         [s.code, s.iso]
       );
     }
@@ -156,9 +171,10 @@ async function seedCurrencyData() {
 
     // 3. Global default (INR)
     await pool.query(
-      `INSERT IGNORE INTO currency_settings
+      `INSERT INTO currency_settings
          (country_id, currency_code, currency_symbol, currency_name, exchange_rate, is_default, is_active)
-       VALUES (NULL, 'INR', '₹', 'Indian Rupee', 1.000000, 1, 1)`
+       VALUES (NULL, 'INR', '₹', 'Indian Rupee', 1.000000, TRUE, TRUE)
+       ON CONFLICT (country_id, currency_code) DO NOTHING`
     );
 
     // 4. Per-country currencies
@@ -168,9 +184,10 @@ async function seedCurrencyData() {
       );
       if (!row) continue;
       await pool.query(
-        `INSERT IGNORE INTO currency_settings
+        `INSERT INTO currency_settings
            (country_id, currency_code, currency_symbol, currency_name, exchange_rate, is_default, is_active)
-         VALUES (?, ?, ?, ?, ?, 0, 1)`,
+         VALUES (?, ?, ?, ?, ?, FALSE, TRUE)
+         ON CONFLICT (country_id, currency_code) DO NOTHING`,
         [row.id, s.code, s.sym, s.name, s.rate]
       );
     }
@@ -185,26 +202,28 @@ async function seedCurrencyData() {
 async function ensureMemberAccountsSchema() {
   try {
     const [indexes] = await pool.query(
-      `SELECT INDEX_NAME, NON_UNIQUE, COLUMN_NAME, SEQ_IN_INDEX
-       FROM information_schema.statistics
-       WHERE table_schema = DATABASE()
-         AND table_name = 'member_accounts'
-       ORDER BY INDEX_NAME, SEQ_IN_INDEX`
+      `SELECT i.relname AS index_name, ix.indisunique AS is_unique, a.attname AS column_name
+       FROM pg_class t
+       JOIN pg_index ix ON t.oid = ix.indrelid
+       JOIN pg_class i ON i.oid = ix.indexrelid
+       JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey)
+       WHERE t.relname = 'member_accounts'
+       ORDER BY index_name, a.attnum`
     );
 
     const byIndex = new Map();
     for (const row of indexes) {
-      const current = byIndex.get(row.INDEX_NAME) || [];
+      const current = byIndex.get(row.index_name) || [];
       current.push(row);
-      byIndex.set(row.INDEX_NAME, current);
+      byIndex.set(row.index_name, current);
     }
 
     for (const [indexName, rows] of byIndex.entries()) {
-      if (indexName === 'PRIMARY') continue;
-      const isUnique = Number(rows[0].NON_UNIQUE) === 0;
-      const cols = rows.map(r => r.COLUMN_NAME);
+      if (indexName.endsWith('_pkey')) continue;
+      const isUnique = rows[0].is_unique === true;
+      const cols = rows.map(r => r.column_name);
       if (isUnique && cols.length === 1 && cols[0] === 'email') {
-        await pool.query(`ALTER TABLE member_accounts DROP INDEX ${indexName}`);
+        await pool.query(`DROP INDEX IF EXISTS ${indexName}`);
         console.log(`[SCHEMA] Dropped UNIQUE email index on member_accounts: ${indexName}`);
       }
     }
@@ -213,9 +232,65 @@ async function ensureMemberAccountsSchema() {
   }
 }
 
+async function runBlogMigration() {
+  const fs = require('fs');
+  const migrationPath = path.join(__dirname, '../../database/migrations/05-blog-content.sql');
+  try {
+    const [[{ exists }]] = await pool.query(
+      `SELECT EXISTS (
+         SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'portal_blog_menus'
+       ) AS exists`
+    );
+    if (exists) return;
+    if (!fs.existsSync(migrationPath)) return;
+    const sql = fs.readFileSync(migrationPath, 'utf8');
+    const statements = sql
+      .split(';')
+      .map(s => s.replace(/--[^\n]*/g, '').trim())
+      .filter(s => s.length > 0);
+    for (const stmt of statements) {
+      await pool.query(stmt);
+    }
+    console.log('[SCHEMA] Applied blog/content migration');
+  } catch (err) {
+    console.error('[SCHEMA] Blog migration failed (non-fatal):', err.message);
+  }
+}
+
+async function runWingsMigration() {
+  const fs = require('fs');
+  const migrationPath = path.join(__dirname, '../../database/migrations/03-wings-positions-profiles.sql');
+  try {
+    const [[{ exists }]] = await pool.query(
+      `SELECT EXISTS (
+         SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'portal_wings'
+       ) AS exists`
+    );
+    if (exists) return;
+    if (!fs.existsSync(migrationPath)) {
+      console.warn('[SCHEMA] Wings migration file not found');
+      return;
+    }
+    const sql = fs.readFileSync(migrationPath, 'utf8');
+    const statements = sql
+      .split(';')
+      .map(s => s.replace(/--[^\n]*/g, '').trim())
+      .filter(s => s.length > 0);
+    for (const stmt of statements) {
+      await pool.query(stmt);
+    }
+    console.log('[SCHEMA] Applied wings/positions/profiles migration');
+  } catch (err) {
+    console.error('[SCHEMA] Wings migration failed (non-fatal):', err.message);
+  }
+}
+
 async function start() {
   await testConnection();
+  await runWingsMigration();
+  await runBlogMigration();
   await ensureMemberAccountsSchema();
+  await seedLocationsIfEmpty();
   await seedCurrencyData();
   startRenewalReminderCron();
   app.listen(PORT, () => {

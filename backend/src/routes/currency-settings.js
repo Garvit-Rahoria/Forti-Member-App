@@ -27,17 +27,19 @@ async function ensureCurrencySeeded() {
 
   // Global default
   await pool.query(
-    `INSERT IGNORE INTO currency_settings
+    `INSERT INTO currency_settings
        (country_id, currency_code, currency_symbol, currency_name, exchange_rate, is_default, is_active)
-     VALUES (NULL, 'INR', '₹', 'Indian Rupee', 1.000000, 1, 1)`
+     VALUES (NULL, 'INR', '₹', 'Indian Rupee', 1.000000, TRUE, TRUE)
+     ON CONFLICT (country_id, currency_code) DO NOTHING`
   );
   for (const s of SEEDS) {
     const [[row]] = await pool.query('SELECT id FROM countries WHERE iso_code=? LIMIT 1', [s.iso]);
     if (!row) continue;
     await pool.query(
-      `INSERT IGNORE INTO currency_settings
+      `INSERT INTO currency_settings
          (country_id, currency_code, currency_symbol, currency_name, exchange_rate, is_default, is_active)
-       VALUES (?, ?, ?, ?, ?, 0, 1)`,
+       VALUES (?, ?, ?, ?, ?, FALSE, TRUE)
+       ON CONFLICT (country_id, currency_code) DO NOTHING`,
       [row.id, s.code, s.sym, s.name, s.rate]
     );
   }

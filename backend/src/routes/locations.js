@@ -11,10 +11,13 @@ const router = express.Router();
 router.get('/countries', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, name, iso_code AS iso2, phone_prefix AS phone_code, currency FROM countries WHERE is_active=1 ORDER BY name'
+      'SELECT id, name, iso_code AS iso2, phone_prefix AS phone_code, currency FROM countries WHERE is_active IS TRUE ORDER BY name'
     );
     return ok(res, rows);
-  } catch (err) { return fail(res, 'Server error', 500); }
+  } catch (err) {
+    console.error('[locations/countries]', err.message);
+    return fail(res, 'Server error', 500);
+  }
 });
 
 // GET /api/locations/states?country_id=

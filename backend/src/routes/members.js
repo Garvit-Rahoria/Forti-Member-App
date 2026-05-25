@@ -11,7 +11,7 @@ router.use(authMiddleware);
 
 // GET /api/members
 router.get('/', async (req, res) => {
-  const { q, status, member_status, expiring_days, page = 1, per_page = 20 } = req.query;
+  const { q, status, member_status, expiring_days, wing_id, page = 1, per_page = 20 } = req.query;
 
   // Default: show active + approved (approved is a transitional state before active)
   let where;
@@ -35,6 +35,7 @@ router.get('/', async (req, res) => {
     params.push(`%${q}%`, `%${q}%`, `%${q}%`);
   }
   if (member_status) { where += ' AND s.member_status=?'; params.push(member_status); }
+  if (wing_id) { where += ' AND s.wing_id=?'; params.push(wing_id); }
   if (expiring_days) {
     where += ' AND s.expiry_date IS NOT NULL AND s.expiry_date >= CURDATE() AND DATEDIFF(s.expiry_date, CURDATE()) <= ?';
     params.push(Number(expiring_days));
@@ -44,9 +45,10 @@ router.get('/', async (req, res) => {
       pool,
       `SELECT s.id, s.uuid, s.membership_id, s.applicant_name, s.applicant_email,
               s.applicant_phone, s.status, s.member_status, s.membership_type, s.expiry_date,
-              s.package_id, s.plan_type, s.submitted_at, s.created_at,
+              s.package_id, s.plan_type, s.wing_id, s.submitted_at, s.created_at,
               f.name AS form_name, f.form_type,
               pp.name AS package_name,
+              pw.name AS wing_name,
               DATEDIFF(s.expiry_date, CURDATE()) AS days_to_expiry,
               COALESCE(
                 NULLIF(org.value, ''),
@@ -63,6 +65,7 @@ router.get('/', async (req, res) => {
        FROM fb_submissions s
        LEFT JOIN fb_forms f ON f.id=s.form_id
        LEFT JOIN portal_packages pp ON pp.id=s.package_id
+       LEFT JOIN portal_wings pw ON pw.id=s.wing_id
        LEFT JOIN fb_submission_data org ON org.submission_id=s.id AND org.field_key='organisation_name'
        WHERE ${where} ORDER BY s.created_at DESC`,
       params, Number(page), Number(per_page)
@@ -108,6 +111,10 @@ router.patch('/:id/status', requireRole('super_admin', 'admin'), async (req, res
         [status, req.params.id]
       );
     }
+    if (status === 'inactive') {
+      const { endPositionsOnMembershipExpiry } = require('../utils/memberOrg');
+      await endPositionsOnMembershipExpiry(req.params.id);
+    }
     return ok(res, null, `Member status updated to ${status}`);
   } catch (err) { console.error(err); return fail(res, 'Server error', 500); }
 });
@@ -129,6 +136,8 @@ router.get('/:id/submissions', async (req, res) => {
     return ok(res, rows);
   } catch (err) { return fail(res, 'Server error', 500); }
 });
+
+router.use('/:id/org', require('./member-org'));
 
 // DELETE /api/members/:id
 router.delete('/:id', requireRole('super_admin'), async (req, res) => {

@@ -19,6 +19,21 @@ const DEFAULT_ORG_TYPES = [
   'Other',
 ];
 
+// GET /api/settings/branding  PUBLIC — logo, president photo for marketing pages
+router.get('/branding', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT setting_key, setting_value FROM system_settings
+       WHERE setting_key IN ('site_logo', 'president_photo')`
+    );
+    const settings = Object.fromEntries(rows.map(r => [r.setting_key, r.setting_value]));
+    return ok(res, {
+      site_logo: settings.site_logo || '/images/brand/logo.png',
+      president_photo: settings.president_photo || '/images/president/suresh-agarwal.jpg',
+    });
+  } catch (err) { return fail(res, 'Server error', 500); }
+});
+
 // GET /api/settings/org-types  PUBLIC — used by member application form
 router.get('/org-types', async (req, res) => {
   try {
@@ -61,7 +76,8 @@ router.put('/', requireRole('super_admin'), async (req, res) => {
       await pool.query(
         `INSERT INTO system_settings (setting_key, setting_value)
          VALUES (?, ?)
-         ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value), updated_at=NOW()`,
+         ON CONFLICT (setting_key) DO UPDATE
+           SET setting_value = EXCLUDED.setting_value, updated_at = NOW()`,
         [key, String(value)]
       );
     }
@@ -168,14 +184,16 @@ router.put('/org-types', requireRole('super_admin'), async (req, res) => {
       const type = cleanedTypes[index];
       await conn.query(
         `INSERT INTO portal_organization_types (name, slug, sort_order, is_active)
-         VALUES (?, LOWER(REPLACE(REPLACE(?, ' / ', '-'), ' ', '-')), ?, 1)
-         ON DUPLICATE KEY UPDATE slug=VALUES(slug), sort_order=VALUES(sort_order), is_active=1, updated_at=NOW()`,
+         VALUES (?, LOWER(REPLACE(REPLACE(?, ' / ', '-'), ' ', '-')), ?, TRUE)
+         ON CONFLICT (name) DO UPDATE
+           SET slug = EXCLUDED.slug, sort_order = EXCLUDED.sort_order, is_active = TRUE, updated_at = NOW()`,
         [type, type, index + 1]
       );
     }
     await conn.query(
       `INSERT INTO system_settings (setting_key, setting_value) VALUES ('org_types', ?)
-       ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value), updated_at=NOW()`,
+       ON CONFLICT (setting_key) DO UPDATE
+         SET setting_value = EXCLUDED.setting_value, updated_at = NOW()`,
       [JSON.stringify(cleanedTypes)]
     );
     await conn.commit();
@@ -196,7 +214,8 @@ router.post('/upload-logo', requireRole('super_admin', 'admin'), upload.single('
     await pool.query(
       `INSERT INTO system_settings (setting_key, setting_value)
        VALUES ('site_logo', ?)
-       ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value), updated_at=NOW()`,
+       ON CONFLICT (setting_key) DO UPDATE
+         SET setting_value = EXCLUDED.setting_value, updated_at = NOW()`,
       [relativePath]
     );
     clearOrgCache();

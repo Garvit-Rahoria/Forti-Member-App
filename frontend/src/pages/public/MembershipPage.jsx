@@ -4,6 +4,8 @@ import MembershipApplicationForm from '../../components/membership/MembershipApp
 import OTPModal from '../../components/membership/OTPModal'
 import { clearMemberApplicantSession } from '../../utils/memberSession'
 import { useMember } from '../../contexts/MemberContext'
+import PublicHeader from '../../components/public/PublicHeader'
+import PublicFooter from '../../components/public/PublicFooter'
 
 export default function MembershipPage() {
   const location = useLocation()
@@ -25,19 +27,8 @@ export default function MembershipPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-slate-100">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-30">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center text-white font-extrabold text-base shadow">
-            F
-          </div>
-          <div>
-            <span className="font-bold text-gray-900 text-base">FORTI Membership Portal</span>
-            <p className="text-xs text-gray-400 leading-none">Membership Application</p>
-          </div>
-        </div>
-      </header>
+    <div className="page-shell bg-gradient-to-br from-slate-50 via-purple-50 to-slate-100">
+      <PublicHeader onApply={() => setShowOTPModal(true)} />
 
       <main className="max-w-3xl mx-auto px-4 py-8">
         {!otpVerified ? (
@@ -72,19 +63,7 @@ export default function MembershipPage() {
         )}
       </main>
 
-      <footer className="text-center text-xs text-gray-400 py-8">
-        &copy; {new Date().getFullYear()} FORTI. All rights reserved.
-        <span className="mx-2">·</span>
-        Developed by{' '}
-        <a
-          href="https://kaitensoftware.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-gray-500 hover:text-primary-600 transition-colors font-medium"
-        >
-          Kaiten Software
-        </a>
-      </footer>
+      <PublicFooter />
 
       {/* OTP Modal */}
       {showOTPModal && (

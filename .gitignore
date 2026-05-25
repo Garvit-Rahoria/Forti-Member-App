@@ -13,3 +13,8 @@ build/
 
 # Ignore VS Code settings
 .vscode/
+
+*.pem
+*conf*.md
+
+aa--ravin

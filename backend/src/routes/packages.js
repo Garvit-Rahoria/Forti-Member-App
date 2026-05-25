@@ -70,27 +70,6 @@ router.post('/', requireRole('super_admin', 'admin'), async (req, res) => {
   if (!location || !membership_type || !duration) return fail(res, 'Location, membership_type, and duration are required', 422);
 
   try {
-    // Check for duplicate combination (include country_id for overseas specifics)
-    // Only block if a manually-created (non-auto-generated) package exists for this combo.
-    // If only auto-generated packages exist, allow admin to create a real one
-    // and deactivate the auto-generated duplicates.
-    const dupSql = country_id
-      ? 'SELECT id, auto_generated FROM portal_packages WHERE location = ? AND membership_type = ? AND duration = ? AND country_id = ? AND is_active = 1 LIMIT 1'
-      : 'SELECT id, auto_generated FROM portal_packages WHERE location = ? AND membership_type = ? AND duration = ? AND country_id IS NULL AND is_active = 1 LIMIT 1';
-    const dupParams = country_id
-      ? [location, membership_type, duration, country_id]
-      : [location, membership_type, duration];
-    const [[dup]] = await pool.query(dupSql, dupParams);
-    if (dup && !dup.auto_generated) return fail(res, 'A package with this location + type + duration already exists', 409);
-
-    // If auto-generated duplicates exist for this combo, deactivate them first
-    if (dup && dup.auto_generated) {
-      const deactivateSql = country_id
-        ? 'UPDATE portal_packages SET is_active = 0 WHERE location = ? AND membership_type = ? AND duration = ? AND country_id = ? AND auto_generated = 1'
-        : 'UPDATE portal_packages SET is_active = 0 WHERE location = ? AND membership_type = ? AND duration = ? AND country_id IS NULL AND auto_generated = 1';
-      await pool.query(deactivateSql, dupParams);
-    }
-
     const [r] = await pool.query(
       `INSERT INTO portal_packages
          (name, code, price, location, membership_type, duration, country_id, description, benefits, is_active, currency, auto_generated)
@@ -126,22 +105,6 @@ router.put('/:id', requireRole('super_admin', 'admin'), async (req, res) => {
   try {
     const [[current]] = await pool.query('SELECT * FROM portal_packages WHERE id = ?', [req.params.id]);
     if (!current) return fail(res, 'Not found', 404);
-
-    // Check duplicate if combo changed
-    const newLoc = location || current.location;
-    const newType = membership_type || current.membership_type;
-    const newDur = duration || current.duration;
-    const newCountryId = country_id !== undefined ? (country_id || null) : current.country_id;
-    if (newLoc !== current.location || newType !== current.membership_type || newDur !== current.duration || newCountryId !== current.country_id) {
-      const dupSql = newCountryId
-        ? 'SELECT id FROM portal_packages WHERE location = ? AND membership_type = ? AND duration = ? AND country_id = ? AND is_active = 1 AND id != ? LIMIT 1'
-        : 'SELECT id FROM portal_packages WHERE location = ? AND membership_type = ? AND duration = ? AND country_id IS NULL AND is_active = 1 AND id != ? LIMIT 1';
-      const dupParams = newCountryId
-        ? [newLoc, newType, newDur, newCountryId, req.params.id]
-        : [newLoc, newType, newDur, req.params.id];
-      const [[dup]] = await pool.query(dupSql, dupParams);
-      if (dup) return fail(res, 'A package with this location + type + duration already exists', 409);
-    }
 
     await pool.query(
       `UPDATE portal_packages SET

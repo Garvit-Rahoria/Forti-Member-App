@@ -3,8 +3,10 @@ import { Link, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
 import {
   Shield, Search, CheckCircle, XCircle, AlertCircle,
-  User, Calendar, MapPin, Award, ArrowLeft, Loader2, Clock
+  User, Calendar, MapPin, Award, Loader2, Clock
 } from 'lucide-react'
+import PublicHeader from '../../components/public/PublicHeader'
+import PublicFooter from '../../components/public/PublicFooter'
 
 const http = axios.create({ baseURL: '/api' })
 
@@ -41,19 +43,8 @@ export default function VerifyMembership() {
   const isExpired = result && !result.valid && result.member_status === 'active'
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-slate-100">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center text-white font-black">F</div>
-            <span className="font-bold text-gray-900">FORTI</span>
-          </Link>
-          <Link to="/" className="text-sm text-gray-500 hover:text-primary-600 flex items-center gap-1 transition">
-            <ArrowLeft size={14}/> Back to Home
-          </Link>
-        </div>
-      </header>
+    <div className="page-shell bg-gradient-to-br from-primary-50 to-slate-100">
+      <PublicHeader />
 
       <main className="max-w-2xl mx-auto px-4 py-12">
         {/* Title */}
@@ -154,6 +145,8 @@ export default function VerifyMembership() {
           <Link to="/" className="text-primary-600 hover:underline">Return to Home</Link>
         </p>
       </main>
+
+      <PublicFooter />
     </div>
   )
 }

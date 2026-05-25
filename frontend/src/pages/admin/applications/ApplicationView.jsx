@@ -6,14 +6,9 @@ import api from '../../../api/client'
 import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../../contexts/AuthContext'
+import MemberOrgPanel from '../../../components/admin/MemberOrgPanel'
 
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
-
-function resolveAssetUrl(path) {
-  if (!path) return ''
-  if (path.startsWith('http://') || path.startsWith('https://')) return path
-  return `${BASE}${path.startsWith('/') ? path : `/${path}`}`
-}
+import { assetUrl as resolveAssetUrl } from '../../../utils/assetUrl'
 
 function fmtAmount(amount, currency) {
   if (!amount && amount !== 0) return '—'
@@ -563,6 +558,11 @@ export default function ApplicationView() {
                 {invoiceMut.isPending ? 'Generating…' : 'Download Invoice'}
               </button>
             </div>
+          )}
+
+          {/* Wing, positions, public profile */}
+          {['active', 'approved'].includes(sub.status) && (
+            <MemberOrgPanel memberId={id} canManage={isAdmin || isBM} />
           )}
 
           {/* Review notes */}

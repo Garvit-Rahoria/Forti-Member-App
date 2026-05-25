@@ -1,65 +1,42 @@
-const mysql = require('mysql2/promise');
+/**
+ * Apply PostgreSQL schema to a running database.
+ * Usage: node database/setup.js
+ * Requires: Docker Postgres on DB_PORT (default 5432) or set env vars.
+ */
+const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
 
+const pool = new Pool({
+  host:     process.env.DB_HOST || '127.0.0.1',
+  port:     parseInt(process.env.DB_PORT, 10) || 5432,
+  database: process.env.DB_NAME || 'forti_membership',
+  user:     process.env.DB_USER || 'forti',
+  password: process.env.DB_PASS || process.env.DB_PASSWORD || 'forti@2026',
+});
+
+async function runFile(filePath) {
+  const sql = fs.readFileSync(filePath, 'utf8');
+  await pool.query(sql);
+  console.log(`Ran: ${path.basename(filePath)}`);
+}
+
 async function setup() {
-  const root = await mysql.createConnection({
-    host: '127.0.0.1', port: 3306,
-    user: 'root', password: 'lifepulse123',
-    multipleStatements: true
-  });
-
-  console.log('Connected as root');
-
-  await root.query('CREATE DATABASE IF NOT EXISTS forti_membership');
-  console.log('Database forti_membership created/exists');
-
-  try {
-    await root.query("CREATE USER 'forti'@'127.0.0.1' IDENTIFIED BY 'forti@2026'");
-    console.log('User forti@127.0.0.1 created');
-  } catch (e) {
-    if (e.code === 'ER_CANNOT_USER') {
-      console.log('User forti already exists, updating password...');
-      await root.query("ALTER USER 'forti'@'127.0.0.1' IDENTIFIED BY 'forti@2026'");
-    }
-  }
-
-  try {
-    await root.query("CREATE USER 'forti'@'localhost' IDENTIFIED BY 'forti@2026'");
-  } catch (e) { /* already exists */ }
-
-  await root.query("GRANT ALL PRIVILEGES ON forti_membership.* TO 'forti'@'127.0.0.1'");
-  await root.query("GRANT ALL PRIVILEGES ON forti_membership.* TO 'forti'@'localhost'");
-  await root.query('FLUSH PRIVILEGES');
-  console.log('Privileges granted');
-
-  await root.end();
-
-  // Run migrations with forti user
-  const conn = await mysql.createConnection({
-    host: '127.0.0.1', port: 3306,
-    user: 'root', password: 'lifepulse123',
-    database: 'forti_membership',
-    multipleStatements: true
-  });
-
-  const dbDir = __dirname;
-  const migrations = fs.readdirSync(dbDir)
+  const initDir = path.join(__dirname, 'init');
+  const files = fs.readdirSync(initDir)
     .filter(f => f.endsWith('.sql'))
     .sort();
 
-  for (const file of migrations) {
-    const sql = fs.readFileSync(path.join(dbDir, file), 'utf8');
+  for (const file of files) {
     try {
-      await conn.query(sql);
-      console.log(`Ran migration: ${file}`);
+      await runFile(path.join(initDir, file));
     } catch (e) {
-      console.log(`Migration ${file} error (may already exist): ${e.message.split('\n')[0]}`);
+      console.log(`${file}: ${e.message.split('\n')[0]}`);
     }
   }
 
-  await conn.end();
-  console.log('\nSetup complete! forti_membership database is ready.');
+  await pool.end();
+  console.log('\nPostgreSQL setup complete.');
 }
 
 setup().catch(e => { console.error('FATAL:', e.message); process.exit(1); });

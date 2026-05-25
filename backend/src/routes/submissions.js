@@ -70,7 +70,10 @@ router.post('/', upload.any(), async (req, res) => {
       await pool.query(
         `INSERT INTO fb_submission_data (submission_id, field_id, field_key, value, file_path, updated_at)
          VALUES (?,?,?,?,?,NOW())
-         ON DUPLICATE KEY UPDATE value=VALUES(value), file_path=COALESCE(VALUES(file_path),file_path), updated_at=NOW()`,
+         ON CONFLICT (submission_id, field_id) DO UPDATE
+           SET value = EXCLUDED.value,
+               file_path = COALESCE(EXCLUDED.file_path, fb_submission_data.file_path),
+               updated_at = NOW()`,
         [subId, fieldId, key, isFile ? null : String(val), isFile ? val : null]
       );
     }
@@ -498,6 +501,23 @@ router.patch('/:id/status', async (req, res) => {
           [membershipId, sub.plan_type || null, sub.membership_type || null,
            sub.package_id || null, req.params.id]
         );
+      }
+
+      if (sub.wing_id) {
+        try {
+          const { assignWing, getCurrentWing } = require('../utils/memberOrg');
+          const current = await getCurrentWing(req.params.id);
+          if (!current || current.id !== sub.wing_id) {
+            await assignWing({
+              submissionId: Number(req.params.id),
+              wingId: sub.wing_id,
+              assignedBy: req.user.id,
+              notes: 'Confirmed on approval',
+            });
+          }
+        } catch (e) {
+          console.error('[wing assign on approve]', e.message);
+        }
       }
 
       // Auto-generate invoice for this approval
