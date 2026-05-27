@@ -175,4 +175,26 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
+// POST /api/auth/logout — Invalidates the current JWT token
+router.post('/logout', require('../middleware/auth').authMiddleware, async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return fail(res, 'No token', 400);
+  
+  const token = authHeader.slice(7);
+  try {
+    const decoded = jwt.decode(token);
+    if (decoded && decoded.exp) {
+      const expiresAt = new Date(decoded.exp * 1000);
+      await pool.query(
+        'INSERT INTO token_blacklist (token, expires_at) VALUES (?, ?) ON CONFLICT DO NOTHING',
+        [token, expiresAt]
+      );
+    }
+    return ok(res, null, 'Logged out successfully');
+  } catch (err) {
+    console.error('[logout]', err);
+    return fail(res, 'Server error', 500);
+  }
+});
+
 module.exports = router;

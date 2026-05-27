@@ -118,7 +118,7 @@ router.use(authMiddleware);
 
 // GET /api/renewals  – paginated list
 router.get('/', async (req, res) => {
-  const { page = 1, per_page = 20, status, q, sort = 'latest', expiry_soon } = req.query;
+  const { page = 1, per_page = 20, status, q, sort = 'latest', expiry_soon, duration, start_date, end_date } = req.query;
   const params = [];
   let where = '1=1';
   if (status) { where += ' AND r.status=?'; params.push(status); }
@@ -128,6 +128,17 @@ router.get('/', async (req, res) => {
   }
   if (String(expiry_soon || '').toLowerCase() === 'true') {
     where += ' AND s.expiry_date IS NOT NULL AND s.expiry_date >= CURDATE() AND DATEDIFF(s.expiry_date, CURDATE()) <= 30';
+  }
+
+  // The frontend now passes exact start_date and end_date based on the selected duration.
+  // We no longer need to process the 'duration' string manually.
+  if (start_date) {
+    where += ' AND s.expiry_date >= ?';
+    params.push(start_date);
+  }
+  if (end_date) {
+    where += ' AND s.expiry_date <= ?';
+    params.push(end_date);
   }
   // Branch scoping: branch_manager AND office_staff see only their state
   if (

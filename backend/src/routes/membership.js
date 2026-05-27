@@ -97,18 +97,24 @@ router.get('/packages/match', async (req, res) => {
   try {
     // Resolve country currency for overseas display
     let countryCurrency = null;
+    let resolvedCountryId = country_id;
     if (loc === 'overseas' && country_id) {
       try {
-        const [[countryRow]] = await pool.query(
-          'SELECT name FROM countries WHERE id = ? AND is_active = 1 LIMIT 1',
-          [country_id]
-        );
-        if (countryRow?.name) countryCurrency = getCurrencyCodeByCountry(countryRow.name);
+        const isNumeric = /^\d+$/.test(String(country_id).trim());
+        let countryQuery = 'SELECT id, name FROM countries WHERE id = ? AND is_active = 1 LIMIT 1';
+        if (!isNumeric) {
+          countryQuery = 'SELECT id, name FROM countries WHERE LOWER(iso_code) = LOWER(?) AND is_active = 1 LIMIT 1';
+        }
+        const [[countryRow]] = await pool.query(countryQuery, [country_id]);
+        if (countryRow) {
+          resolvedCountryId = countryRow.id;
+          if (countryRow.name) countryCurrency = getCurrencyCodeByCountry(countryRow.name);
+        }
       } catch (e) { /* ignore, fallback to USD */ }
     }
 
     // For overseas with a specific country, try country-specific package first
-    if (loc === 'overseas' && country_id) {
+    if (loc === 'overseas' && resolvedCountryId && /^\d+$/.test(String(resolvedCountryId))) {
       const [countryRows] = await pool.query(
         `SELECT * FROM portal_packages
          WHERE is_active = 1
@@ -117,7 +123,7 @@ router.get('/packages/match', async (req, res) => {
            AND duration = ?
            AND country_id = ?
          ORDER BY auto_generated ASC, sort_order ASC, id ASC LIMIT 1`,
-        [mtype, dur, country_id]
+        [mtype, dur, Number(resolvedCountryId)]
       );
       console.log(`[PKG MATCH] country-specific search → found ${countryRows.length} rows`);
       if (countryRows.length) return sendPackage(res, countryRows[0], pool, countryCurrency);
@@ -282,6 +288,28 @@ router.post(
     if (!payment_method)             return fail(res, 'Payment method is required', 422);
     if (!req.files?.payment_screenshot?.[0]) return fail(res, 'Payment screenshot is required', 422);
 
+    try {
+      // Check if email already belongs to an existing member account
+      const [[existingMember]] = await pool.query(
+        'SELECT id FROM member_accounts WHERE email = ? LIMIT 1',
+        [email.trim().toLowerCase()]
+      );
+      if (existingMember) {
+        return fail(res, 'An account with this email address already exists. Please use a different email or log in.', 409);
+      }
+
+      // Check if email already has a pending application
+      const [[existingSubmission]] = await pool.query(
+        "SELECT id FROM fb_submissions WHERE applicant_email = ? AND status = 'pending' LIMIT 1",
+        [email.trim().toLowerCase()]
+      );
+      if (existingSubmission) {
+        return fail(res, 'A membership application with this email is already pending approval.', 409);
+      }
+    } catch (err) {
+      console.error('[Duplicate Check Error]', err);
+    }
+
     const resolvedCountryName = country_name || (location_type === 'overseas' ? 'Other' : 'India');
     const isIndianApplicant = String(resolvedCountryName || '').trim().toLowerCase() === 'india';
     const resolvedIdType = String(id_type || (isIndianApplicant ? 'aadhaar' : 'passport')).trim().toLowerCase();
@@ -438,22 +466,8 @@ router.post(
       // ── Lifetime plan: auto-verify payment and activate immediately ──
       let finalMembershipId = membershipId;
       let autoActivated = false;
-      if (plan_type === 'lifetime') {
-        const [[{ cnt }]] = await conn.query(
-          "SELECT COUNT(*) AS cnt FROM fb_submissions WHERE membership_id IS NOT NULL AND membership_id != '' AND id != ?",
-          [submissionId]
-        );
-        finalMembershipId = `FORTI${String(cnt + 1).padStart(4, '0')}`;
-        await conn.query(
-          `UPDATE portal_payments SET status='verified', verified_at=NOW() WHERE uuid=?`,
-          [payUuid]
-        );
-        await conn.query(
-          `UPDATE fb_submissions SET status='active', member_status='active', membership_id=?, approved_at=NOW() WHERE id=?`,
-          [finalMembershipId, submissionId]
-        );
-        autoActivated = true;
-      }
+      // VULNERABILITY FIX: Lifetime plan auto-activation has been removed.
+      // All lifetime memberships will now go through standard admin verification.
 
       // Create / find member_accounts for auto-login
       let memberAccountId = null;

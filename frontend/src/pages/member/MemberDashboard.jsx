@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { useMember } from '../../contexts/MemberContext'
@@ -10,7 +10,8 @@ import {
   Shield, MapPin, Phone, Mail, Calendar, Settings,
   ChevronRight, Loader2, Bell, Home, Activity,
   XCircle, HelpCircle, Wallet, BarChart2,
-  Upload, IndianRupee, Building2, Banknote, Info, RotateCcw, Edit2
+  Upload, IndianRupee, Building2, Banknote, Info, RotateCcw, Edit2,
+  Globe, Link2, ExternalLink
 } from 'lucide-react'
 import { getCurrencySymbol, fmtAmount } from '../../utils/currency'
 import { assetUrl } from '../../utils/assetUrl'
@@ -351,11 +352,46 @@ function StatusTimeline({ status, membershipStatus }) {
 }
 
 // ── Overview Tab ───────────────────────────────────────────────────────────
-function OverviewTab({ member, onTab }) {
+function OverviewTab({ member, onTab, apiClient }) {
   if (!member) return null
   const daysLeft = member.expiry_date
     ? Math.ceil((new Date(member.expiry_date) - new Date()) / 86400000)
     : null
+
+  const [profileData, setProfileData] = useState(null)
+  const [copyToggled, setCopyToggled] = useState(false)
+  const [togglingUrl, setTogglingUrl] = useState(false)
+
+  useEffect(() => {
+    apiClient().get('/member/public-profile')
+      .then(res => setProfileData(res.data.data))
+      .catch(console.error)
+  }, [])
+
+  async function handleToggleVisibility() {
+    if (!profileData || togglingUrl) return
+    setTogglingUrl(true)
+    const newStatus = !(profileData.profile?.is_public)
+    try {
+      await apiClient().patch('/member/public-profile/visibility', { is_public: newStatus })
+      setProfileData(prev => ({
+        ...prev,
+        profile: { ...prev.profile, is_public: newStatus }
+      }))
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setTogglingUrl(false)
+    }
+  }
+
+  function handleCopy() {
+    if (!profileData?.public_url) return
+    const fullUrl = `${window.location.origin}${profileData.public_url}`
+    navigator.clipboard.writeText(fullUrl)
+    setCopyToggled(true)
+    setTimeout(() => setCopyToggled(false), 2000)
+  }
 
   return (
     <div className="space-y-6">
@@ -383,6 +419,53 @@ function OverviewTab({ member, onTab }) {
           )}
         </div>
       </div>
+
+      {/* Share Profile Banner */}
+      {profileData && profileData.public_url && (
+        <div className="rounded-2xl border border-primary-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center shrink-0 mt-0.5">
+                <Globe size={20} className="text-primary-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900">Share Your Profile</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Share your FORTI public profile with others.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <label className="flex items-center gap-2 cursor-pointer text-sm font-medium whitespace-nowrap bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+                <span className="text-gray-700">Visible to Public</span>
+                <input type="checkbox" className="w-4 h-4 accent-primary-600" 
+                  checked={!!profileData.profile?.is_public} 
+                  onChange={handleToggleVisibility} 
+                  disabled={togglingUrl} />
+              </label>
+            </div>
+          </div>
+          <div className="mt-4 flex flex-col sm:flex-row items-center gap-2">
+            <div className="flex-1 w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-500 font-mono truncate select-all">
+              {window.location.origin}{profileData.public_url}
+            </div>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <button onClick={handleCopy} disabled={!profileData.profile?.is_public} className="flex-1 sm:flex-none btn-primary btn-sm flex items-center justify-center gap-2 disabled:opacity-50">
+                {copyToggled ? <CheckCircle size={14}/> : <Link2 size={14}/>}
+                {copyToggled ? 'Copied!' : 'Copy Link'}
+              </button>
+              <a href={profileData.public_url} target="_blank" rel="noreferrer" 
+                 className={`flex-1 sm:flex-none btn-outline btn-sm flex items-center justify-center gap-2 ${!profileData.profile?.is_public ? 'opacity-50 pointer-events-none' : ''}`}>
+                <ExternalLink size={14}/> Preview
+              </a>
+            </div>
+          </div>
+          {!profileData.profile?.is_public && (
+            <div className="mt-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-2 rounded-lg flex items-start gap-2">
+              <AlertCircle size={14} className="shrink-0 mt-0.5" />
+              <p>Turn on <strong>Visible to Public</strong> to activate your link. People won't be able to view your profile until you do.</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Expiry warning */}
       {daysLeft !== null && daysLeft <= 30 && getMembershipStatus(member) === 'active' && (
@@ -1503,7 +1586,7 @@ export default function MemberDashboard() {
   // Use member identity as key to force re-mount all tabs on user change
   const sessionKey = member.submission_id || member.email || member.id
   const tabContent = {
-    overview:  <OverviewTab key={`o-${sessionKey}`} member={member} onTab={setActiveTab}/>,
+    overview:  <OverviewTab key={`o-${sessionKey}`} member={member} onTab={setActiveTab} apiClient={apiClient}/>,
     profile:   <ProfileTab key={`p-${sessionKey}`} member={member} apiClient={apiClient} refetch={refetch}/>,
     documents: <DocumentsTab key={`d-${sessionKey}`} member={member} apiClient={apiClient}/>,
     payments:  <PaymentsTab key={`pay-${sessionKey}`} apiClient={apiClient}/>,

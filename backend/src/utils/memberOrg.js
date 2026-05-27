@@ -140,7 +140,8 @@ async function ensurePublicSlug(submissionId) {
   await pool.query(
     `INSERT INTO member_public_profiles (submission_id, public_slug)
      VALUES (?, ?)
-     ON CONFLICT (submission_id) DO UPDATE SET public_slug = EXCLUDED.public_slug`,
+     ON CONFLICT (submission_id) DO UPDATE SET public_slug = EXCLUDED.public_slug
+     RETURNING submission_id`,
     [submissionId, slug]
   );
   return slug;

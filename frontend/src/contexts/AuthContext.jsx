@@ -60,7 +60,12 @@ export function AuthProvider({ children }) {
     return u
   }
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      if (token) await api.post('/auth/logout', {}, { headers: { Authorization: `Bearer ${token}` } });
+    } catch (e) {
+      console.warn('Logout API failed:', e);
+    }
     sessionStorage.removeItem('forti_token')
     setToken(null)
     setUser(null)

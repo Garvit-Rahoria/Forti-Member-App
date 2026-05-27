@@ -34,9 +34,11 @@ router.get('/:slug', async (req, res) => {
   try {
     const [[profile]] = await pool.query(
       `SELECT p.*, s.applicant_name, s.applicant_email, s.applicant_phone, s.membership_id,
-              s.member_status, s.status
+              s.member_status, s.status, s.data AS application_data, s.approved_at,
+              pk.name AS package_name
        FROM member_public_profiles p
        JOIN fb_submissions s ON s.id = p.submission_id
+       LEFT JOIN portal_packages pk ON pk.id = s.package_id
        WHERE p.public_slug = ? AND p.is_public = TRUE
          AND s.status IN ('active','approved')
          AND s.member_status = 'active'`,
@@ -74,6 +76,9 @@ router.get('/:slug', async (req, res) => {
     return ok(res, {
       name: profile.applicant_name,
       membership_id: profile.membership_id,
+      package_name: profile.package_name,
+      approved_at: profile.approved_at,
+      application_data: profile.application_data,
       email: profile.show_email ? profile.applicant_email : null,
       phone: profile.show_phone ? profile.applicant_phone : null,
       headline: profile.headline,

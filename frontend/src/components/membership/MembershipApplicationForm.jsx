@@ -815,9 +815,11 @@ export default function MembershipApplicationForm({ prefill = {} }) {
   )
   const rajasthanCityOptions = useMemo(() => {
     const map = new Map()
-    cities.forEach(city => {
-      map.set(String(city.name).toLowerCase(), { value: String(city.id), label: city.name, raw: city })
-    })
+    if (Array.isArray(cities)) {
+      cities.forEach(city => {
+        map.set(String(city?.name || '').toLowerCase(), { value: String(city?.id || ''), label: city?.name || '', raw: city })
+      })
+    }
     RAJASTHAN_MAJOR_CITIES.forEach(cityName => {
       const key = cityName.toLowerCase()
       if (!map.has(key)) map.set(key, { value: String(cityName), label: cityName, raw: { name: cityName } })
@@ -839,7 +841,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
   }, [states])
 
   const cityOptions = useMemo(
-    () => cities.map(city => ({ value: String(city.id), label: city.name, raw: city })),
+    () => (Array.isArray(cities) ? cities : []).map(city => ({ value: String(city?.id || ''), label: city?.name || '', raw: city })),
     [cities],
   )
 
@@ -1158,6 +1160,12 @@ export default function MembershipApplicationForm({ prefill = {} }) {
         markTouched('id_type', 'aadhaar_number')
         setFieldError('aadhaar_number', 'Aadhaar number must be exactly 12 digits')
         topRef.current?.scrollIntoView({ behavior: 'smooth' })
+      } else if (/account with this email/i.test(message) || /already pending approval/i.test(message)) {
+        setStep(0)
+        markTouched('email')
+        setFieldError('email', message)
+        topRef.current?.scrollIntoView({ behavior: 'smooth' })
+        setTimeout(() => focusField('email'), 100)
       } else {
         setErrors({ _global: message })
       }
@@ -1631,9 +1639,16 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                 options={rajasthanCityOptions}
                 value={form.city_id}
                 placeholder={citiesLoading ? 'Loading cities…' : 'Search Rajasthan city'}
-                onChange={nextValue => {
-                  set('city_id', nextValue)
-                  set('city_other', '')
+                allowCustom={true}
+                onChange={(nextValue, option) => {
+                  const nextForm = { 
+                    ...formRef.current, 
+                    city_id: nextValue, 
+                    city_other: option?.raw ? '' : nextValue 
+                  }
+                  formRef.current = nextForm
+                  setForm(nextForm)
+                  setErrors(e => ({ ...e, city_id: '', city_other: '' }))
                 }}
                 inputClassName="bg-white border-orange-200 focus:border-orange-400 focus:ring-orange-200"
               />
@@ -1678,15 +1693,22 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                   options={cityOptions}
                   value={form.city_id}
                   disabled={!form.state_id}
+                  allowCustom={true}
                   placeholder={!form.state_id
                     ? 'Select state first'
                     : citiesLoading
                       ? 'Loading cities…'
                       : 'Type to search city…'}
                   minQueryLength={1}
-                  onChange={nextValue => {
-                    set('city_id', nextValue)
-                    set('city_other', '')
+                  onChange={(nextValue, option) => {
+                    const nextForm = { 
+                      ...formRef.current, 
+                      city_id: nextValue, 
+                      city_other: option?.raw ? '' : nextValue 
+                    }
+                    formRef.current = nextForm
+                    setForm(nextForm)
+                    setErrors(e => ({ ...e, city_id: '', city_other: '' }))
                   }}
                   inputClassName="bg-white border-blue-200 focus:border-blue-400 focus:ring-blue-200"
                 />
@@ -1729,7 +1751,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
               <label className="label flex items-center gap-2 text-emerald-800">City</label>
               <input
                 className="input bg-white border-emerald-200 focus:border-emerald-400 focus:ring-emerald-200"
-                value={form.overseas_city}
+                value={form.overseas_city || ''}
                 onChange={e => set('overseas_city', e.target.value)}
                 placeholder="Enter your city (optional)"
               />

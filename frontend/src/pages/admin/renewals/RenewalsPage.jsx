@@ -588,6 +588,9 @@ export default function RenewalsPage() {
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
   const [sort, setSort] = useState('latest')
+  const [durationFilter, setDurationFilter] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
   const [page, setPage] = useState(1)
   const [renewalModal, setRenewalModal] = useState(null)
   const [confirmAction, setConfirmAction] = useState(null)
@@ -598,15 +601,58 @@ export default function RenewalsPage() {
   const [newErrors, setNewErrors] = useState({})
   const [modalScale, setModalScale] = useState(1)
   const [modalScaledHeight, setModalScaledHeight] = useState(null)
+
+  function handleDurationChange(val) {
+    setDurationFilter(val)
+    setPage(1)
+    
+    if (!val) {
+      setStartDate('')
+      setEndDate('')
+      return
+    }
+
+    const now = new Date()
+    let start, end
+
+    if (val === 'this_year') {
+      start = new Date(now.getFullYear(), 0, 1)
+      end = new Date(now.getFullYear(), 11, 31)
+    } else if (val === 'this_month') {
+      start = new Date(now.getFullYear(), now.getMonth(), 1)
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    } else if (val === 'this_quarter') {
+      const qtr = Math.floor(now.getMonth() / 3)
+      start = new Date(now.getFullYear(), qtr * 3, 1)
+      end = new Date(now.getFullYear(), qtr * 3 + 3, 0)
+    } else if (val === 'this_week') {
+      // Monday to Sunday
+      const day = now.getDay()
+      const diffToMonday = now.getDate() - day + (day === 0 ? -6 : 1)
+      start = new Date(now.getFullYear(), now.getMonth(), diffToMonday)
+      end = new Date(start)
+      end.setDate(start.getDate() + 6)
+    }
+
+    if (start && end) {
+      // Format to YYYY-MM-DD
+      setStartDate(start.toLocaleDateString('en-CA')) // en-CA gives YYYY-MM-DD
+      setEndDate(end.toLocaleDateString('en-CA'))
+    }
+  }
+
   const deferredSearch = useDeferredValue(q)
 
   const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
-    queryKey: ['renewals', { q: deferredSearch, status, sort, page }],
+    queryKey: ['renewals', { q: deferredSearch, status, sort, durationFilter, startDate, endDate, page }],
     queryFn: () => api.get('/renewals', {
       params: {
         q: deferredSearch,
         status,
         sort,
+        duration: durationFilter,
+        start_date: startDate,
+        end_date: endDate,
         page,
         per_page: 20,
       },
@@ -795,6 +841,9 @@ export default function RenewalsPage() {
     setQ('')
     setStatus('')
     setSort('latest')
+    setDurationFilter('')
+    setStartDate('')
+    setEndDate('')
     setPage(1)
   }
 
@@ -859,58 +908,83 @@ export default function RenewalsPage() {
         <SummaryCard icon={Clock3} label="Expiring in 30 Days" value={expiring.length} tone="amber" />
       </div>
 
-      <div className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-          <div className="grid flex-1 gap-4 lg:grid-cols-[minmax(0,1.9fr)_minmax(240px,0.9fr)_minmax(240px,0.9fr)_auto]">
-            <div className="relative min-w-0">
-              <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                className="input h-11 pl-10 pr-10"
-                placeholder="Search member, membership ID, or transaction ID"
-                value={q}
-                onChange={event => {
-                  setQ(event.target.value)
-                  setPage(1)
-                }}
-              />
-              {q && (
-                <button
-                  type="button"
-                  onClick={clearSearch}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition hover:text-gray-600"
-                >
-                  <X size={15} />
-                </button>
-              )}
-            </div>
+      <div className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm space-y-4">
+        {/* TOP ROW: Search, Status, Sort, Duration */}
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.9fr)_minmax(180px,1fr)_minmax(180px,1fr)_minmax(180px,1fr)]">
+          <div className="relative min-w-0">
+            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              className="input h-11 pl-10 pr-10"
+              placeholder="Search member, membership ID, or transaction ID"
+              value={q}
+              onChange={event => { setQ(event.target.value); setPage(1) }}
+            />
+            {q && (
+              <button type="button" onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition hover:text-gray-600">
+                <X size={15} />
+              </button>
+            )}
+          </div>
 
-            <label className="flex min-w-0 items-center gap-2.5 text-sm text-gray-500">
-              <Filter size={15} className="shrink-0 text-gray-400" />
-              <select className="input h-11 min-w-0 flex-1" value={status} onChange={event => updateStatus(event.target.value)}>
-                <option value="">All statuses</option>
-                <option value="pending">Pending Review</option>
-                <option value="payment_submitted">Payment Pending</option>
-                <option value="verified">Approved</option>
-                <option value="rejected">Rejected</option>
-              </select>
-            </label>
+          <label className="flex min-w-0 items-center gap-2.5 text-sm text-gray-500">
+            <Filter size={15} className="shrink-0 text-gray-400" />
+            <select className="input h-11 min-w-0 flex-1" value={status} onChange={event => updateStatus(event.target.value)}>
+              <option value="">All statuses</option>
+              <option value="pending">Pending Review</option>
+              <option value="payment_submitted">Payment Pending</option>
+              <option value="verified">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </label>
 
-            <label className="flex min-w-0 items-center gap-2.5 text-sm text-gray-500">
-              <ArrowDownUp size={15} className="shrink-0 text-gray-400" />
-              <select className="input h-11 min-w-0 flex-1" value={sort} onChange={event => updateSort(event.target.value)}>
-                {SORT_OPTIONS.map(option => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </label>
+          <label className="flex min-w-0 items-center gap-2.5 text-sm text-gray-500">
+            <ArrowDownUp size={15} className="shrink-0 text-gray-400" />
+            <select className="input h-11 min-w-0 flex-1" value={sort} onChange={event => updateSort(event.target.value)}>
+              {SORT_OPTIONS.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
 
-            <div className="flex items-center justify-start lg:justify-end">
-              {(q || status || sort !== 'latest') && (
-                <button type="button" className="text-sm font-medium text-gray-500 transition hover:text-gray-700" onClick={resetFilters}>
-                  Reset
-                </button>
-              )}
-            </div>
+          <label className="flex min-w-0 items-center gap-2.5 text-sm text-gray-500">
+            <Clock3 size={15} className="shrink-0 text-gray-400" />
+            <select className="input h-11 min-w-0 flex-1" value={durationFilter} onChange={event => handleDurationChange(event.target.value)}>
+              <option value="">Select Duration</option>
+              <option value="this_year">This Year</option>
+              <option value="this_quarter">This Quarter</option>
+              <option value="this_month">This Month</option>
+              <option value="this_week">This Week</option>
+            </select>
+          </label>
+        </div>
+
+        {/* BOTTOM ROW: Custom Dates & Reset */}
+        <div className="grid gap-4 lg:grid-cols-[minmax(180px,auto)_minmax(180px,auto)_1fr]">
+          <label className="flex min-w-0 items-center gap-2.5 text-sm text-gray-500">
+            <CalendarDays size={15} className="shrink-0 text-gray-400" />
+            <input 
+              type="date"
+              className="input h-11 min-w-0 flex-1" 
+              value={startDate} 
+              onChange={event => { setStartDate(event.target.value); setDurationFilter(''); setPage(1) }}
+            />
+          </label>
+          <label className="flex min-w-0 items-center gap-2.5 text-sm text-gray-500 text-center lg:text-left">
+            <span className="shrink-0 hidden lg:inline">to</span>
+            <input 
+              type="date"
+              className="input h-11 min-w-0 flex-1" 
+              value={endDate} 
+              onChange={event => { setEndDate(event.target.value); setDurationFilter(''); setPage(1) }}
+            />
+          </label>
+
+          <div className="flex items-center justify-end">
+            {(q || status || sort !== 'latest' || durationFilter || startDate || endDate) && (
+              <button type="button" className="text-sm font-medium text-gray-500 transition hover:text-gray-700" onClick={resetFilters}>
+                Reset all filters
+              </button>
+            )}
           </div>
         </div>
       </div>

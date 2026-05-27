@@ -15,6 +15,7 @@ import ApplicationFieldsPage from './pages/admin/forms/ApplicationFieldsPage'
 import ApplicationsList from './pages/admin/applications/ApplicationsList'
 import ApplicationView from './pages/admin/applications/ApplicationView'
 import MembersList from './pages/admin/members/MembersList'
+import AdminMemberFullProfile from './pages/admin/members/AdminMemberFullProfile'
 import PackagesList from './pages/admin/packages/PackagesList'
 import PaymentsHub from './pages/admin/payments/PaymentsHub'
 import Reports from './pages/admin/reports/Reports'
@@ -135,6 +136,7 @@ export default function App() {
 
                 {/* Members */}
                 <Route path="members" element={<MembersList />} />
+                <Route path="members/:id/full" element={<AdminMemberFullProfile />} />
 
                 {/* Plans */}
                 <Route path="packages" element={<RoleRoute roles={['super_admin','admin']}><PackagesList /></RoleRoute>} />

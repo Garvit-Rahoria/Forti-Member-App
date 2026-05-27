@@ -16,6 +16,12 @@ async function authMiddleware(req, res, next) {
 
   const token = authHeader.slice(7);
   try {
+    // Check if token is blacklisted
+    const [blRows] = await pool.query('SELECT token FROM token_blacklist WHERE token = ? LIMIT 1', [token]);
+    if (blRows.length > 0) {
+      return res.status(401).json({ success: false, message: 'Token has been revoked. Please log in again.' });
+    }
+
     const decoded = jwt.verify(token, JWT_SECRET);
     const [rows] = await pool.query(
       'SELECT id, uuid, full_name, email, role, assigned_state_id, assigned_country_id, is_active FROM portal_admin_users WHERE id = ? AND is_active = 1',

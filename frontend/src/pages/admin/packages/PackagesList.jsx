@@ -52,7 +52,7 @@ function formatDurationLabel(duration) {
 }
 
 // ── Plan Modal ──────────────────────────────────────────────────────────────
-function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries, durations }) {
+function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries, durations, wings }) {
   const isEdit = !!pkg
 
   // Detect if existing package has a custom duration (not in known durations list)
@@ -71,7 +71,7 @@ function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries, du
     }
     return {
       name: '', code: '', location: '', membership_type: '', duration: '',
-      price: 0, description: '', benefits: '', is_active: 1, country_id: '', currency: 'INR',
+      price: 0, description: '', benefits: '', is_active: 1, country_id: '', currency: 'INR', wing_id: '',
     }
   })
   const [isCustomDuration, setIsCustomDuration] = useState(initCustom)
@@ -220,6 +220,15 @@ function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries, du
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Wing (Optional) */}
+          <div>
+            <label className="label">Wing <span className="text-xs text-gray-400 font-normal">(optional)</span></label>
+            <select className="input" value={d.wing_id || ''} onChange={e => setD(x => ({ ...x, wing_id: e.target.value }))}>
+              <option value="">No Wing (General)</option>
+              {(wings || []).map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
           </div>
 
           {/* Auto-generated Plan Name & Code */}
@@ -480,8 +489,10 @@ export default function PackagesList() {
   const [filter, setFilter] = useState({ location: '', mt: '', dur: '' })
   const [countries, setCountries] = useState([])
   const [durations, setDurations] = useState([])
+  const [wings, setWings] = useState([])
 
   useEffect(() => {
+    api.get('/wings').then(r => setWings(r.data.data || [])).catch(() => {})
     api.get('/locations/countries').then(r => setCountries(r.data.data || [])).catch(() => {})
     api.get('/durations').then(r => {
       const rows = r.data.data || []
@@ -541,6 +552,7 @@ export default function PackagesList() {
         is_active: d.is_active ? 1 : 0,
         country_id: d.country_id || null,
         currency: d.currency || 'INR',
+        wing_id: d.wing_id || null,
       }
       return d.id
         ? api.put(`/packages/${d.id}`, payload)
@@ -651,6 +663,11 @@ export default function PackagesList() {
                     {countries.find(c => c.id === pkg.country_id)?.name || `Country #${pkg.country_id}`}
                   </span>
                 )}
+                {pkg.wing_id && (
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-pink-100 text-pink-700">
+                    {wings.find(w => w.id === pkg.wing_id)?.name || `Wing #${pkg.wing_id}`}
+                  </span>
+                )}
                 {!!pkg.auto_created && (
                   <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Auto-created</span>
                 )}
@@ -683,6 +700,7 @@ export default function PackagesList() {
           saving={saveMut.isPending}
           countries={countries}
           durations={durations}
+          wings={wings}
         />
       )}
     </div>

@@ -1,13 +1,9 @@
 import { useParams, Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import axios from 'axios'
-import { Loader2, Mail, Phone, MapPin, Award, ExternalLink } from 'lucide-react'
+import { Loader2, Mail, Phone, MapPin, Award, ExternalLink, Briefcase, Calendar } from 'lucide-react'
 import { assetUrl } from '../../utils/assetUrl'
 import PublicHeader from '../../components/public/PublicHeader'
 import PublicFooter from '../../components/public/PublicFooter'
-
-const http = axios.create({ baseURL: '/api' })
-
+import { usePublicProfile } from '../../hooks/usePublicQueries'
 function RichText({ content }) {
   if (!content) return null
   return (
@@ -68,11 +64,7 @@ function LinkBlock({ link }) {
 export default function PublicProfilePage() {
   const { slug } = useParams()
 
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ['public-profile', slug],
-    queryFn: () => http.get(`/public/profile/${slug}`).then(r => r.data.data),
-    enabled: !!slug,
-  })
+  const { data, isLoading, isError } = usePublicProfile(slug)
 
   const theme = data?.theme_color || '#6C3EAB'
 
@@ -112,46 +104,112 @@ export default function PublicProfilePage() {
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 -mt-20 pb-16 relative z-10">
-        <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 sm:gap-6">
-          {data.photo ? (
-            <img src={assetUrl(data.photo)} alt={data.name}
-              className="w-32 h-32 rounded-2xl object-cover border-4 border-white shadow-xl ring-2 ring-white/80" />
-          ) : (
-            <div className="w-32 h-32 rounded-2xl bg-white shadow-xl flex items-center justify-center text-4xl font-black text-primary-700 border-4 border-white">
-              {(data.name || '?').charAt(0)}
-            </div>
-          )}
-          <div className="text-center sm:text-left pb-2 flex-1">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{data.name}</h1>
-            {data.headline && <p className="text-gray-600 mt-1">{data.headline}</p>}
-            <div className="flex flex-wrap justify-center sm:justify-start gap-2 mt-2">
+      <main className="max-w-3xl mx-auto px-4 pb-16 relative z-10">
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
+          <div className="-mt-16 sm:-mt-20 shrink-0">
+            {data.photo ? (
+              <img src={assetUrl(data.photo)} alt={data.name}
+                className="w-32 h-32 sm:w-40 sm:h-40 rounded-2xl object-cover border-4 border-white shadow-xl ring-2 ring-white/80 bg-white relative z-20" />
+            ) : (
+              <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-2xl bg-white shadow-xl flex items-center justify-center text-5xl font-black text-primary-700 border-4 border-white relative z-20">
+                {(data.name || '?').charAt(0).toUpperCase()}
+              </div>
+            )}
+          </div>
+          <div className="text-center sm:text-left pb-2 flex-1 sm:pt-4">
+            <h1 className="text-3xl sm:text-4xl font-black text-gray-900 capitalize tracking-tight">{data.name}</h1>
+            {data.headline && <p className="text-gray-600 mt-1.5 text-lg font-medium capitalize">{data.headline}</p>}
+            <div className="flex flex-wrap justify-center sm:justify-start gap-2 mt-3">
               {data.membership_id && (
-                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary-100 text-primary-800">{data.membership_id}</span>
+                <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-primary-100 text-primary-800 shadow-sm border border-primary-200">{data.membership_id}</span>
+              )}
+              {data.package_name && (
+                <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-[#f5f3ff] text-primary-700 flex items-center gap-1 shadow-sm border border-primary-100">
+                  <Award size={12} /> {data.package_name}
+                </span>
+              )}
+              {data.approved_at && (
+                <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-gray-100 text-gray-700 flex items-center gap-1 shadow-sm border border-gray-200">
+                  <Calendar size={12} /> Member since {new Date(data.approved_at).getFullYear()}
+                </span>
               )}
               {data.wing?.name && (
-                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 flex items-center gap-1">
-                  <MapPin size={11} /> {data.wing.name} Wing
+                <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-gray-100 text-gray-700 flex items-center gap-1 shadow-sm border border-gray-200">
+                  <MapPin size={12} /> {data.wing.name} Wing
                 </span>
               )}
             </div>
           </div>
         </div>
 
-        {(data.email || data.phone) && (
-          <div className="mt-6 flex flex-wrap gap-3 justify-center sm:justify-start">
-            {data.email && (
-              <a href={`mailto:${data.email}`} className="inline-flex items-center gap-2 text-sm text-gray-600 bg-white px-3 py-2 rounded-lg border shadow-sm hover:border-primary-200">
-                <Mail size={14} /> {data.email}
-              </a>
-            )}
-            {data.phone && (
-              <a href={`tel:${data.phone}`} className="inline-flex items-center gap-2 text-sm text-gray-600 bg-white px-3 py-2 rounded-lg border shadow-sm hover:border-primary-200">
-                <Phone size={14} /> {data.phone}
-              </a>
-            )}
-          </div>
-        )}
+        {/* EXTRACT BUSINESS DATA */}
+        {(() => {
+          const appData = typeof data.application_data === 'string' 
+            ? JSON.parse(data.application_data || '{}') 
+            : (data.application_data || {})
+          
+          const orgName = appData.organisation_name || appData.organization_name || appData.company_name
+          const orgEmail = appData.organisation_email || appData.email_address || appData.email
+          const city = appData.city || appData.city_name
+          const pinCode = appData.pin_code || appData.pincode || appData.zip_code
+          const industry = appData.industry || appData.business_category
+
+          const hasOrgDetails = orgName || city || pinCode
+
+          return (
+            <>
+              {(data.email || data.phone || orgEmail) && (
+                <div className="mt-8 flex flex-wrap gap-3 justify-center sm:justify-start">
+                  {data.email && (
+                    <a href={`mailto:${data.email}`} className="inline-flex items-center gap-2 text-sm font-medium text-gray-700 bg-white px-4 py-2.5 rounded-xl border border-gray-200 shadow-sm hover:border-primary-300 hover:text-primary-700 transition">
+                      <Mail size={16} className="text-primary-500" /> {data.email}
+                    </a>
+                  )}
+                  {orgEmail && orgEmail !== data.email && (
+                    <a href={`mailto:${orgEmail}`} className="inline-flex items-center gap-2 text-sm font-medium text-gray-700 bg-white px-4 py-2.5 rounded-xl border border-gray-200 shadow-sm hover:border-primary-300 hover:text-primary-700 transition">
+                      <Briefcase size={16} className="text-primary-500" /> {orgEmail}
+                    </a>
+                  )}
+                  {data.phone && (
+                    <a href={`tel:${data.phone}`} className="inline-flex items-center gap-2 text-sm font-medium text-gray-700 bg-white px-4 py-2.5 rounded-xl border border-gray-200 shadow-sm hover:border-primary-300 hover:text-primary-700 transition">
+                      <Phone size={16} className="text-primary-500" /> {data.phone}
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {hasOrgDetails && (
+                <section className="mt-10 bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                  <h2 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-4 flex items-center gap-2">
+                    <Briefcase size={16} /> Business Information
+                  </h2>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    {orgName && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-400 uppercase">Organization Name</p>
+                        <p className="font-bold text-gray-900 mt-0.5">{orgName}</p>
+                      </div>
+                    )}
+                    {industry && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-400 uppercase">Industry / Sector</p>
+                        <p className="font-medium text-gray-900 mt-0.5">{industry}</p>
+                      </div>
+                    )}
+                    {(city || pinCode) && (
+                      <div className="sm:col-span-2">
+                        <p className="text-xs font-semibold text-gray-400 uppercase">Location</p>
+                        <p className="font-medium text-gray-900 mt-0.5">
+                          {city}{city && pinCode ? ', ' : ''}{pinCode}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
+            </>
+          )
+        })()}
 
         {data.positions?.length > 0 && (
           <section className="mt-8">
@@ -160,7 +218,7 @@ export default function PublicProfilePage() {
             </h2>
             <div className="flex flex-wrap gap-2">
               {data.positions.map(p => (
-                <span key={p.id} className="px-3 py-1.5 rounded-full text-sm font-medium text-white shadow"
+                <span key={p.id} className="px-3 py-1.5 rounded-full text-sm font-semibold text-white shadow capitalize tracking-wide"
                   style={{ backgroundColor: theme }}>
                   {p.title}{p.wing_name ? ` · ${p.wing_name}` : ''}
                 </span>
@@ -190,7 +248,7 @@ export default function PublicProfilePage() {
             <h3 className="font-semibold text-gray-700 mb-2">Past positions</h3>
             <ul className="space-y-1">
               {data.past_positions.map(p => (
-                <li key={p.id}>{p.title} · {p.wing_name || '—'} ({p.start_date}{p.end_date ? ` – ${p.end_date}` : ''})</li>
+                <li key={p.id} className="capitalize">{p.title} · {p.wing_name || '—'} ({p.start_date}{p.end_date ? ` – ${p.end_date}` : ''})</li>
               ))}
             </ul>
           </section>

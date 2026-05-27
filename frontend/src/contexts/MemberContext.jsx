@@ -85,7 +85,13 @@ export function MemberProvider({ children }) {
     return await fetchMe(tok)
   }
 
-  function logout() {
+  async function logout() {
+    try {
+      const t = tokenRef.current;
+      if (t) await http.post('/auth/logout', {}, { headers: { Authorization: `Bearer ${t}` } });
+    } catch (e) {
+      console.warn('Logout API failed:', e);
+    }
     clearMemberApplicantSession()
     setToken(null)
     setMember(null)

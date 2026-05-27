@@ -6,6 +6,7 @@ const morgan = require('morgan');
 const { testConnection, pool } = require('./config/database');
 const { apiLimiter, otpLimiter, uploadLimiter } = require('./middleware/rateLimiter');
 const { seedLocationsIfEmpty } = require('./utils/seedLocations');
+const { startRenewalReminderCron } = require('./cron/renewalReminders');
 
 const app = express();
 const PORT = process.env.PORT || 5000;

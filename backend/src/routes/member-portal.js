@@ -238,13 +238,20 @@ router.get('/payment-settings', async (req, res) => {
 
 // ── Member auth middleware ─────────────────────────────────────────────────
 // Accepts role = 'member' (active) OR 'applicant' (submitted, not yet activated)
-function memberAuth(req, res, next) {
+async function memberAuth(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
     return fail(res, 'Authentication required', 401);
   }
   try {
     const token = authHeader.split(' ')[1];
+    
+    // Check if token is blacklisted
+    const [blRows] = await pool.query('SELECT token FROM token_blacklist WHERE token = ? LIMIT 1', [token]);
+    if (blRows.length > 0) {
+      return fail(res, 'Token has been revoked. Please log in again.', 401);
+    }
+
     const decoded = jwt.verify(token, JWT_SECRET);
     if (decoded.role !== 'member' && decoded.role !== 'applicant')
       return fail(res, 'Access denied', 403);
@@ -553,7 +560,7 @@ router.get('/idcard/:uuid/download', memberAuth, async (req, res) => {
 router.get('/invoice/:uuid/download', memberAuth, async (req, res) => {
   try {
     const [invRows] = await pool.query(
-      `SELECT i.*, s.applicant_email, s.uuid AS sub_uuid
+      `SELECT i.*, s.applicant_email, s.applicant_phone, s.data, s.uuid AS sub_uuid
        FROM invoices i
        JOIN fb_submissions s ON s.id = i.submission_id
        WHERE s.uuid = ? AND s.applicant_email = ?
@@ -578,11 +585,26 @@ router.get('/invoice/:uuid/download', memberAuth, async (req, res) => {
     const txnId       = member?.transaction_id || String(inv.payment_id || '') || '—';
     const dateStr     = new Date(issuedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
 
+    // Resolve payment method name
+    const paymentMethod = member?.payment_method || inv.payment_method || null;
+
+    // Parse extra data from submission JSON
+    let phone = inv.applicant_phone || null;
+    let orgName = null;
+    const dataObj = inv.data || null;
+    if (dataObj) {
+      try {
+        const d = typeof dataObj === 'string' ? JSON.parse(dataObj) : dataObj;
+        orgName = d.organisation_name || null;
+      } catch {}
+    }
+
     const html = buildInvoiceHtml({
       memberName, memberEmail, memberId,
       invoiceNum, packageName,
       amount, taxAmount, totalAmount,
       currency, dateStr, txnId,
+      paymentMethod, phone, orgName,
     });
 
     const pdfBuffer = await htmlToPdf(html, {
@@ -664,16 +686,34 @@ router.post('/renewal/apply', memberAuth, upload.single('payment_screenshot'), a
     const resolvedPackageId = package_id || sub.package_id;
     if (!resolvedPackageId) return fail(res, 'No active plan found to renew. Please contact support.', 422);
 
-    // Check for already-pending renewal
-    const [[pending]] = await pool.query(
-      "SELECT id FROM portal_renewals WHERE submission_id=? AND status IN ('pending','payment_submitted') LIMIT 1",
+    const screenshotPath = `/uploads/payments/${req.file.filename}`;
+
+    // Check for already-pending or payment_submitted renewal
+    const [[existing]] = await pool.query(
+      "SELECT id, status, uuid FROM portal_renewals WHERE submission_id=? AND status IN ('pending','payment_submitted') LIMIT 1",
       [sub.id]
     );
-    if (pending) return fail(res, 'A renewal request is already pending. Please wait for it to be processed.', 409);
+
+    if (existing) {
+      if (existing.status === 'payment_submitted') {
+        return fail(res, 'A renewal request is already pending verification. Please wait for it to be processed.', 409);
+      }
+      
+      // If status is 'pending', we update it with the payment details
+      await pool.query(
+        `UPDATE portal_renewals SET 
+           payment_method_id = ?, 
+           transaction_id = ?, 
+           screenshot_path = ?, 
+           status = 'payment_submitted'
+         WHERE id = ?`,
+        [payment_method_id, transaction_id.trim(), screenshotPath, existing.id]
+      );
+      return ok(res, { renewal_uuid: existing.uuid }, 'Payment submitted and under verification.', 200);
+    }
 
     const renewalUuid = crypto.randomUUID();
     const oldExpiry   = sub.expiry_date;
-    const screenshotPath = `/uploads/payments/${req.file.filename}`;
 
     // Fetch package details
     let pkgPrice = 0;
@@ -692,7 +732,7 @@ router.post('/renewal/apply', memberAuth, upload.single('payment_screenshot'), a
       `INSERT INTO portal_renewals
          (uuid, submission_id, package_id, amount, old_expiry_date, new_expiry_date,
           payment_method_id, transaction_id, screenshot_path, status)
-       VALUES (?,?,?,?,?,?,?,?,?,'pending')`,
+       VALUES (?,?,?,?,?,?,?,?,?,'payment_submitted')`,
       [renewalUuid, sub.id, resolvedPackageId, pkgPrice, oldExpiry, newExpiry,
        payment_method_id, transaction_id.trim(), screenshotPath]
     );

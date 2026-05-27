@@ -29,7 +29,7 @@ function startRenewalReminderCron() {
            WHERE s.status = 'active'
              AND s.member_status = 'active'
              AND s.expiry_date IS NOT NULL
-             AND DATE(s.expiry_date) = DATE_ADD(CURDATE(), INTERVAL ? DAY)`,
+             AND DATE(s.expiry_date) = CURRENT_DATE + (CAST(? AS INTEGER) * INTERVAL '1 day')`,
           [days]
         );
 
@@ -71,7 +71,7 @@ function startRenewalReminderCron() {
          WHERE status = 'active'
            AND member_status = 'active'
            AND expiry_date IS NOT NULL
-           AND expiry_date < CURDATE()`
+           AND expiry_date < CURRENT_DATE`
       );
 
       if (expired.affectedRows > 0) {

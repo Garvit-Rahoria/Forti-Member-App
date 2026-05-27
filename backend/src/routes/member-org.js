@@ -174,7 +174,8 @@ router.put('/public-profile', requireRole(...CAN_ASSIGN), async (req, res) => {
          show_positions=EXCLUDED.show_positions, show_past_positions=EXCLUDED.show_past_positions,
          theme_color=EXCLUDED.theme_color,
          public_slug=COALESCE(EXCLUDED.public_slug, member_public_profiles.public_slug),
-         updated_at=NOW()`,
+         updated_at=NOW()
+       RETURNING submission_id`,
       [
         sid, !!is_public, headline || null, about_me || null, my_org || null, org_history || null,
         !!show_email, !!show_phone, show_positions !== false, show_past_positions !== false,
@@ -184,6 +185,7 @@ router.put('/public-profile', requireRole(...CAN_ASSIGN), async (req, res) => {
     const [[profile]] = await pool.query('SELECT * FROM member_public_profiles WHERE submission_id = ?', [sid]);
     return ok(res, profile);
   } catch (err) {
+    console.error('[PUT /api/members/:id/public-profile] Error:', err);
     if (err.code === '23505') return fail(res, 'Public URL slug already taken', 409);
     return fail(res, 'Server error', 500);
   }

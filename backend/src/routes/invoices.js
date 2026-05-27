@@ -52,12 +52,15 @@ router.get('/:id', async (req, res) => {
   } catch (err) { return fail(res, 'Server error', 500); }
 });
 
-// GET /api/invoices/:id/download  – stream PDF (generate if needed)
+// GET /api/invoices/:id/download  – stream PDF via Puppeteer (beautiful Tailwind template)
 router.get('/:id/download', async (req, res) => {
   try {
+    const { htmlToPdf, buildInvoiceHtml } = require('../utils/pdfGenerator');
+
     const [[inv]] = await pool.query(
-      `SELECT i.*, s.membership_id, s.applicant_phone,
-              pp.name AS pkg_name, pp.location AS pkg_location, pp.membership_type, pp.duration AS pkg_duration
+      `SELECT i.*, s.membership_id, s.applicant_phone, s.data,
+              pp.name AS pkg_name, pp.location AS pkg_location,
+              pp.membership_type AS pkg_membership_type, pp.duration AS pkg_duration
        FROM invoices i
        LEFT JOIN fb_submissions s ON s.id=i.submission_id
        LEFT JOIN portal_packages pp ON pp.id=s.package_id
@@ -65,132 +68,67 @@ router.get('/:id/download', async (req, res) => {
     );
     if (!inv) return fail(res, 'Invoice not found', 404);
 
-    // Fetch org settings
-    const [settings] = await pool.query('SELECT setting_key, setting_value FROM system_settings');
-    const cfg = {};
-    for (const s of settings) cfg[s.setting_key] = s.setting_value;
+    // Resolve payment method name and transaction ID from portal_payments
+    let paymentMethodName = inv.payment_method || null;
+    let transactionId = null;
+    if (inv.payment_id || inv.submission_id) {
+      const payQ = inv.payment_id
+        ? `SELECT pay.transaction_id, pm.name AS method_name
+           FROM portal_payments pay
+           LEFT JOIN portal_payment_methods pm ON pm.id = pay.method_id
+           WHERE pay.id = ? LIMIT 1`
+        : `SELECT pay.transaction_id, pm.name AS method_name
+           FROM portal_payments pay
+           LEFT JOIN portal_payment_methods pm ON pm.id = pay.method_id
+           WHERE pay.submission_id = ?
+           ORDER BY pay.id DESC LIMIT 1`;
+      const payParam = inv.payment_id || inv.submission_id;
+      const [[payRow]] = await pool.query(payQ, [payParam]);
+      if (payRow) {
+        paymentMethodName = paymentMethodName || payRow.method_name;
+        transactionId = payRow.transaction_id;
+      }
+    }
 
-    const PDFDocument = require('pdfkit');
-    const doc = new PDFDocument({ margin: 0, size: 'A4' });
+    // Parse extra fields from submission data JSON
+    let orgName = null;
+    let phone = inv.applicant_phone || null;
+    if (inv.data) {
+      try {
+        const d = typeof inv.data === 'string' ? JSON.parse(inv.data) : inv.data;
+        orgName = d.organisation_name || null;
+      } catch {}
+    }
 
-    const filename = `invoice-${inv.invoice_number}.pdf`;
+    const amount      = parseFloat(inv.amount || 0);
+    const taxAmount   = parseFloat(inv.tax_amount || 0);
+    const totalAmount = parseFloat(inv.total_amount || amount + taxAmount);
+    const currency    = inv.currency || 'INR';
+    const dateStr     = new Date(inv.issued_at || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+
+    const html = buildInvoiceHtml({
+      memberName:    inv.member_name || 'Member',
+      memberEmail:   inv.member_email || '',
+      memberId:      inv.membership_id || inv.member_id_str || '',
+      invoiceNum:    inv.invoice_number,
+      packageName:   inv.package_name || inv.pkg_name || 'FORTI Membership',
+      amount, taxAmount, totalAmount,
+      currency, dateStr,
+      txnId:         transactionId || '—',
+      paymentMethod: paymentMethodName,
+      phone, orgName,
+    });
+
+    const pdfBuffer = await htmlToPdf(html, {
+      format: 'A4',
+      printBackground: true,
+    });
+
+    const filename = `FORTI_Invoice_${inv.invoice_number}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    doc.pipe(res);
-
-    const pageW = 595.28;
-    const BLUE = '#1a3c6e';
-    const LIGHT_BLUE = '#2a5ca8';
-    const amount = parseFloat(inv.amount || 0);
-    const tax = parseFloat(inv.tax_amount || 0);
-    const total = parseFloat(inv.total_amount || amount + tax);
-    const fmtAmt = (n) => Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-    // ── Blue Header Banner ──────────────────────────────────────────
-    doc.rect(0, 0, pageW, 100).fill(BLUE);
-    // Wave curve at bottom of banner
-    doc.save();
-    doc.moveTo(0, 85).bezierCurveTo(150, 120, 400, 70, pageW, 100).lineTo(pageW, 100).lineTo(0, 100).fill(BLUE);
-    doc.restore();
-    doc.save();
-    doc.moveTo(0, 90).bezierCurveTo(200, 115, 450, 80, pageW, 105).lineTo(pageW, 105).lineTo(0, 105).fill('#fff');
-    doc.restore();
-
-    // Title
-    doc.fontSize(28).fillColor('#fff').font('Helvetica-Bold').text('INVOICE', 50, 30);
-    doc.fontSize(10).fillColor('#fff').font('Helvetica').text(`NO: ${inv.invoice_number}`, pageW - 250, 40, { width: 200, align: 'right' });
-
-    // ── Bill To / From ──────────────────────────────────────────────
-    const infoY = 125;
-    doc.fontSize(12).fillColor(BLUE).font('Helvetica-Bold').text('Bill To:', 50, infoY);
-    doc.fontSize(10).fillColor('#333').font('Helvetica');
-    doc.text(inv.member_name || '—', 50, infoY + 18);
-    if (inv.member_email) doc.text(inv.member_email, 50, doc.y + 2);
-    if (inv.applicant_phone) doc.text(inv.applicant_phone, 50, doc.y + 2);
-    if (inv.membership_id || inv.member_id_str) doc.text(`Member ID: ${inv.membership_id || inv.member_id_str}`, 50, doc.y + 2);
-
-    doc.fontSize(12).fillColor(BLUE).font('Helvetica-Bold').text('From:', pageW - 250, infoY, { width: 200, align: 'right' });
-    doc.fontSize(10).fillColor('#333').font('Helvetica');
-    doc.text(cfg.site_name || 'FORTI Membership Portal', pageW - 250, infoY + 18, { width: 200, align: 'right' });
-    if (cfg.support_email) doc.text(cfg.support_email, pageW - 250, doc.y + 2, { width: 200, align: 'right' });
-    if (cfg.support_phone) doc.text(cfg.support_phone, pageW - 250, doc.y + 2, { width: 200, align: 'right' });
-
-    // ── Date ────────────────────────────────────────────────────────
-    const dateY = Math.max(doc.y, infoY + 75) + 15;
-    doc.fontSize(10).fillColor('#333').font('Helvetica-Bold').text(
-      `Date: ${new Date(inv.issued_at).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' })}`,
-      50, dateY
-    );
-
-    // ── Table ───────────────────────────────────────────────────────
-    const tableY = dateY + 30;
-    const colX = [50, 300, 380, 470];
-    const colW = [250, 80, 90, 75];
-    const rowH = 30;
-
-    // Table header
-    doc.rect(50, tableY, pageW - 100, rowH).fill(BLUE);
-    doc.fontSize(10).fillColor('#fff').font('Helvetica-Bold');
-    doc.text('Description', colX[0] + 10, tableY + 9);
-    doc.text('Qty', colX[1] + 10, tableY + 9, { width: colW[1], align: 'center' });
-    doc.text('Price', colX[2] + 10, tableY + 9, { width: colW[2], align: 'center' });
-    doc.text('Total', colX[3], tableY + 9, { width: colW[3], align: 'center' });
-
-    // Row 1: Package
-    let curY = tableY + rowH;
-    doc.rect(50, curY, pageW - 100, rowH).fill('#f8f9fb');
-    doc.rect(50, curY, pageW - 100, rowH).strokeColor('#e5e7eb').stroke();
-    doc.fontSize(9).fillColor('#333').font('Helvetica');
-    doc.text(inv.package_name || inv.pkg_name || 'Membership Package', colX[0] + 10, curY + 9, { width: colW[0] });
-    doc.text('1', colX[1] + 10, curY + 9, { width: colW[1], align: 'center' });
-    doc.text(fmtAmt(amount), colX[2] + 10, curY + 9, { width: colW[2], align: 'center' });
-    doc.text(fmtAmt(amount), colX[3], curY + 9, { width: colW[3], align: 'center' });
-
-    // Row 2: Tax (if applicable)
-    if (tax > 0) {
-      curY += rowH;
-      doc.rect(50, curY, pageW - 100, rowH).fill('#fff');
-      doc.rect(50, curY, pageW - 100, rowH).strokeColor('#e5e7eb').stroke();
-      doc.text('Tax', colX[0] + 10, curY + 9, { width: colW[0] });
-      doc.text('', colX[1] + 10, curY + 9, { width: colW[1], align: 'center' });
-      doc.text(fmtAmt(tax), colX[2] + 10, curY + 9, { width: colW[2], align: 'center' });
-      doc.text(fmtAmt(tax), colX[3], curY + 9, { width: colW[3], align: 'center' });
-    }
-
-    // Sub Total row
-    curY += rowH + 5;
-    doc.rect(colX[2], curY, colW[2] + colW[3] + 10, rowH).fill(BLUE);
-    doc.fontSize(10).fillColor('#fff').font('Helvetica-Bold');
-    doc.text('Sub Total', colX[2] + 10, curY + 9, { width: colW[2], align: 'center' });
-    doc.text(fmtAmt(total), colX[3], curY + 9, { width: colW[3], align: 'center' });
-
-    // ── Note section ────────────────────────────────────────────────
-    curY += rowH + 25;
-    doc.fontSize(10).fillColor('#333').font('Helvetica-Bold').text('Note:', 50, curY);
-    doc.moveTo(50, curY + 15).lineTo(200, curY + 15).strokeColor('#999').lineWidth(0.5).stroke();
-    if (inv.notes) {
-      doc.fontSize(9).fillColor('#666').font('Helvetica').text(inv.notes, 50, curY + 20, { width: 200 });
-    }
-
-    // ── Payment Information ─────────────────────────────────────────
-    curY += 55;
-    doc.fontSize(11).fillColor('#333').font('Helvetica-Bold').text('Payment Information:', 50, curY);
-    doc.fontSize(9).fillColor('#333').font('Helvetica');
-    if (inv.payment_method) {
-      doc.font('Helvetica-Bold').text('Method:', 50, curY + 18, { continued: true }).font('Helvetica').text(`  ${inv.payment_method}`);
-    }
-    if (inv.member_email) {
-      doc.font('Helvetica-Bold').text('Email:', 50, doc.y + 3, { continued: true }).font('Helvetica').text(`    ${inv.member_email}`);
-    }
-
-    // ── Thank You ───────────────────────────────────────────────────
-    doc.fontSize(28).fillColor(BLUE).font('Helvetica-Bold').text('Thank You!', pageW - 250, curY + 10, { width: 200, align: 'right' });
-
-    // ── Footer ──────────────────────────────────────────────────────
-    doc.fontSize(8).fillColor('#aaa').font('Helvetica')
-       .text('This is a system-generated invoice.', 50, 780, { align: 'center', width: pageW - 100 });
-
-    doc.end();
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.end(pdfBuffer);
   } catch (err) {
     console.error('Invoice PDF error:', err);
     if (!res.headersSent) return fail(res, 'PDF generation failed', 500);

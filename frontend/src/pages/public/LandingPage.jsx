@@ -1,13 +1,12 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import axios from 'axios'
 import OTPModal from '../../components/membership/OTPModal'
 import { SITE_LOGO, PRESIDENT_PHOTO, GALLERY_PREVIEW } from '../../data/siteAssets'
 import PublicHeader from '../../components/public/PublicHeader'
 import PublicFooter from '../../components/public/PublicFooter'
 import MeshBackground from '../../components/public/MeshBackground'
 import SectionHeading from '../../components/public/SectionHeading'
+import { useBlogHub } from '../../hooks/usePublicQueries'
 import {
   Shield, Globe, Award, Users, ChevronRight, CheckCircle,
   FileText, CreditCard, UserCheck, Download, Star,
@@ -18,7 +17,6 @@ import {
   TrendingUp, Briefcase, Landmark, Network
 } from 'lucide-react'
 
-const http = axios.create({ baseURL: '/api' })
 
 // ── Hero — President Message ────────────────────────────────────────────────
 function Hero({ onApply }) {
@@ -332,11 +330,7 @@ const POST_TYPE_LABELS = {
 
 function NewsPreview() {
   const navigate = useNavigate()
-  const { data: hub } = useQuery({
-    queryKey: ['blog-hub', 'insights'],
-    queryFn: () => http.get('/blog/menus/insights').then(r => r.data.data),
-    staleTime: 60_000,
-  })
+  const { data: hub } = useBlogHub('insights')
 
   const newsItems = (hub?.recent_posts?.length ? hub.recent_posts : hub?.featured_posts || []).slice(0, 3).map(p => ({
     id: p.id,

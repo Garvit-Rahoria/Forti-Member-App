@@ -87,7 +87,8 @@ router.put('/', memberAuth, async (req, res) => {
          show_positions=EXCLUDED.show_positions, show_past_positions=EXCLUDED.show_past_positions,
          theme_color=EXCLUDED.theme_color,
          public_slug=COALESCE(EXCLUDED.public_slug, member_public_profiles.public_slug),
-         updated_at=NOW()`,
+         updated_at=NOW()
+       RETURNING submission_id`,
       [
         sid,
         !!body.is_public,
@@ -106,7 +107,26 @@ router.put('/', memberAuth, async (req, res) => {
     const [[profile]] = await pool.query('SELECT * FROM member_public_profiles WHERE submission_id = ?', [sid]);
     return ok(res, profile);
   } catch (err) {
+    console.error('[PUT /api/member/profile] Error:', err);
     if (err.code === '23505') return fail(res, 'That profile URL is already taken', 409);
+    return fail(res, 'Server error', 500);
+  }
+});
+
+// PATCH /api/member/profile/visibility
+router.patch('/visibility', memberAuth, async (req, res) => {
+  const sid = submissionId(req);
+  try {
+    await ensurePublicSlug(sid);
+    await pool.query(
+      `INSERT INTO member_public_profiles (submission_id, is_public) VALUES (?, ?)
+       ON CONFLICT (submission_id) DO UPDATE SET is_public=EXCLUDED.is_public, updated_at=NOW()
+       RETURNING submission_id`,
+      [sid, !!req.body.is_public]
+    );
+    return ok(res, { is_public: !!req.body.is_public });
+  } catch (err) {
+    console.error('[PATCH /api/member/profile/visibility] Error:', err);
     return fail(res, 'Server error', 500);
   }
 });
@@ -120,11 +140,13 @@ router.post('/photo', memberAuth, upload.single('photo'), async (req, res) => {
     await ensurePublicSlug(sid);
     await pool.query(
       `INSERT INTO member_public_profiles (submission_id, profile_photo_path) VALUES (?, ?)
-       ON CONFLICT (submission_id) DO UPDATE SET profile_photo_path=EXCLUDED.profile_photo_path, updated_at=NOW()`,
+       ON CONFLICT (submission_id) DO UPDATE SET profile_photo_path=EXCLUDED.profile_photo_path, updated_at=NOW()
+       RETURNING submission_id`,
       [sid, photoPath]
     );
     return ok(res, { profile_photo_path: photoPath });
   } catch (err) {
+    console.error('[POST /api/member/profile/photo] Error:', err);
     return fail(res, 'Server error', 500);
   }
 });

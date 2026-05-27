@@ -63,7 +63,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', requireRole('super_admin', 'admin'), async (req, res) => {
   const {
     name, code, price, location, membership_type, duration,
-    description, benefits, is_active = 1, country_id, currency,
+    description, benefits, is_active = 1, country_id, currency, wing_id
   } = req.body;
 
   if (!name || !code) return fail(res, 'Name and code are required', 422);
@@ -72,8 +72,8 @@ router.post('/', requireRole('super_admin', 'admin'), async (req, res) => {
   try {
     const [r] = await pool.query(
       `INSERT INTO portal_packages
-         (name, code, price, location, membership_type, duration, country_id, description, benefits, is_active, currency, auto_generated)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+         (name, code, price, location, membership_type, duration, country_id, description, benefits, is_active, currency, auto_generated, wing_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
       [
         name, code, Number(price) || 0,
         location, membership_type, duration,
@@ -82,6 +82,7 @@ router.post('/', requireRole('super_admin', 'admin'), async (req, res) => {
         typeof benefits === 'string' ? benefits : JSON.stringify(benefits || []),
         is_active ? 1 : 0,
         currency || 'INR',
+        wing_id || null
       ]
     );
 
@@ -98,8 +99,8 @@ router.post('/', requireRole('super_admin', 'admin'), async (req, res) => {
 // PUT /api/packages/:id
 router.put('/:id', requireRole('super_admin', 'admin'), async (req, res) => {
   const {
-    name, code, price, location, membership_type, duration,
-    description, benefits, is_active, country_id, currency,
+    name, code, price, location: newLoc, membership_type: newType, duration: newDur,
+    description, benefits, is_active, country_id: newCountryId, currency, wing_id
   } = req.body;
 
   try {
@@ -109,7 +110,7 @@ router.put('/:id', requireRole('super_admin', 'admin'), async (req, res) => {
     await pool.query(
       `UPDATE portal_packages SET
          name = ?, code = ?, price = ?, location = ?, membership_type = ?, duration = ?,
-         country_id = ?, description = ?, benefits = ?, is_active = ?, currency = ?
+         country_id = ?, description = ?, benefits = ?, is_active = ?, currency = ?, wing_id = ?
        WHERE id = ?`,
       [
         name || current.name,
@@ -123,6 +124,7 @@ router.put('/:id', requireRole('super_admin', 'admin'), async (req, res) => {
           : current.benefits,
         is_active !== undefined ? (is_active ? 1 : 0) : current.is_active,
         currency !== undefined ? (currency || 'INR') : (current.currency || 'INR'),
+        wing_id !== undefined ? (wing_id || null) : current.wing_id,
         req.params.id,
       ]
     );

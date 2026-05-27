@@ -22,6 +22,7 @@ async function htmlToPdf(html, pdfOptions = {}) {
   const browser = await getBrowser();
   const page = await browser.newPage();
   try {
+    await page.emulateMediaType('screen');
     await page.setContent(html, { waitUntil: 'networkidle0' });
     const buf = await page.pdf({ printBackground: true, ...pdfOptions });
     return buf;
@@ -488,280 +489,236 @@ function buildIdCardHtml({ fullName, certNo, validUpto, email, qrDataUrl }) {
 </html>`;
 }
 
-// ─── INVOICE ─────────────────────────────────────────────────────────────────
-function buildInvoiceHtml({ memberName, memberEmail, memberId, invoiceNum, packageName, amount, taxAmount, totalAmount, currency, dateStr, txnId }) {
-  const fmt = (n) => `${escHtml(currency)} ${Number(n).toFixed(2)}`;
-  const taxRow = taxAmount > 0 ? `
-    <tr class="subtotal-row">
-      <td colspan="2"></td>
-      <td class="label">Tax</td>
-      <td class="amount">${fmt(taxAmount)}</td>
-    </tr>` : '';
+// ─── INVOICE (Tailwind CSS + Puppeteer HTML-to-PDF) ──────────────────────────
+function buildInvoiceHtml({ memberName, memberEmail, memberId, invoiceNum, packageName, amount, taxAmount, totalAmount, currency, dateStr, txnId, paymentMethod, phone, orgName }) {
+  const sym = ({ INR: '₹', USD: '$', GBP: '£', EUR: '€', AED: 'د.إ', JPY: '¥', AUD: 'A$', CAD: 'C$', SGD: 'S$' })[currency] || currency || '₹';
+  const fmt = (n) => `${sym}${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const hasTax = Number(taxAmount) > 0;
+  const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand:      { 50: '#F5F0FF', 100: '#EDE5FF', 200: '#D4BFFF', 400: '#9B6FCC', 500: '#7C3AED', 600: '#6C3EAB', 700: '#5B21B6', 800: '#4C1D95', 900: '#3B0764' },
+            ink:        { DEFAULT: '#1A1A2E', soft: '#64648C', muted: '#9CA3AF' },
+            surface:    { DEFAULT: '#FAFBFF', card: '#FFFFFF' },
+          },
+          fontFamily: { sans: ['Inter', 'Segoe UI', 'system-ui', 'sans-serif'] },
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
-    ${BASE_CSS}
-
-    html, body { width: 210mm; background: #FFFFFF; }
-
-    .page {
-      width: 210mm;
-      min-height: 297mm;
-      padding: 14mm 16mm 12mm;
-      display: flex;
-      flex-direction: column;
-      gap: 0;
+    body {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
     }
-
-    /* ── Header ── */
-    .inv-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      padding-bottom: 8mm;
-      border-bottom: 3px solid var(--purple);
-    }
-    .inv-brand .brand-name {
-      font-size: 22pt;
-      font-weight: 800;
-      color: var(--purple);
-      letter-spacing: 3px;
-      line-height: 1;
-    }
-    .inv-brand .brand-sub {
-      font-size: 8pt;
-      color: var(--text-soft);
-      letter-spacing: 1px;
-      margin-top: 2px;
-    }
-    .inv-meta { text-align: right; }
-    .inv-meta .inv-label {
-      font-size: 22pt;
-      font-weight: 800;
-      color: var(--purple);
-      letter-spacing: 2px;
-      line-height: 1;
-    }
-    .inv-meta table { margin-top: 4px; margin-left: auto; }
-    .inv-meta td {
-      font-size: 8.5pt;
-      color: var(--text-soft);
-      padding: 1px 0 1px 12px;
-      text-align: right;
-    }
-    .inv-meta td strong { color: var(--text-dark); }
-
-    /* ── Bill To ── */
-    .bill-section {
-      margin: 7mm 0 6mm;
-    }
-    .bill-section .section-tag {
-      font-size: 7pt;
-      font-weight: 700;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      color: var(--purple);
-      background: var(--purple-pale);
-      border-left: 3px solid var(--purple);
-      padding: 2px 8px;
-      display: inline-block;
-      margin-bottom: 5px;
-    }
-    .bill-name {
-      font-size: 13pt;
-      font-weight: 700;
-      color: var(--text-dark);
-      line-height: 1.3;
-    }
-    .bill-detail {
-      font-size: 9pt;
-      color: var(--text-soft);
-      line-height: 1.6;
-    }
-
-    /* ── Items Table ── */
-    .items-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 2mm;
-    }
-    .items-table thead tr {
-      background: var(--purple);
-      color: #FFFFFF;
-    }
-    .items-table thead th {
-      font-size: 8.5pt;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      padding: 6px 10px;
-      text-align: left;
-    }
-    .items-table thead th.right { text-align: right; }
-    .items-table thead th.center { text-align: center; }
-
-    .items-table tbody tr {
-      border-bottom: 1px solid var(--divider);
-    }
-    .items-table tbody tr:nth-child(even) { background: #FAFAFA; }
-    .items-table tbody td {
-      font-size: 9.5pt;
-      padding: 8px 10px;
-      color: var(--text-dark);
-      vertical-align: middle;
-    }
-    .items-table tbody td.center { text-align: center; color: var(--text-soft); }
-    .items-table tbody td.right { text-align: right; }
-
-    /* ── Totals ── */
-    .items-table tfoot tr.subtotal-row td {
-      padding: 4px 10px;
-      font-size: 9pt;
-      border: none;
-    }
-    .items-table tfoot tr.subtotal-row td.label {
-      text-align: right;
-      color: var(--text-soft);
-    }
-    .items-table tfoot tr.subtotal-row td.amount {
-      text-align: right;
-      color: var(--text-dark);
-      min-width: 30mm;
-    }
-    .items-table tfoot tr.divider-row td {
-      border-top: 1px solid var(--divider);
-      padding: 0;
-    }
-    .items-table tfoot tr.total-row td {
-      padding: 6px 10px;
-      border-top: 2px solid var(--purple);
-    }
-    .items-table tfoot tr.total-row td.label {
-      text-align: right;
-      font-size: 10pt;
-      font-weight: 700;
-      color: var(--text-dark);
-    }
-    .items-table tfoot tr.total-row td.amount {
-      text-align: right;
-      font-size: 11pt;
-      font-weight: 800;
-      color: var(--purple);
-      min-width: 30mm;
-    }
-
-    /* ── Payment Info ── */
-    .payment-info {
-      margin-top: 6mm;
-      padding: 4mm 5mm;
-      background: var(--purple-pale);
-      border: 1px solid var(--purple-border);
-      border-radius: 3px;
-      font-size: 8.5pt;
-      color: var(--text-mid);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .payment-info strong { color: var(--purple); }
-
-    /* ── Footer ── */
-    .inv-footer {
-      margin-top: auto;
-      padding-top: 8mm;
-      border-top: 1px solid var(--divider);
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
-    }
-    .footer-note {
-      font-size: 7.5pt;
-      color: var(--text-muted);
-      line-height: 1.6;
-    }
-    .footer-thanks {
-      font-size: 10pt;
-      font-weight: 700;
-      color: var(--purple);
-      text-align: right;
-    }
+    @page { margin: 0; size: A4; }
   </style>
 </head>
-<body>
-<div class="page">
+<body class="bg-white m-0 p-0">
 
-  <!-- Header -->
-  <div class="inv-header">
-    <div class="inv-brand">
-      <div class="brand-name">FORTI</div>
-      <div class="brand-sub">Federation of Registered Traders &amp; Industries</div>
+<div class="w-[210mm] min-h-[297mm] mx-auto flex flex-col" style="padding: 0;">
+
+  <!-- ═══ HEADER BAND ═══ -->
+  <div class="bg-gradient-to-r from-brand-800 via-brand-700 to-brand-600 px-12 pt-10 pb-8 relative overflow-hidden">
+    <!-- Decorative circles -->
+    <div class="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-white/5"></div>
+    <div class="absolute -bottom-20 -left-10 w-40 h-40 rounded-full bg-white/5"></div>
+    <div class="absolute top-6 right-32 w-20 h-20 rounded-full bg-white/[0.03]"></div>
+
+    <div class="flex justify-between items-start relative z-10">
+      <!-- Brand -->
+      <div>
+        <div class="flex items-center gap-3 mb-1">
+          <div class="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+            <span class="text-white font-black text-lg tracking-tight">F</span>
+          </div>
+          <div>
+            <div class="text-white font-black text-2xl tracking-widest leading-none">FORTI</div>
+            <div class="text-brand-200 text-[10px] tracking-wider font-medium mt-0.5">Federation of Registered Traders &amp; Industries</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Invoice Tag -->
+      <div class="text-right">
+        <div class="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-5 py-2.5">
+          <svg class="w-5 h-5 text-brand-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          <span class="text-white font-extrabold text-xl tracking-wider">INVOICE</span>
+        </div>
+      </div>
     </div>
-    <div class="inv-meta">
-      <div class="inv-label">INVOICE</div>
-      <table>
-        <tr><td>Invoice No:&nbsp;<strong>${escHtml(invoiceNum)}</strong></td></tr>
-        <tr><td>Date:&nbsp;<strong>${escHtml(dateStr)}</strong></td></tr>
+  </div>
+
+  <!-- ═══ BODY ═══ -->
+  <div class="flex-1 px-12 pt-8 pb-6 flex flex-col">
+
+    <!-- Invoice meta strip -->
+    <div class="flex justify-between items-center mb-8">
+      <div class="flex gap-8">
+        <div>
+          <div class="text-[10px] font-bold text-brand-600 uppercase tracking-widest mb-0.5">Invoice No.</div>
+          <div class="text-sm font-bold text-ink">${escHtml(invoiceNum)}</div>
+        </div>
+        <div>
+          <div class="text-[10px] font-bold text-brand-600 uppercase tracking-widest mb-0.5">Date</div>
+          <div class="text-sm font-bold text-ink">${escHtml(dateStr)}</div>
+        </div>
+        ${escHtml(memberId) ? `<div>
+          <div class="text-[10px] font-bold text-brand-600 uppercase tracking-widest mb-0.5">Member ID</div>
+          <div class="text-sm font-bold text-ink">${escHtml(memberId)}</div>
+        </div>` : ''}
+      </div>
+      <div class="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold px-3 py-1.5 rounded-full">
+        <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
+        PAID
+      </div>
+    </div>
+
+    <!-- Bill To / From -->
+    <div class="grid grid-cols-2 gap-8 mb-8">
+      <!-- Bill To -->
+      <div class="bg-brand-50/60 border border-brand-100 rounded-xl p-5">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center">
+            <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+          </div>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-brand-600">Billed To</span>
+        </div>
+        <div class="text-base font-bold text-ink leading-snug">${escHtml(memberName)}</div>
+        <div class="text-sm text-ink-soft mt-1">${escHtml(memberEmail)}</div>
+        ${phone ? `<div class="text-sm text-ink-soft">${escHtml(phone)}</div>` : ''}
+        ${orgName ? `<div class="text-sm text-ink-soft mt-0.5">${escHtml(orgName)}</div>` : ''}
+      </div>
+
+      <!-- From -->
+      <div class="bg-surface border border-gray-100 rounded-xl p-5">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-7 h-7 rounded-lg bg-gray-700 flex items-center justify-center">
+            <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+          </div>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-gray-500">From</span>
+        </div>
+        <div class="text-base font-bold text-ink leading-snug">FORTI</div>
+        <div class="text-sm text-ink-soft mt-1">Federation of Registered Traders &amp; Industries</div>
+        <div class="text-sm text-ink-soft">membership@forti.org</div>
+      </div>
+    </div>
+
+    <!-- ═══ LINE ITEMS TABLE ═══ -->
+    <div class="rounded-xl border border-gray-200 overflow-hidden mb-6">
+      <table class="w-full border-collapse">
+        <thead>
+          <tr class="bg-gradient-to-r from-brand-700 to-brand-600">
+            <th class="text-left text-white text-[11px] font-bold uppercase tracking-wider py-3.5 px-5 w-[10%]">#</th>
+            <th class="text-left text-white text-[11px] font-bold uppercase tracking-wider py-3.5 px-5 w-[50%]">Description</th>
+            <th class="text-center text-white text-[11px] font-bold uppercase tracking-wider py-3.5 px-5 w-[15%]">Qty</th>
+            <th class="text-right text-white text-[11px] font-bold uppercase tracking-wider py-3.5 px-5 w-[25%]">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="border-b border-gray-100">
+            <td class="py-4 px-5 text-sm text-ink-soft font-medium">1</td>
+            <td class="py-4 px-5">
+              <div class="text-sm font-semibold text-ink">${escHtml(packageName)}</div>
+              <div class="text-xs text-ink-soft mt-0.5">FORTI Membership Package</div>
+            </td>
+            <td class="py-4 px-5 text-center text-sm text-ink-soft font-medium">1</td>
+            <td class="py-4 px-5 text-right text-sm font-bold text-ink">${fmt(amount)}</td>
+          </tr>
+        </tbody>
       </table>
     </div>
-  </div>
 
-  <!-- Bill To -->
-  <div class="bill-section">
-    <div class="section-tag">Bill To</div>
-    <div class="bill-name">${escHtml(memberName)}</div>
-    <div class="bill-detail">${escHtml(memberEmail)}</div>
-    <div class="bill-detail">Membership ID: <strong>${escHtml(memberId)}</strong></div>
-  </div>
-
-  <!-- Items Table -->
-  <table class="items-table">
-    <thead>
-      <tr>
-        <th style="width:60%">Description</th>
-        <th class="center" style="width:15%">Qty</th>
-        <th class="right" style="width:25%">Amount</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>${escHtml(packageName)}</td>
-        <td class="center">1</td>
-        <td class="right">${fmt(amount)}</td>
-      </tr>
-    </tbody>
-    <tfoot>
-      <tr class="subtotal-row">
-        <td colspan="2"></td>
-        <td class="label">Subtotal</td>
-        <td class="amount">${fmt(amount)}</td>
-      </tr>
-      ${taxRow}
-      <tr class="divider-row"><td colspan="4"></td></tr>
-      <tr class="total-row">
-        <td colspan="2"></td>
-        <td class="label">Total</td>
-        <td class="amount">${fmt(totalAmount)}</td>
-      </tr>
-    </tfoot>
-  </table>
-
-  ${txnId && txnId !== '—' ? `
-  <div class="payment-info">
-    <strong>Transaction ID:</strong> ${escHtml(txnId)}
-  </div>` : ''}
-
-  <!-- Footer -->
-  <div class="inv-footer">
-    <div class="footer-note">
-      This is a computer-generated invoice and does not require a physical signature.<br>
-      Generated on ${new Date().toLocaleDateString('en-IN')} &nbsp;·&nbsp; FORTI Portal
+    <!-- ═══ TOTALS SECTION ═══ -->
+    <div class="flex justify-end mb-8">
+      <div class="w-72">
+        <div class="flex justify-between items-center py-2 px-4 text-sm">
+          <span class="text-ink-soft">Subtotal</span>
+          <span class="font-semibold text-ink">${fmt(amount)}</span>
+        </div>
+        ${hasTax ? `
+        <div class="flex justify-between items-center py-2 px-4 text-sm">
+          <span class="text-ink-soft">Tax</span>
+          <span class="font-semibold text-ink">${fmt(taxAmount)}</span>
+        </div>` : `
+        <div class="flex justify-between items-center py-2 px-4 text-sm">
+          <span class="text-ink-soft">Tax</span>
+          <span class="font-medium text-ink-muted">—</span>
+        </div>`}
+        <div class="border-t-2 border-brand-600 mt-1"></div>
+        <div class="flex justify-between items-center py-3 px-4 bg-brand-50 rounded-b-lg">
+          <span class="text-sm font-bold text-brand-700 uppercase tracking-wide">Total</span>
+          <span class="text-xl font-black text-brand-700">${fmt(totalAmount)}</span>
+        </div>
+      </div>
     </div>
-    <div class="footer-thanks">Thank you for your membership!</div>
-  </div>
 
+    <!-- ═══ PAYMENT INFO ═══ -->
+    ${(txnId && txnId !== '—') || paymentMethod ? `
+    <div class="bg-gray-50 border border-gray-200 rounded-xl p-5 mb-6">
+      <div class="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-3">Payment Details</div>
+      <div class="grid grid-cols-3 gap-4">
+        ${paymentMethod ? `
+        <div>
+          <div class="text-[10px] text-ink-muted font-medium uppercase tracking-wider">Method</div>
+          <div class="text-sm font-semibold text-ink mt-0.5">${escHtml(paymentMethod)}</div>
+        </div>` : ''}
+        ${txnId && txnId !== '—' ? `
+        <div>
+          <div class="text-[10px] text-ink-muted font-medium uppercase tracking-wider">Transaction ID</div>
+          <div class="text-sm font-semibold text-ink mt-0.5">${escHtml(txnId)}</div>
+        </div>` : ''}
+        <div>
+          <div class="text-[10px] text-ink-muted font-medium uppercase tracking-wider">Status</div>
+          <div class="flex items-center gap-1.5 mt-0.5">
+            <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
+            <span class="text-sm font-semibold text-emerald-700">Paid</span>
+          </div>
+        </div>
+      </div>
+    </div>` : ''}
+
+    <!-- ═══ FOOTER ═══ -->
+    <div class="mt-auto pt-6 border-t border-gray-200">
+      <div class="flex justify-between items-end">
+        <div>
+          <div class="text-[10px] text-ink-muted leading-relaxed">
+            This is a computer-generated invoice and does not require a physical signature.<br/>
+            Generated on ${escHtml(today)} &nbsp;·&nbsp; FORTI Membership Portal
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-lg font-black text-brand-600 tracking-tight">Thank you!</div>
+          <div class="text-[10px] text-ink-muted">We appreciate your membership</div>
+        </div>
+      </div>
+
+      <!-- Bottom brand bar -->
+      <div class="mt-5 bg-gradient-to-r from-brand-800 to-brand-600 rounded-lg px-5 py-2.5 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-white font-black text-sm tracking-widest">FORTI</span>
+          <span class="text-brand-200 text-[9px] font-medium">|</span>
+          <span class="text-brand-200 text-[9px] font-medium tracking-wide">Federation of Registered Traders &amp; Industries</span>
+        </div>
+        <div class="text-brand-200 text-[9px]">www.forti.org</div>
+      </div>
+    </div>
+
+  </div>
 </div>
+
 </body>
 </html>`;
 }

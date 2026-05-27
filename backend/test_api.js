@@ -4,7 +4,7 @@ function request(method, path, body) {
   return new Promise((resolve, reject) => {
     const data = body ? JSON.stringify(body) : null;
     const opts = {
-      hostname: 'localhost', port: 5000,
+      hostname: 'localhost', port: 5001,
       path, method,
       headers: { 'Content-Type': 'application/json', ...(data ? { 'Content-Length': Buffer.byteLength(data) } : {}) }
     };

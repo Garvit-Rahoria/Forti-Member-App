@@ -161,16 +161,8 @@ export default function TrackApplication() {
                   return (
                     <div key={step.key} className="flex gap-3 items-start">
                       <div className="flex flex-col items-center">
-                        <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold transition-colors ${
-                          isCurrent
-                            ? 'bg-primary-600 text-white ring-4 ring-primary-100'
-                            : 'bg-emerald-500 text-white'
-                        }`}>
-                          {isCurrent ? (
-                            i + 1
-                          ) : (
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
-                          )}
+                        <div className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
                         </div>
                         {i < lastIdx && (
                           <div className="w-0.5 h-8 mt-1 rounded-full bg-emerald-400" />
