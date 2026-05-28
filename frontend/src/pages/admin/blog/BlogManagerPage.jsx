@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { BookOpen, FolderTree, Tag, FileText, Plus, Loader2, Pencil, Trash2, Save, X } from 'lucide-react'
+import { BookOpen, FolderTree, Tag, FileText, Plus, Loader2, Pencil, Trash2, Save, X, Eye, ArrowUp, ArrowDown } from 'lucide-react'
 import api from '../../../api/client'
 import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from 'react-hot-toast'
@@ -217,11 +217,11 @@ function PostsTab({ onEdit }) {
         <table className="w-full text-sm">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-3 py-2 text-left">Title</th>
-              <th className="px-3 py-2">Type</th>
-              <th className="px-3 py-2">Category</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2" />
+              <th className="px-3 py-2 text-left font-medium text-gray-700">Title</th>
+              <th className="px-3 py-2 text-left font-medium text-gray-700">Type</th>
+              <th className="px-3 py-2 text-left font-medium text-gray-700">Category</th>
+              <th className="px-3 py-2 text-left font-medium text-gray-700">Status</th>
+              <th className="px-3 py-2 text-right font-medium text-gray-700">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -229,13 +229,22 @@ function PostsTab({ onEdit }) {
               <tr><td colSpan={5} className="p-8 text-center"><Loader2 className="animate-spin inline" /></td></tr>
             ) : posts.map(p => (
               <tr key={p.id} className="hover:bg-gray-50">
-                <td className="px-3 py-2 font-medium">{p.title}</td>
-                <td className="px-3 py-2 text-gray-500">{p.post_type}</td>
-                <td className="px-3 py-2">{p.category_name || '—'}</td>
-                <td className="px-3 py-2"><span className={`text-xs px-2 py-0.5 rounded-full ${p.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-gray-100'}`}>{p.status}</span></td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <button type="button" className="text-primary-600 mr-2" onClick={() => onEdit(p.id)}><Pencil size={14} /></button>
-                  <button type="button" className="text-red-500" onClick={() => delMut.mutate(p.id)}><Trash2 size={14} /></button>
+                <td className="px-3 py-2 text-left font-medium">{p.title}</td>
+                <td className="px-3 py-2 text-left text-gray-500">{p.post_type}</td>
+                <td className="px-3 py-2 text-left">{p.category_name || '—'}</td>
+                <td className="px-3 py-2 text-left"><span className={`text-xs px-2 py-0.5 rounded-full ${p.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-gray-100'}`}>{p.status}</span></td>
+                <td className="p-3 text-right whitespace-nowrap">
+                  <a
+                    href={p.status === 'published' ? `/content/${p.menu_slug}/posts/${p.slug}` : undefined}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={`inline-block mr-3 ${p.status === 'published' ? 'text-blue-600 hover:text-blue-800' : 'text-gray-300 pointer-events-none cursor-not-allowed'}`}
+                    title={p.status === 'published' ? 'View public post' : 'Must be published to view'}
+                  >
+                    <Eye size={16} />
+                  </a>
+                  <button type="button" className="text-primary-600 hover:text-primary-800 mr-3" onClick={() => onEdit(p.id)} title="Edit"><Pencil size={16} /></button>
+                  <button type="button" className="text-red-500 hover:text-red-700" onClick={() => delMut.mutate(p.id)} title="Delete"><Trash2 size={16} /></button>
                 </td>
               </tr>
             ))}
@@ -289,16 +298,6 @@ function PostEditorModal({ postId, onClose, onSaved }) {
     })
   }, [loaded, isNew])
 
-  if (!isNew && isLoading) {
-    return (
-      <AdminModalPortal>
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50">
-          <Loader2 className="animate-spin text-white" size={32} />
-        </div>
-      </AdminModalPortal>
-    )
-  }
-
   const flatCats = catTrees.flatMap(t => (t.flat || []).map(c => ({ ...c, menu_label: t.menu_label })))
 
   const saveMut = useMutation({
@@ -316,6 +315,16 @@ function PostEditorModal({ postId, onClose, onSaved }) {
     onError: e => toast.error(e.response?.data?.message || 'Save failed'),
   })
 
+  if (!isNew && isLoading) {
+    return (
+      <AdminModalPortal>
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50">
+          <Loader2 className="animate-spin text-white" size={32} />
+        </div>
+      </AdminModalPortal>
+    )
+  }
+
   async function uploadImage(file, field) {
     const fd = new FormData()
     fd.append('image', file)
@@ -327,6 +336,17 @@ function PostEditorModal({ postId, onClose, onSaved }) {
     setForm(f => {
       const blocks = [...f.blocks]
       blocks[i] = { ...blocks[i], ...patch }
+      return { ...f, blocks }
+    })
+  }
+
+  function moveBlock(i, dir) {
+    setForm(f => {
+      const blocks = [...f.blocks]
+      if (i + dir < 0 || i + dir >= blocks.length) return f
+      const temp = blocks[i]
+      blocks[i] = blocks[i + dir]
+      blocks[i + dir] = temp
       return { ...f, blocks }
     })
   }
@@ -398,7 +418,11 @@ function PostEditorModal({ postId, onClose, onSaved }) {
                     <select className="input flex-1" value={b.block_type} onChange={e => updateBlock(i, { block_type: e.target.value, data: {} })}>
                       {BLOCK_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
-                    <button type="button" className="text-red-500" onClick={() => setForm(f => ({ ...f, blocks: f.blocks.filter((_, j) => j !== i) }))}><Trash2 size={14} /></button>
+                    <div className="flex gap-1 items-center bg-gray-50 rounded-lg border px-1">
+                      <button type="button" disabled={i === 0} className="p-1 text-gray-500 hover:text-gray-800 disabled:opacity-30" onClick={() => moveBlock(i, -1)}><ArrowUp size={16}/></button>
+                      <button type="button" disabled={i === form.blocks.length - 1} className="p-1 text-gray-500 hover:text-gray-800 disabled:opacity-30" onClick={() => moveBlock(i, 1)}><ArrowDown size={16}/></button>
+                    </div>
+                    <button type="button" className="text-red-500 ml-1 p-2 hover:bg-red-50 rounded-lg" onClick={() => setForm(f => ({ ...f, blocks: f.blocks.filter((_, j) => j !== i) }))}><Trash2 size={16} /></button>
                   </div>
                   {['paragraph', 'heading', 'quote'].includes(b.block_type) && (
                     <textarea className="input text-sm" rows={3} placeholder="Text"

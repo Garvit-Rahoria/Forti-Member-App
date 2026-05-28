@@ -335,7 +335,7 @@ router.patch('/:id/verify', requireRole('super_admin', 'admin', 'accountant'), a
           `INSERT INTO invoices
              (invoice_number, submission_id, renewal_id, invoice_type, member_name, member_email,
               member_id_str, package_name, amount, total_amount, currency, notes)
-           VALUES (?,?,?,'renewal',?,?,?,?,?,?,?)`,
+           VALUES (?,?,?,'renewal',?,?,?,?,?,?,?,?)`,
           [
             invoiceNum,
             renewal.submission_id,

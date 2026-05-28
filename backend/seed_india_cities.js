@@ -228,9 +228,9 @@ async function seed() {
       continue;
     }
 
-    // Batch insert
-    const values = toInsert.map(name => [stateId, name, 1]);
-    await pool.query('INSERT INTO cities (state_id, name, is_active) VALUES ?', [values]);
+    for (const name of toInsert) {
+      await pool.query('INSERT INTO cities (state_id, name, is_active) VALUES (?, ?, 1)', [stateId, name]);
+    }
     console.log(`  ✅ ${state.name}: inserted ${toInsert.length} cities (${cities.length - toInsert.length} already existed)`);
     totalInserted += toInsert.length;
     totalSkipped += (cities.length - toInsert.length);
@@ -263,8 +263,9 @@ async function seedWithoutActive() {
     const existingNames = new Set(existing.map(c => c.name.toLowerCase().trim()));
     const toInsert = cities.filter(c => !existingNames.has(c.toLowerCase().trim()));
     if (toInsert.length === 0) continue;
-    const values = toInsert.map(name => [stateId, name]);
-    await pool.query('INSERT INTO cities (state_id, name) VALUES ?', [values]);
+    for (const name of toInsert) {
+      await pool.query('INSERT INTO cities (state_id, name) VALUES (?, ?)', [stateId, name]);
+    }
     console.log(`  ✅ ${state.name}: inserted ${toInsert.length}`);
   }
   console.log('Done');

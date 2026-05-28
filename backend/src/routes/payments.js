@@ -178,18 +178,14 @@ router.patch('/:id([0-9]+)/credit-inr', requireRole('super_admin', 'admin', 'off
 
     // Send payment confirmed email — fire-and-forget
     if (payment.applicant_email) {
-      sendTemplatedEmail(
-        'payment_verified',
-        payment.applicant_email,
-        {
-          name: payment.applicant_name,
-          membership_id: membershipId,
-          amount: payment.amount,
-          currency: payment.currency || 'USD',
-          credited_inr: credited_inr_amount,
-        },
-        async (to, subject, body) => sendMail({ to, subject, html: body, template: 'payment_verified', refId: membershipId })
-      ).catch(e => console.error('[payment_credited email]', e.message));
+      sendPaymentConfirmed({
+        to: payment.applicant_email,
+        name: payment.applicant_name,
+        membershipId: membershipId,
+        amount: payment.amount,
+        currency: payment.currency || 'USD',
+        transactionId: payment.transaction_id,
+      }).catch(e => console.error('[payment_credited email]', e.message));
     }
 
     return ok(res, { status: 'verified', credited_inr_amount, membership_id: membershipId }, 'Payment credited in INR and verified');
@@ -267,17 +263,14 @@ router.patch('/:id/verify', requireRole('super_admin', 'admin', 'office_staff'),
 
       // Send email — fire-and-forget (do NOT await — prevents slow SMTP blocking the response)
       if (payment.applicant_email) {
-        sendTemplatedEmail(
-          'payment_verified',
-          payment.applicant_email,
-          {
-            name: payment.applicant_name,
-            membership_id: membershipId,
-            amount: payment.amount,
-            currency: payment.currency || 'INR',
-          },
-          async (to, subject, body) => sendMail({ to, subject, html: body, template: 'payment_verified', refId: membershipId })
-        ).catch(e => console.error('[payment_verified email]', e.message));
+        sendPaymentConfirmed({
+          to: payment.applicant_email,
+          name: payment.applicant_name,
+          membershipId: membershipId,
+          amount: payment.amount,
+          currency: payment.currency || 'INR',
+          transactionId: payment.transaction_id,
+        }).catch(e => console.error('[payment_verified email]', e.message));
       }
     } else {
       // Rejection
@@ -350,18 +343,14 @@ router.post('/', upload.single('screenshot'), async (req, res) => {
       [submission_id]
     );
     if (sub?.applicant_email) {
-      // Send event-driven email for payment submitted
-      await sendTemplatedEmail(
-        'payment_submitted',
-        sub.applicant_email,
-        {
-          name: sub.applicant_name,
-          membership_id: sub.membership_id || '',
-          amount,
-          currency: resolvedCurrency,
-        },
-        async (to, subject, body) => sendMail({ to, subject, html: body, template: 'payment_submitted', refId: sub.membership_id })
-      );
+      sendPaymentSubmitted({
+        to: sub.applicant_email,
+        name: sub.applicant_name,
+        membershipId: sub.membership_id || '',
+        amount: amount,
+        currency: resolvedCurrency,
+        transactionId: transaction_id,
+      }).catch(e => console.error('[payment_submitted email]', e.message));
     }
 
     return ok(res, { id: r.insertId }, 'Payment submitted. Payment is under review.', 201);

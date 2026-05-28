@@ -14,6 +14,7 @@ const STATIC_BEFORE = [
   { label: 'Home', to: '/' },
   { label: 'About Us', to: '/about' },
   { label: 'Plans', to: '/plans' },
+  { label: 'Blog', to: '/content/insights' },
 ]
 const STATIC_AFTER = [
   { label: 'Gallery', to: '/gallery' },
@@ -25,9 +26,8 @@ function NavLink({ to, children, pathname }) {
   const active = pathname === to || (to !== '/' && pathname.startsWith(to))
   return (
     <Link to={to}
-      className={`text-sm font-medium px-3 py-2 rounded-xl transition-all duration-200 relative group ${
-        active ? 'text-primary-700 bg-primary-50/80' : 'text-ink-muted hover:text-primary-600 hover:bg-primary-50/50'
-      }`}>
+      className={`whitespace-nowrap text-sm font-medium px-3 py-2 rounded-xl transition-all duration-200 relative group ${active ? 'text-primary-700 bg-primary-50/80' : 'text-ink-muted hover:text-primary-600 hover:bg-primary-50/50'
+        }`}>
       {children}
       {!active && (
         <span className="absolute bottom-1 left-3 right-3 h-0.5 bg-gradient-to-r from-primary-500 to-accent-gold rounded-full scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
@@ -61,11 +61,10 @@ export default function PublicHeader({ variant = 'default', onApply }) {
   }
 
   return (
-    <header className={`sticky top-0 z-50 transition-all duration-300 ${
-      scrolled
-        ? 'bg-white/85 backdrop-blur-xl shadow-glass border-b border-primary-100/40'
-        : 'bg-white/70 backdrop-blur-lg border-b border-white/50'
-    }`}>
+    <header className={`sticky top-0 z-50 transition-all duration-300 ${scrolled
+      ? 'bg-white/85 backdrop-blur-xl shadow-glass border-b border-primary-100/40'
+      : 'bg-white/70 backdrop-blur-lg border-b border-white/50'
+      }`}>
       {/* Top info bar — landing & default */}
       <div className="hidden lg:block bg-gradient-to-r from-primary-950 via-primary-800 to-primary-700 text-white text-xs py-2">
         <div className="container-page flex items-center justify-between">
@@ -82,50 +81,47 @@ export default function PublicHeader({ variant = 'default', onApply }) {
         </div>
       </div>
 
-      <div className="container-page py-3 flex items-center justify-between gap-4">
+      <div className=" pl-1 py-3 flex items-center gap-6">
         <Link to="/" className="flex items-center gap-3 shrink-0 group">
           <img src={SITE_LOGO} alt="FORTI" className="h-10 w-auto object-contain transition group-hover:opacity-90" onError={e => { e.target.style.display = 'none' }} />
-          <div className="hidden sm:block">
-            <span className="font-display font-bold text-ink tracking-tight">FORTI</span>
-            <p className="text-[11px] text-ink-subtle leading-none mt-0.5">Federation of Trade & Industry</p>
-          </div>
+
         </Link>
 
-        <nav className="hidden lg:flex items-center gap-0.5">
+        <nav className="hidden xl:flex items-center gap-1.5">
           {STATIC_BEFORE.map(l => <NavLink key={l.to} to={l.to} pathname={location.pathname}>{l.label}</NavLink>)}
           {blogNav.map(item => <BlogNavDropdown key={item.id} item={item} />)}
           {STATIC_AFTER.map(l => <NavLink key={l.to} to={l.to} pathname={location.pathname}>{l.label}</NavLink>)}
         </nav>
 
-        <div className="hidden lg:flex items-center gap-2">
+        <div className="hidden xl:flex items-center gap-2 ml-auto shrink-0">
           {isLanding ? (
             <>
-              <button type="button" onClick={() => navigate('/admin/login')} className="btn-outline btn-sm">Admin</button>
-              <button type="button" onClick={() => navigate('/track')} className="btn-outline btn-sm">Track</button>
-              <button type="button" onClick={handleMemberNav} className="btn-outline btn-sm text-primary-700 border-primary-200">
+              <button type="button" onClick={() => navigate('/admin/login')} className="btn-outline btn-sm whitespace-nowrap">Admin</button>
+              <button type="button" onClick={() => navigate('/track')} className="btn-outline btn-sm whitespace-nowrap">Track</button>
+              <button type="button" onClick={handleMemberNav} className="btn-outline btn-sm text-primary-700 border-primary-200 whitespace-nowrap">
                 {memberToken ? 'Dashboard' : 'Member Login'}
               </button>
               {onApply && (
-                <button type="button" onClick={onApply} className="btn-gold btn-sm">Apply Now</button>
+                <button type="button" onClick={onApply} className="btn-gold btn-sm whitespace-nowrap shadow-md hover:shadow-lg transition-all hover:scale-105 active:scale-95">Apply Now</button>
               )}
             </>
           ) : (
             <>
-              <button type="button" onClick={handleMemberNav} className="btn-outline btn-sm">
+              <button type="button" onClick={handleMemberNav} className="btn-outline btn-sm whitespace-nowrap">
                 {memberToken ? 'Dashboard' : 'Member Login'}
               </button>
-              {onApply && <button type="button" onClick={onApply} className="btn-primary btn-sm">Apply Now</button>}
+              {onApply && <button type="button" onClick={onApply} className="btn-primary btn-sm whitespace-nowrap shadow-md hover:shadow-lg transition-all hover:scale-105 active:scale-95">Apply Now</button>}
             </>
           )}
         </div>
 
-        <button type="button" className="lg:hidden p-2.5 rounded-xl text-ink-muted hover:bg-primary-50 transition" onClick={() => setMenuOpen(v => !v)}>
+        <button type="button" className="xl:hidden ml-auto p-2.5 rounded-xl text-ink-muted hover:bg-primary-50 transition" onClick={() => setMenuOpen(v => !v)}>
           {menuOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
       </div>
 
       {menuOpen && (
-        <div className="lg:hidden border-t border-primary-100/50 px-4 py-4 space-y-1 bg-white/95 backdrop-blur-xl">
+        <div className="xl:hidden border-t border-primary-100/50 px-4 py-4 space-y-1 bg-white/95 backdrop-blur-xl">
           {[...STATIC_BEFORE, ...STATIC_AFTER].map(l => (
             <Link key={l.to} to={l.to} className="block py-2.5 px-3 text-ink-muted font-medium rounded-xl hover:bg-primary-50" onClick={() => setMenuOpen(false)}>{l.label}</Link>
           ))}

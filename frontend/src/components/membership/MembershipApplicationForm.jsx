@@ -126,6 +126,7 @@ const INDIAN_ID_TYPE_OPTIONS = [
 const INTERNATIONAL_ID_TYPE_OPTIONS = [
   { value: 'passport', label: 'Passport' },
   { value: 'national_id', label: 'Government Issued ID' },
+  { value: 'aadhaar', label: 'Aadhaar Card' },
 ]
 
 function isIndianCountryName(countryName) {
@@ -777,12 +778,18 @@ export default function MembershipApplicationForm({ prefill = {} }) {
     const country = normalizeCountryRecord(countryLike)
     if (!country) return
 
+    const currentCountryName = String(formRef.current.country_name || 'India').trim()
+    const currentActiveIdType = getIdTypeOptionsForCountry(currentCountryName).some(option => option.value === formRef.current.id_type)
+      ? formRef.current.id_type
+      : getDefaultIdType(currentCountryName)
+
     const nextForm = {
       ...formRef.current,
       country_name: country.name || formRef.current.country_name,
       country_id: country.id ? String(country.id) : '',
       phone_country_iso2: country.iso2 || formRef.current.phone_country_iso2,
       phone_country_code: country.phone_code || formRef.current.phone_country_code,
+      id_type: currentActiveIdType,
     }
     formRef.current = nextForm
     setForm(nextForm)
@@ -1106,7 +1113,13 @@ export default function MembershipApplicationForm({ prefill = {} }) {
 
   /* ── Submit ─────────────────────────────────────────────────────── */
   async function handleSubmit() {
-    if (!validateStep(step)) return
+    for (let i = 0; i <= step; i++) {
+      if (!validateStep(i)) {
+        setStep(i)
+        topRef.current?.scrollIntoView({ behavior: 'smooth' })
+        return
+      }
+    }
     setSubmitting(true)
     try {
       const fd = new FormData()

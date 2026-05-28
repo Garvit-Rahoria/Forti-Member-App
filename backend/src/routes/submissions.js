@@ -120,6 +120,17 @@ router.post('/:uuid/submit', async (req, res) => {
       console.error('[submit: member_accounts upsert]', e.message);
     }
 
+    // Send email notification for application submitted
+    if (sub.applicant_email) {
+      const { sendApplicationSubmitted } = require('../utils/email');
+      sendApplicationSubmitted({
+        to: sub.applicant_email,
+        name: sub.applicant_name,
+        membershipId: sub.membership_id,
+        submissionUuid: sub.uuid,
+      }).catch(e => console.error('[submit email]', e.message));
+    }
+
     return ok(res, {
       submission_uuid: sub.uuid,
       email: sub.applicant_email,
@@ -557,19 +568,7 @@ router.patch('/:id/status', async (req, res) => {
       sendMembershipConfirmed({ to: sub.applicant_email, name: sub.applicant_name, membershipId, loginUrl })
         .catch(e => console.error('[membership confirmed email]', e.message));
 
-      // Send event-driven email for application approved
-      if (sub.applicant_email) {
-        await sendTemplatedEmail(
-          'approved',
-          sub.applicant_email,
-          {
-            name: sub.applicant_name,
-            membership_id: membershipId,
-            form_name: sub.form_name || '',
-          },
-          async (to, subject, body) => sendMail({ to, subject, html: body, template: 'approved', refId: membershipId })
-        );
-      }
+
 
       createAuditLog(req.user.id, 'APPROVE_APPLICATION', 'members', String(req.params.id), req.ip);
     }
@@ -590,6 +589,15 @@ router.patch('/:id/status', async (req, res) => {
 
     // ── All other status changes: log to audit ───────────────────────────────
     if (!['approved', 'rejected'].includes(status)) {
+      if (status === 'under_review') {
+        const { sendApplicationUnderReview } = require('../utils/email');
+        sendApplicationUnderReview({
+          to: sub.applicant_email,
+          name: sub.applicant_name,
+          membershipId: sub.membership_id,
+        }).catch(e => console.error('[under_review email]', e.message));
+      }
+
       createAuditLog(
         req.user.id,
         `STATUS_CHANGE_${status.toUpperCase()}`,

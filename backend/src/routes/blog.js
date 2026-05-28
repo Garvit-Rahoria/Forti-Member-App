@@ -585,7 +585,7 @@ admin.post('/posts', async (req, res) => {
     tag_ids, blocks, related_post_ids,
   } = req.body;
   if (!menu_id || !title) return fail(res, 'menu_id and title required', 422);
-  const postSlug = slug || slugify(title);
+  const postSlug = slugify(slug?.trim() || title);
   const postStatus = status || 'draft';
   try {
     const [r] = await pool.query(
@@ -636,7 +636,7 @@ admin.put('/posts/:id', async (req, res) => {
          sort_order=COALESCE(?,sort_order), updated_at=NOW()
        WHERE id=?`,
       [
-        category_id, slug, title, excerpt, body, post_type, featured_image_path,
+        category_id, slug ? slugify(slug.trim()) : null, title, excerpt, body, post_type, featured_image_path,
         status, is_featured, pubAt, meta_title, meta_description, sort_order, req.params.id,
       ]
     );

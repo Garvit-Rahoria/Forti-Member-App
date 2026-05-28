@@ -325,8 +325,11 @@ router.post(
         return fail(res, 'Passport number must be 6 to 9 alphanumeric characters', 422);
       }
     } else {
-      if (!['passport', 'national_id'].includes(resolvedIdType)) {
-        return fail(res, 'International members must provide either Passport or National ID details', 422);
+      if (!['passport', 'national_id', 'aadhaar'].includes(resolvedIdType)) {
+        return fail(res, 'International members must provide either Passport, National ID, or Aadhaar details', 422);
+      }
+      if (resolvedIdType === 'aadhaar' && !/^\d{12}$/.test(String(aadhaar_number || ''))) {
+        return fail(res, 'Aadhaar number must be exactly 12 digits', 422);
       }
       if (resolvedIdType === 'passport' && !/^[A-Za-z0-9]{6,9}$/.test(String(passport_number || ''))) {
         return fail(res, 'Passport number must be 6 to 9 alphanumeric characters for international members', 422);

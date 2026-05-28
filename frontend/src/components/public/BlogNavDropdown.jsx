@@ -16,7 +16,7 @@ export default function BlogNavDropdown({ item }) {
   }, [])
 
   const hasChildren = item.dropdown?.length > 0
-  const base = `text-sm font-medium px-3 py-2 rounded-xl flex items-center gap-1 transition-all duration-200 ${
+  const base = `whitespace-nowrap text-sm font-medium px-3 py-2 rounded-xl flex items-center gap-1 transition-all duration-200 ${
     isActive ? 'text-primary-700 bg-primary-50/80' : 'text-ink-muted hover:text-primary-600 hover:bg-primary-50/50'
   }`
 
