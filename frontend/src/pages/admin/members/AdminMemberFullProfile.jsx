@@ -14,12 +14,21 @@ import { getCurrencySymbol, fmtAmount } from '../../../utils/currency'
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:7000'
 
 function downloadFile(url, filename) {
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename || 'download'
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
+  api.get(url, { responseType: 'blob' })
+    .then(resp => {
+      const blobUrl = window.URL.createObjectURL(new Blob([resp.data], { type: 'application/pdf' }))
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = filename || 'download'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(blobUrl)
+    })
+    .catch(err => {
+      console.error(err)
+      alert(err.response?.data?.message || 'Download failed')
+    })
 }
 
 function StatusBadge({ status }) {
@@ -124,7 +133,7 @@ export default function AdminMemberFullProfile() {
   const displayOrg = parsedData.organisation_name || parsedData.organization_name || parsedData.company_name || '—'
   
   const handleDownloadCert = () => {
-    downloadFile(`${API_BASE}/api/certificates/${member.id}`, `certificate-${member.membership_id || member.id}.pdf`)
+    downloadFile(`/certificates/${member.id}`, `certificate-${member.membership_id || member.id}.pdf`)
   }
 
   return (

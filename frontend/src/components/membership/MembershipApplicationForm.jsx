@@ -80,17 +80,17 @@ function renderOrgTypeOption(option, state) {
 
 /* ─── Constants ─────────────────────────────────────────────────────── */
 const STEPS = [
-  { key: 'basic',      label: 'Basic Details',    icon: User },
-  { key: 'location',   label: 'Location',         icon: MapPin },
-  { key: 'membership', label: 'Membership Type',  icon: Users },
-  { key: 'plan',       label: 'Plan & Package',   icon: Package },
-  { key: 'payment',    label: 'Payment',           icon: CreditCard },
+  { key: 'basic', label: 'Basic Details', icon: User },
+  { key: 'location', label: 'Location', icon: MapPin },
+  { key: 'membership', label: 'Membership Type', icon: Users },
+  { key: 'plan', label: 'Plan & Package', icon: Package },
+  { key: 'payment', label: 'Payment', icon: CreditCard },
 ]
 
 const LOCATION_OPTIONS = [
-  { value: 'rajasthan',    label: 'Rajasthan',     desc: 'Within Rajasthan',        icon: '🏛️', color: 'from-orange-500 to-amber-500' },
-  { value: 'other_states', label: 'Other States',  desc: 'Other Indian States',     icon: '🇮🇳', color: 'from-blue-500 to-indigo-500' },
-  { value: 'overseas',     label: 'Overseas',       desc: 'International Applicant', icon: '🌍', color: 'from-emerald-500 to-teal-500' },
+  { value: 'rajasthan', label: 'Rajasthan', desc: 'Within Rajasthan', icon: <img src="/images/rajasthan-icon.png" alt="Rajasthan" className="w-12 h-12 object-cover mix-blend-multiply rounded-full" />, color: 'from-orange-500 to-amber-500' },
+  { value: 'other_states', label: 'Other States', desc: 'Other Indian States', icon: <img src="/images/india-map.png" alt="India Map" className="w-12 h-12 object-cover mix-blend-multiply rounded-full" />, color: 'from-blue-500 to-indigo-500' },
+  { value: 'overseas', label: 'Overseas', desc: 'International Applicant', icon: <img src="/images/overseas-icon.png" alt="Overseas" className="w-12 h-12 object-cover mix-blend-multiply rounded-full" />, color: 'from-emerald-500 to-teal-500' },
 ]
 
 const MEMBERSHIP_OPTIONS = [
@@ -111,9 +111,9 @@ const MEMBERSHIP_OPTIONS = [
 ]
 
 const PLAN_OPTIONS = [
-  { value: 'yearly',   label: 'Yearly',   desc: '12-month membership, renewable annually', icon: Clock,    gradient: 'from-blue-50 to-indigo-50',  selectedGradient: 'from-blue-100 to-indigo-100',  iconFrom: 'from-blue-400',   iconTo: 'to-indigo-500',   iconBg: 'bg-blue-100',   iconColor: 'text-blue-600',   border: 'border-blue-400' },
-  { value: '3years',   label: '3 Years',  desc: '3-year membership — save more vs yearly',  icon: Package,  gradient: 'from-green-50 to-teal-50',   selectedGradient: 'from-green-100 to-teal-100',   iconFrom: 'from-green-400',  iconTo: 'to-teal-500',     iconBg: 'bg-green-100',  iconColor: 'text-green-600',  border: 'border-green-400' },
-  { value: 'lifetime', label: 'Lifetime', desc: 'One-time payment, valid forever',           icon: Crown,    gradient: 'from-orange-50 to-amber-50', selectedGradient: 'from-orange-100 to-amber-100', iconFrom: 'from-orange-400', iconTo: 'to-amber-500',    iconBg: 'bg-orange-100', iconColor: 'text-orange-600', border: 'border-orange-400' },
+  { value: 'yearly', label: 'Yearly', desc: '12-month membership, renewable annually', icon: () => <img src="/images/yearly-icon.png" alt="Yearly" className="w-14 h-14 object-contain mix-blend-multiply" />, noIconBg: true, gradient: 'from-blue-50 to-indigo-50', selectedGradient: 'from-blue-100 to-indigo-100', iconFrom: 'from-blue-400', iconTo: 'to-indigo-500', iconBg: 'bg-blue-100', iconColor: 'text-blue-600', border: 'border-blue-400' },
+  { value: '3years', label: '3 Years', desc: '3-year membership — save more vs yearly', icon: () => <img src="/images/3years-icon.png" alt="3 Years" className="w-14 h-14 object-contain mix-blend-multiply" />, noIconBg: true, gradient: 'from-green-50 to-teal-50', selectedGradient: 'from-green-100 to-teal-100', iconFrom: 'from-green-400', iconTo: 'to-teal-500', iconBg: 'bg-green-100', iconColor: 'text-green-600', border: 'border-green-400' },
+  { value: 'lifetime', label: 'Lifetime', desc: 'One-time payment, valid forever', icon: () => <img src="/images/lifetime-icon.png" alt="Lifetime" className="w-14 h-14 object-contain mix-blend-multiply" />, noIconBg: true, gradient: 'from-orange-50 to-amber-50', selectedGradient: 'from-orange-100 to-amber-100', iconFrom: 'from-orange-400', iconTo: 'to-amber-500', iconBg: 'bg-orange-100', iconColor: 'text-orange-600', border: 'border-orange-400' },
 ]
 
 const GENDER_OPTIONS = ['Male', 'Female', 'Other', 'Prefer not to say']
@@ -181,14 +181,14 @@ function getIdentityFieldConfig(idType) {
 }
 
 const SOCIAL_PLATFORMS = [
-  { value: 'linkedin',  label: 'LinkedIn',  placeholder: 'https://linkedin.com/in/yourname' },
-  { value: 'website',   label: 'Website',   placeholder: 'https://yourwebsite.com' },
-  { value: 'youtube',   label: 'YouTube',   placeholder: 'https://youtube.com/@yourchannel' },
-  { value: 'twitter',   label: 'Twitter / X', placeholder: 'https://x.com/yourhandle' },
-  { value: 'facebook',  label: 'Facebook',  placeholder: 'https://facebook.com/yourpage' },
+  { value: 'linkedin', label: 'LinkedIn', placeholder: 'https://linkedin.com/in/yourname' },
+  { value: 'website', label: 'Website', placeholder: 'https://yourwebsite.com' },
+  { value: 'youtube', label: 'YouTube', placeholder: 'https://youtube.com/@yourchannel' },
+  { value: 'twitter', label: 'Twitter / X', placeholder: 'https://x.com/yourhandle' },
+  { value: 'facebook', label: 'Facebook', placeholder: 'https://facebook.com/yourpage' },
   { value: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/yourhandle' },
-  { value: 'google',    label: 'Google Business', placeholder: 'https://g.co/yourprofile' },
-  { value: 'other',     label: 'Other',     placeholder: 'https://...' },
+  { value: 'google', label: 'Google Business', placeholder: 'https://g.co/yourprofile' },
+  { value: 'other', label: 'Other', placeholder: 'https://...' },
 ]
 
 const STEP_VALIDATION_FIELDS = {
@@ -220,7 +220,7 @@ const REQUIRED_FIELD_MESSAGE = 'This field is required'
 /* ─── Helpers ───────────────────────────────────────────────────────── */
 function FieldError({ msg }) {
   if (!msg) return null
-  return <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={12}/>{msg}</p>
+  return <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={12} />{msg}</p>
 }
 
 function SectionCard({ icon: Icon, title, desc, children }) {
@@ -231,7 +231,7 @@ function SectionCard({ icon: Icon, title, desc, children }) {
           <div className="flex items-center gap-3">
             {Icon && (
               <div className="w-8 h-8 rounded-lg bg-primary-100 flex items-center justify-center">
-                <Icon size={16} className="text-primary-600"/>
+                <Icon size={16} className="text-primary-600" />
               </div>
             )}
             <div>
@@ -417,7 +417,7 @@ function SearchableSelect({
         onBlur={onBlur}
         onKeyDown={handleKeyDown}
       />
-      {minQueryLength === 0 && <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"/>}
+      {minQueryLength === 0 && <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />}
       {open && !disabled && (
         <div className="absolute left-0 right-0 top-full mt-2 z-[9999] rounded-xl border border-gray-200 bg-white shadow-xl max-h-72 overflow-auto overscroll-contain">
           {loading ? (
@@ -438,7 +438,7 @@ function SearchableSelect({
                 <span className="min-w-0 flex-1">
                   {renderOption ? renderOption(option, { isSelected, isHighlighted }) : option.label}
                 </span>
-                {isSelected && <CheckCircle size={14} className="text-primary-500 shrink-0"/>}
+                {isSelected && <CheckCircle size={14} className="text-primary-500 shrink-0" />}
               </button>
             )
           }) : (
@@ -469,8 +469,8 @@ export default function MembershipApplicationForm({ prefill = {} }) {
 
   const [form, setForm] = useState({
     full_name: prefill?.full_name || '',
-    email:     prefill?.email     || '',
-    phone:     prefill?.phone     || '',
+    email: prefill?.email || '',
+    phone: prefill?.phone || '',
     phone_country_code: prefill?.phone_country_code || '+91',
     phone_country_iso2: prefill?.phone_country_iso2 || 'IN',
     country_name: prefill?.country_name || 'India',
@@ -512,33 +512,33 @@ export default function MembershipApplicationForm({ prefill = {} }) {
     http.get('/wings').then(r => setWings(r.data.data || [])).catch(() => setWings([]))
   }, [])
 
-  const [errors, setErrors]       = useState({})
-  const [touched, setTouched]     = useState({})
+  const [errors, setErrors] = useState({})
+  const [touched, setTouched] = useState({})
   const [submitting, setSubmitting] = useState(false)
-  const [submitted, setSubmitted]   = useState(null)
+  const [submitted, setSubmitted] = useState(null)
 
   const [profilePreview, setProfilePreview] = useState(null)
   const [photoZoom, setPhotoZoom] = useState(false)
-  const [logoPreview, setLogoPreview]       = useState(null)
-  const [ssPreview, setSsPreview]           = useState(null)
-  const [cameraOpen, setCameraOpen]         = useState(false)
+  const [logoPreview, setLogoPreview] = useState(null)
+  const [ssPreview, setSsPreview] = useState(null)
+  const [cameraOpen, setCameraOpen] = useState(false)
   const profileRef = useRef()
-  const cameraRef  = useRef()
-  const logoRef    = useRef()
-  const ssRef      = useRef()
-  const videoRef   = useRef()
-  const canvasRef  = useRef()
-  const streamRef  = useRef(null)
+  const cameraRef = useRef()
+  const logoRef = useRef()
+  const ssRef = useRef()
+  const videoRef = useRef()
+  const canvasRef = useRef()
+  const streamRef = useRef(null)
 
-  const [states, setStates]     = useState([])
-  const [cities, setCities]     = useState([])
+  const [states, setStates] = useState([])
+  const [cities, setCities] = useState([])
   const [citiesLoading, setCitiesLoading] = useState(false)
   const [countries, setCountries] = useState([])
   const [countriesLoading, setCountriesLoading] = useState(true)
-  const [pkg, setPkg]           = useState(null)
+  const [pkg, setPkg] = useState(null)
   const [pkgLoading, setPkgLoading] = useState(false)
   const [pkgError, setPkgError] = useState('')
-  const [methods, setMethods]   = useState([])
+  const [methods, setMethods] = useState([])
   const [methodsLoading, setMethodsLoading] = useState(false)
   const [paymentSettings, setPaymentSettings] = useState({})
 
@@ -713,10 +713,10 @@ export default function MembershipApplicationForm({ prefill = {} }) {
 
   function getStepErrors(stepIndex, currentForm = formRef.current) {
     const nextErrors = {}
-    ;(STEP_VALIDATION_FIELDS[stepIndex] || []).forEach(fieldName => {
-      const message = getFieldError(fieldName, currentForm, stepIndex)
-      if (message) nextErrors[fieldName] = message
-    })
+      ; (STEP_VALIDATION_FIELDS[stepIndex] || []).forEach(fieldName => {
+        const message = getFieldError(fieldName, currentForm, stepIndex)
+        if (message) nextErrors[fieldName] = message
+      })
     return nextErrors
   }
 
@@ -876,7 +876,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
   useEffect(() => {
     http.get('/locations/states?country_id=1')
       .then(r => setStates(r.data.data || []))
-      .catch(() => {})
+      .catch(() => { })
   }, [])
 
   useEffect(() => {
@@ -967,8 +967,8 @@ export default function MembershipApplicationForm({ prefill = {} }) {
 
     const qp = new URLSearchParams({
       membership_type: form.membership_type,
-      plan_type:       form.plan_type,
-      location_type:   form.location_type,
+      plan_type: form.plan_type,
+      location_type: form.location_type,
     })
     if (form.location_type === 'overseas' && form.country_id) {
       qp.set('country_id', form.country_id)
@@ -1071,10 +1071,10 @@ export default function MembershipApplicationForm({ prefill = {} }) {
     setCameraOpen(false)
   }
   function capturePhoto() {
-    const video  = videoRef.current
+    const video = videoRef.current
     const canvas = canvasRef.current
     if (!video || !canvas) return
-    canvas.width  = video.videoWidth  || 640
+    canvas.width = video.videoWidth || 640
     canvas.height = video.videoHeight || 480
     canvas.getContext('2d').drawImage(video, 0, 0)
     canvas.toBlob(blob => {
@@ -1200,7 +1200,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
         <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full text-center space-y-5 max-h-[90vh] overflow-y-auto">
           <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto shadow-lg shadow-green-200">
-            <CheckCircle size={40} className="text-white"/>
+            <CheckCircle size={40} className="text-white" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900">Application Submitted Successfully</h2>
           <p className="text-gray-500 text-sm">Your application is under review. You can track your status below.</p>
@@ -1219,15 +1219,14 @@ export default function MembershipApplicationForm({ prefill = {} }) {
               return (
                 <div key={i} className="flex gap-3 items-start">
                   <div className="flex flex-col items-center">
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold transition-colors ${
-                      current ? 'bg-primary-600 text-white ring-4 ring-primary-100'
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold transition-colors ${current ? 'bg-primary-600 text-white ring-4 ring-primary-100'
                         : done ? 'bg-emerald-500 text-white'
-                        : 'bg-gray-100 text-gray-300 border border-gray-200'
-                    }`}>
+                          : 'bg-gray-100 text-gray-300 border border-gray-200'
+                      }`}>
                       {done && !current ? (
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
                       ) : current ? (
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
                       ) : (
                         <span className="text-[10px]">{i + 1}</span>
                       )}
@@ -1282,8 +1281,8 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300
                   ${done ? 'bg-gradient-to-br from-green-400 to-emerald-500 text-white shadow-sm shadow-green-200'
                     : active ? 'bg-gradient-to-br from-primary-500 to-purple-600 text-white shadow-lg shadow-primary-200 ring-4 ring-primary-100 scale-110'
-                    : 'bg-gray-100 text-gray-400 border border-gray-200'}`}>
-                  {done ? '✓' : <Icon size={16}/>}
+                      : 'bg-gray-100 text-gray-400 border border-gray-200'}`}>
+                  {done ? '✓' : <Icon size={16} />}
                 </div>
                 <span className={`text-[11px] mt-2 hidden sm:block max-w-[80px] text-center leading-tight
                   ${active ? 'text-primary-700 font-bold' : done ? 'text-green-600 font-medium' : 'text-gray-400'}`}>
@@ -1311,17 +1310,17 @@ export default function MembershipApplicationForm({ prefill = {} }) {
             <div className="relative shrink-0">
               <img src={profilePreview} alt="Profile"
                 className="w-20 h-20 rounded-full object-cover border-3 border-white shadow-md cursor-pointer hover:opacity-90 transition"
-                onClick={() => setPhotoZoom(true)}/>
+                onClick={() => setPhotoZoom(true)} />
               <button type="button"
                 className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 shadow-sm hover:bg-red-600 transition"
                 onClick={() => clearFile('profile_photo', setProfilePreview)}>
-                <Trash2 size={12}/>
+                <Trash2 size={12} />
               </button>
             </div>
           ) : (
             <div className="w-20 h-20 rounded-full border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 cursor-pointer hover:border-primary-400 hover:bg-primary-50 transition shrink-0"
               onClick={() => profileRef.current?.click()}>
-              <Camera size={22}/>
+              <Camera size={22} />
               <span className="text-[10px] mt-0.5 font-medium">Photo</span>
             </div>
           )}
@@ -1331,11 +1330,11 @@ export default function MembershipApplicationForm({ prefill = {} }) {
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <button type="button" onClick={() => profileRef.current?.click()}
                 className="text-xs text-primary-600 hover:text-primary-700 font-medium inline-flex items-center gap-1">
-                <Upload size={12}/> {profilePreview ? 'Change' : 'Upload'}
+                <Upload size={12} /> {profilePreview ? 'Change' : 'Upload'}
               </button>
               <button type="button" onClick={openCameraModal}
                 className="btn-outline btn-sm inline-flex items-center gap-1.5">
-                <Camera size={12}/> Use Camera
+                <Camera size={12} /> Use Camera
               </button>
             </div>
           </div>
@@ -1345,35 +1344,54 @@ export default function MembershipApplicationForm({ prefill = {} }) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3.5 items-start">
           <div className="space-y-1.5">
-            <label className="label">Country</label>
-            <SearchableSelect
-              options={countryOptions}
-              value={form.phone_country_iso2}
-              placeholder={countriesLoading ? 'Loading countries…' : 'Search country (e.g. India, IN, +91)'}
-              loading={countriesLoading}
-              inputName="member-country-search"
-              autoComplete="new-password"
-              getSearchText={option => option.searchText}
-              getDisplayValue={option => option.label}
-              renderOption={renderCountryOption}
-              onChange={(_, option) => applyCountrySelection(option?.raw)}
-            />
+            <label className="label">Full Name *</label>
+            <input className={getInputClassName('full_name')} placeholder="Enter your full name"
+              data-field="full_name"
+              aria-invalid={!!errors.full_name}
+              value={form.full_name}
+              onChange={e => handleFieldChange('full_name', e.target.value)}
+              onBlur={() => validateField('full_name')} />
+            <FieldError msg={errors.full_name} />
+          </div>
+          <div className="space-y-1.5">
+            <label className="label">Gender *</label>
+            <select
+              className={getInputClassName('gender')}
+              value={form.gender}
+              data-field="gender"
+              aria-invalid={!!errors.gender}
+              onChange={e => handleFieldChange('gender', e.target.value)}
+              onBlur={() => validateField('gender')}>
+              <option value="">Select gender</option>
+              {GENDER_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
+            <FieldError msg={errors.gender} />
+          </div>
+          <div className="space-y-1.5">
+            <label className="label">Email Address *</label>
+            <input className={getInputClassName('email')} type="email" placeholder="email@example.com"
+              data-field="email"
+              aria-invalid={!!errors.email}
+              value={form.email}
+              onChange={e => handleFieldChange('email', e.target.value)}
+              onBlur={() => validateField('email')} />
+            <FieldError msg={errors.email} />
           </div>
           <div className="space-y-1.5">
             <label className="label">Mobile Number *</label>
-            <div className="grid grid-cols-[minmax(150px,190px)_minmax(0,1fr)] gap-3">
+            <div className="grid grid-cols-[80px_minmax(0,1fr)] sm:grid-cols-[90px_minmax(0,1fr)] gap-3">
               <SearchableSelect
                 options={countryOptions}
                 value={form.phone_country_iso2}
-                placeholder={countriesLoading ? 'Loading countries…' : 'Search country'}
+                placeholder={countriesLoading ? '...' : '+'}
                 loading={countriesLoading}
                 inputName="member-phone-country-search"
                 autoComplete="new-password"
                 getSearchText={option => option.searchText}
-                getDisplayValue={option => `${option.raw?.iso2 || '--'} ${option.raw?.phone_code || '+00'}`}
+                getDisplayValue={option => option.raw?.phone_code || '+00'}
                 renderOption={renderCountryOption}
                 onChange={(_, option) => applyCountrySelection(option?.raw)}
-                inputClassName="text-sm"
+                inputClassName="text-sm px-2 text-center"
               />
               <input className={getInputClassName('phone')} type="tel" inputMode="numeric" placeholder={getPhonePlaceholder(selectedPhoneCountry)}
                 data-field="phone"
@@ -1403,38 +1421,19 @@ export default function MembershipApplicationForm({ prefill = {} }) {
             <FieldError msg={errors.id_type} />
           </div>
           <div className="space-y-1.5">
-            <label className="label">Full Name *</label>
-            <input className={getInputClassName('full_name')} placeholder="Enter your full name"
-              data-field="full_name"
-              aria-invalid={!!errors.full_name}
-              value={form.full_name}
-              onChange={e => handleFieldChange('full_name', e.target.value)}
-              onBlur={() => validateField('full_name')} />
-            <FieldError msg={errors.full_name} />
-          </div>
-          <div className="space-y-1.5">
-            <label className="label">Email Address *</label>
-            <input className={getInputClassName('email')} type="email" placeholder="email@example.com"
-              data-field="email"
-              aria-invalid={!!errors.email}
-              value={form.email}
-              onChange={e => handleFieldChange('email', e.target.value)}
-              onBlur={() => validateField('email')} />
-            <FieldError msg={errors.email} />
-          </div>
-          <div className="space-y-1.5">
-            <label className="label">Gender *</label>
-            <select
-              className={getInputClassName('gender')}
-              value={form.gender}
-              data-field="gender"
-              aria-invalid={!!errors.gender}
-              onChange={e => handleFieldChange('gender', e.target.value)}
-              onBlur={() => validateField('gender')}>
-              <option value="">Select gender</option>
-              {GENDER_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
-            </select>
-            <FieldError msg={errors.gender} />
+            <label className="label">Country</label>
+            <SearchableSelect
+              options={countryOptions}
+              value={form.phone_country_iso2}
+              placeholder={countriesLoading ? 'Loading countries…' : 'Search country (e.g. India, IN, +91)'}
+              loading={countriesLoading}
+              inputName="member-country-search"
+              autoComplete="new-password"
+              getSearchText={option => option.searchText}
+              getDisplayValue={option => option.label}
+              renderOption={renderCountryOption}
+              onChange={(_, option) => applyCountrySelection(option?.raw)}
+            />
           </div>
           <div className="space-y-1.5">
             <label className="label">{identityFieldConfig.label} *</label>
@@ -1526,17 +1525,17 @@ export default function MembershipApplicationForm({ prefill = {} }) {
             {logoPreview ? (
               <div className="relative shrink-0">
                 <img src={logoPreview} alt="Logo"
-                  className="w-16 h-16 rounded-xl object-contain border border-gray-200 bg-white p-1"/>
+                  className="w-16 h-16 rounded-xl object-contain border border-gray-200 bg-white p-1" />
                 <button type="button"
                   className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
                   onClick={() => clearFile('organisation_logo', setLogoPreview)}>
-                  <Trash2 size={11}/>
+                  <Trash2 size={11} />
                 </button>
               </div>
             ) : (
               <div className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 cursor-pointer hover:border-primary-400 hover:bg-primary-50 transition shrink-0"
                 onClick={() => logoRef.current?.click()}>
-                <Building2 size={18}/><span className="text-[10px] mt-0.5 font-medium">Logo</span>
+                <Building2 size={18} /><span className="text-[10px] mt-0.5 font-medium">Logo</span>
               </div>
             )}
             <div>
@@ -1554,11 +1553,11 @@ export default function MembershipApplicationForm({ prefill = {} }) {
         <div className="mt-6">
           <div className="flex items-center justify-between mb-3">
             <label className="label mb-0 flex items-center gap-2">
-              <Link2 size={14} className="text-gray-400"/>Social Links
+              <Link2 size={14} className="text-gray-400" />Social Links
             </label>
             <button type="button" onClick={addSocialLink}
               className="text-xs text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1">
-              <Plus size={13}/> Add Link
+              <Plus size={13} /> Add Link
             </button>
           </div>
           <div className="space-y-3">
@@ -1579,11 +1578,11 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                     placeholder={SOCIAL_PLATFORMS.find(p => p.value === link.platform)?.placeholder || 'https://...'}
                     value={link.url}
                     onChange={e => updateSocialLink(i, 'url', e.target.value)} />
-                  <ExternalLink size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                  <ExternalLink size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 </div>
                 <button type="button" onClick={() => removeSocialLink(i)}
                   className="mt-2 text-gray-400 hover:text-red-500 transition shrink-0">
-                  <X size={16}/>
+                  <X size={16} />
                 </button>
               </div>
             ))}
@@ -1596,7 +1595,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
   /* ─── Step 2: Location ──────────────────────────────────────────── */
   function renderLocation() {
     const selectedCountry = countries.find(c => String(c.id) === String(form.country_id))
-    const overseasCurrency = selectedCountry ? getFixedCurrencyByCountry(selectedCountry.name) : 'USD'
+    const overseasCurrency = 'USD'
 
     return (
       <SectionCard icon={MapPin} title="Select Your Location" desc="Choose where you are based">
@@ -1627,7 +1626,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                 <p className="text-xs text-gray-500 mt-0.5">{loc.desc}</p>
                 {selected && (
                   <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-primary-500 flex items-center justify-center shadow-sm">
-                    <CheckCircle size={14} className="text-white"/>
+                    <CheckCircle size={14} className="text-white" />
                   </div>
                 )}
               </button>
@@ -1641,7 +1640,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
           <div className="mt-5 p-5 bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl border border-orange-100 space-y-3">
             <div className="flex items-center justify-between">
               <label className="label flex items-center gap-2 text-orange-800 mb-0">
-                <MapPin size={14}/> Select City *
+                <MapPin size={14} /> Select City *
               </label>
               <span className="text-xs font-bold text-orange-700 bg-orange-100 border border-orange-200 px-2.5 py-0.5 rounded-full">
                 {getCurrencySymbol('INR')} INR
@@ -1654,10 +1653,10 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                 placeholder={citiesLoading ? 'Loading cities…' : 'Search Rajasthan city'}
                 allowCustom={true}
                 onChange={(nextValue, option) => {
-                  const nextForm = { 
-                    ...formRef.current, 
-                    city_id: nextValue, 
-                    city_other: option?.raw ? '' : nextValue 
+                  const nextForm = {
+                    ...formRef.current,
+                    city_id: nextValue,
+                    city_other: option?.raw ? '' : nextValue
                   }
                   formRef.current = nextForm
                   setForm(nextForm)
@@ -1682,7 +1681,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="label flex items-center gap-2 text-blue-800">
-                  <MapPin size={14}/> State *
+                  <MapPin size={14} /> State *
                 </label>
                 <SearchableSelect
                   options={stateOptions}
@@ -1700,7 +1699,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
               </div>
               <div>
                 <label className="label flex items-center gap-2 text-blue-800">
-                  <MapPin size={14}/> City *
+                  <MapPin size={14} /> City *
                 </label>
                 <SearchableSelect
                   options={cityOptions}
@@ -1711,13 +1710,12 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                     ? 'Select state first'
                     : citiesLoading
                       ? 'Loading cities…'
-                      : 'Type to search city…'}
-                  minQueryLength={1}
+                      : 'Search city'}
                   onChange={(nextValue, option) => {
-                    const nextForm = { 
-                      ...formRef.current, 
-                      city_id: nextValue, 
-                      city_other: option?.raw ? '' : nextValue 
+                    const nextForm = {
+                      ...formRef.current,
+                      city_id: nextValue,
+                      city_other: option?.raw ? '' : nextValue
                     }
                     formRef.current = nextForm
                     setForm(nextForm)
@@ -1736,7 +1734,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
           <div className="mt-5 p-5 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl border border-emerald-100 space-y-3">
             <div className="flex items-center justify-between">
               <label className="label flex items-center gap-2 text-emerald-800 mb-0">
-                <Globe2 size={14}/> Country *
+                <Globe2 size={14} /> Country *
               </label>
               {overseasCurrency && (
                 <span className="text-xs font-bold text-emerald-700 bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 rounded-full transition-all">
@@ -1760,15 +1758,6 @@ export default function MembershipApplicationForm({ prefill = {} }) {
               inputClassName="bg-white border-emerald-200 focus:border-emerald-400 focus:ring-emerald-200"
             />
             <FieldError msg={errors.country_id} />
-            <div>
-              <label className="label flex items-center gap-2 text-emerald-800">City</label>
-              <input
-                className="input bg-white border-emerald-200 focus:border-emerald-400 focus:ring-emerald-200"
-                value={form.overseas_city || ''}
-                onChange={e => set('overseas_city', e.target.value)}
-                placeholder="Enter your city (optional)"
-              />
-            </div>
           </div>
         )}
       </SectionCard>
@@ -1780,51 +1769,51 @@ export default function MembershipApplicationForm({ prefill = {} }) {
   function renderMembershipType() {
     return (
       <>
-      <SectionCard icon={Users} title="Choose Your Wing" desc="Select the FORTI wing you are joining">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" data-field="wing_id">
-          {wings.map(w => {
-            const selected = String(form.wing_id) === String(w.id)
-            return (
-              <button key={w.id} type="button"
-                onClick={() => set('wing_id', String(w.id))}
-                className={`p-4 rounded-xl border-2 text-left transition-all ${selected
-                  ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200'
-                  : 'border-gray-200 hover:border-gray-300'}`}>
-                <p className={`font-bold ${selected ? 'text-primary-700' : 'text-gray-900'}`}>{w.name}</p>
-                {w.description && <p className="text-xs text-gray-500 mt-1">{w.description}</p>}
-              </button>
-            )
-          })}
-        </div>
-        <FieldError msg={errors.wing_id} />
-      </SectionCard>
-      <SectionCard icon={Users} title="Choose Membership Type" desc="Select the type of membership you want">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          {MEMBERSHIP_OPTIONS.map(opt => {
-            const selected = form.membership_type === opt.value
-            return (
-              <button key={opt.value} type="button"
-                onClick={() => set('membership_type', opt.value)}
-                className={`relative p-5 rounded-xl border-2 text-left transition-all duration-200 group
+        <SectionCard icon={Users} title="Choose Your Wing" desc="Select the FORTI wing you are joining">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" data-field="wing_id">
+            {wings.map(w => {
+              const selected = String(form.wing_id) === String(w.id)
+              return (
+                <button key={w.id} type="button"
+                  onClick={() => set('wing_id', String(w.id))}
+                  className={`p-4 rounded-xl border-2 text-left transition-all ${selected
+                    ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200'
+                    : 'border-gray-200 hover:border-gray-300'}`}>
+                  <p className={`font-bold ${selected ? 'text-primary-700' : 'text-gray-900'}`}>{w.name}</p>
+                  {w.description && <p className="text-xs text-gray-500 mt-1">{w.description}</p>}
+                </button>
+              )
+            })}
+          </div>
+          <FieldError msg={errors.wing_id} />
+        </SectionCard>
+        <SectionCard icon={Users} title="Choose Membership Type" desc="Select the type of membership you want">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            {MEMBERSHIP_OPTIONS.map(opt => {
+              const selected = form.membership_type === opt.value
+              return (
+                <button key={opt.value} type="button"
+                  onClick={() => set('membership_type', opt.value)}
+                  className={`relative p-5 rounded-xl border-2 text-left transition-all duration-200 group
                   ${selected
-                    ? 'border-primary-500 bg-gradient-to-br from-primary-50 to-purple-50 ring-2 ring-primary-200 shadow-lg'
-                    : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-md'
-                  }`}>
-                <div className="flex items-center gap-3">
-                  <span className="text-3xl">{opt.icon}</span>
-                  <p className={`font-bold text-lg ${selected ? 'text-primary-700' : 'text-gray-900'}`}>{opt.label}</p>
-                </div>
-                {selected && (
-                  <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-primary-500 flex items-center justify-center shadow">
-                    <CheckCircle size={14} className="text-white"/>
+                      ? 'border-primary-500 bg-gradient-to-br from-primary-50 to-purple-50 ring-2 ring-primary-200 shadow-lg'
+                      : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-md'
+                    }`}>
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl">{opt.icon}</span>
+                    <p className={`font-bold text-lg ${selected ? 'text-primary-700' : 'text-gray-900'}`}>{opt.label}</p>
                   </div>
-                )}
-              </button>
-            )
-          })}
-        </div>
-        <FieldError msg={errors.membership_type} />
-      </SectionCard>
+                  {selected && (
+                    <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-primary-500 flex items-center justify-center shadow">
+                      <CheckCircle size={14} className="text-white" />
+                    </div>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+          <FieldError msg={errors.membership_type} />
+        </SectionCard>
       </>
     )
   }
@@ -1839,7 +1828,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
     const currSymbol = getCurrencySymbol(effectiveCurrency)
     const locale = effectiveCurrency === 'INR' ? 'en-IN'
       : effectiveCurrency === 'JPY' ? 'ja-JP'
-      : 'en-US'
+        : 'en-US'
     const hiddenBenefits = new Set([
       'forti membership certificate',
       'access to member events',
@@ -1855,8 +1844,8 @@ export default function MembershipApplicationForm({ prefill = {} }) {
     const durMonths = pkg?.duration_months ?? 0
     const durationLabel = pkg?.duration === 'lifetime' ? 'Lifetime (valid forever)'
       : durMonths >= 36 ? `${Math.round(durMonths / 12)} Years`
-      : durMonths > 0  ? `${durMonths} months`
-      : PLAN_OPTIONS.find(p => p.value === form.plan_type)?.label || ''
+        : durMonths > 0 ? `${durMonths} months`
+          : PLAN_OPTIONS.find(p => p.value === form.plan_type)?.label || ''
 
     return (
       <SectionCard icon={Package} title="Select Plan Duration" desc="Choose your membership plan">
@@ -1872,17 +1861,17 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                     ? `bg-gradient-to-br ${opt.selectedGradient} ${opt.border} ring-2 ring-offset-1 shadow-lg`
                     : `bg-gradient-to-br ${opt.gradient} border-gray-200 hover:${opt.border} hover:shadow-lg hover:scale-105`
                   }`}>
-                <div className={`w-14 h-14 rounded-2xl mx-auto mb-3 flex items-center justify-center transition-all
+                <div className={`w-14 h-14 mx-auto mb-3 flex items-center justify-center transition-all ${opt.noIconBg ? '' : 'rounded-2xl'}
                   ${selected
-                    ? `bg-gradient-to-br ${opt.iconFrom} ${opt.iconTo} text-white shadow-md`
-                    : `${opt.iconBg} ${opt.iconColor}`}`}>
-                  <Icon size={26}/>
+                    ? (opt.noIconBg ? '' : `bg-gradient-to-br ${opt.iconFrom} ${opt.iconTo} text-white shadow-md`)
+                    : (opt.noIconBg ? '' : `${opt.iconBg} ${opt.iconColor}`)}`}>
+                  <Icon size={26} />
                 </div>
                 <p className={`font-bold text-lg mt-1 ${selected ? 'text-gray-900' : 'text-gray-800'}`}>{opt.label}</p>
                 <p className="text-xs text-gray-500 mt-1.5 leading-snug">{opt.desc}</p>
                 {selected && (
                   <div className="absolute top-2 left-2 w-5 h-5 rounded-full bg-primary-500 flex items-center justify-center shadow">
-                    <CheckCircle size={12} className="text-white"/>
+                    <CheckCircle size={12} className="text-white" />
                   </div>
                 )}
               </button>
@@ -1894,7 +1883,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
         {/* ── Loading state ── */}
         {pkgLoading && (
           <div className="bg-gray-50 border border-gray-200 rounded-xl p-5 flex items-center gap-3 text-gray-500 text-sm mt-2">
-            <Loader2 size={18} className="animate-spin text-primary-500 shrink-0"/>
+            <Loader2 size={18} className="animate-spin text-primary-500 shrink-0" />
             <span>Loading package details…</span>
           </div>
         )}
@@ -1903,7 +1892,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
         {pkgError && !pkgLoading && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 flex items-center gap-3 text-amber-700 mt-2">
             <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-              <AlertCircle size={20} className="text-amber-500"/>
+              <AlertCircle size={20} className="text-amber-500" />
             </div>
             <div>
               <p className="text-sm font-semibold">Package Not Available</p>
@@ -1919,7 +1908,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
             <div className="flex items-start justify-between flex-wrap gap-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center shrink-0">
-                  <Package size={18} className="text-primary-600"/>
+                  <Package size={18} className="text-primary-600" />
                 </div>
                 <div>
                   <p className="text-xs text-primary-500 font-semibold uppercase tracking-widest">Selected Package</p>
@@ -1940,7 +1929,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
             {/* Duration badge */}
             {durationLabel && (
               <div className="flex items-center gap-2 mt-3 pt-3 border-t border-primary-100">
-                <Clock size={14} className="text-primary-500 shrink-0"/>
+                <Clock size={14} className="text-primary-500 shrink-0" />
                 <span className="text-sm text-gray-700">
                   Duration: <span className="font-semibold text-primary-700">{durationLabel}</span>
                 </span>
@@ -1953,7 +1942,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                 <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                   {benefits.map((benefit, idx) => (
                     <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
-                      <CheckCircle size={13} className="text-green-500 mt-0.5 shrink-0"/>
+                      <CheckCircle size={13} className="text-green-500 mt-0.5 shrink-0" />
                       <span>{benefit}</span>
                     </li>
                   ))}
@@ -1971,12 +1960,12 @@ export default function MembershipApplicationForm({ prefill = {} }) {
   /* ─── Step 5: Payment ───────────────────────────────────────────── */
   function renderPayment() {
     const selectedMethod = methods.find(m => String(m.id) === String(form.payment_method))
-    const TYPE_ICONS  = { upi: '📱', bank_transfer: '🏦', international_wire: '🌐', cash: '💵', cheque: '📝', other: '💳' }
+    const TYPE_ICONS = { upi: '📱', bank_transfer: '🏦', international_wire: '🌐', cash: '💵', cheque: '📝', other: '💳' }
     const TYPE_LABELS = { upi: 'UPI', bank_transfer: 'Bank Transfer', international_wire: 'International Wire', cash: 'Cash', cheque: 'Cheque', other: 'Other' }
     const locationLabel = { rajasthan: 'Rajasthan', other_states: 'Other Indian States', overseas: 'Overseas' }[form.location_type] || 'your location'
     const effectiveAmount = fmtAmount(pkg?.price, formCurrency)
-    const isManualMethod  = selectedMethod && ['bank_transfer', 'international_wire', 'cash', 'cheque', 'other'].includes(selectedMethod.type)
-          const step3Locked     = !selectedMethod || (isManualMethod && !paymentConfirmed)
+    const isManualMethod = selectedMethod && ['bank_transfer', 'international_wire', 'cash', 'cheque', 'other'].includes(selectedMethod.type)
+    const step3Locked = !selectedMethod || (isManualMethod && !paymentConfirmed)
 
     // UPI deep-link for dynamic QR generation
     const upiQrValue = selectedMethod?.upi_id
@@ -1991,9 +1980,9 @@ export default function MembershipApplicationForm({ prefill = {} }) {
           <span className="text-xs font-semibold text-gray-400 w-28 shrink-0">{label}</span>
           <span className={`text-sm text-gray-900 font-medium flex-1 select-all ${mono ? 'font-mono' : ''}`}>{value}</span>
           <button type="button"
-            onClick={() => navigator.clipboard.writeText(value).then(() => toast.success(`${label} copied!`)).catch(() => {})}
+            onClick={() => navigator.clipboard.writeText(value).then(() => toast.success(`${label} copied!`)).catch(() => { })}
             className="flex items-center gap-1 text-[11px] font-semibold text-gray-400 hover:text-primary-600 transition opacity-0 group-hover:opacity-100 shrink-0 px-2 py-1 rounded hover:bg-primary-50">
-            <Copy size={11}/> Copy
+            <Copy size={11} /> Copy
           </button>
         </div>
       )
@@ -2009,9 +1998,9 @@ export default function MembershipApplicationForm({ prefill = {} }) {
             <p className="text-[11px] text-indigo-500 mt-0.5">Add this ID in the payment remarks / description</p>
           </div>
           <button type="button"
-            onClick={() => navigator.clipboard.writeText(referenceId).then(() => toast.success('Reference ID copied!')).catch(() => {})}
+            onClick={() => navigator.clipboard.writeText(referenceId).then(() => toast.success('Reference ID copied!')).catch(() => { })}
             className="flex items-center gap-1.5 text-xs font-bold text-white bg-indigo-500 hover:bg-indigo-600 px-3 py-1.5 rounded-lg transition shrink-0">
-            <Copy size={12}/> Copy
+            <Copy size={12} /> Copy
           </button>
         </div>
       )
@@ -2027,18 +2016,18 @@ export default function MembershipApplicationForm({ prefill = {} }) {
             { n: '2', label: 'Make Payment' },
             { n: '3', label: 'Upload Proof' },
           ].map((s, i) => {
-            const done  = (i === 0 && form.payment_method) ||
-                          (i === 1 && form.payment_method && (!isManualMethod || paymentConfirmed)) ||
-                          (i === 2 && form.transaction_id && form.payment_screenshot)
+            const done = (i === 0 && form.payment_method) ||
+              (i === 1 && form.payment_method && (!isManualMethod || paymentConfirmed)) ||
+              (i === 2 && form.transaction_id && form.payment_screenshot)
             const active = (i === 0) || (i === 1 && !!form.payment_method) || (i === 2 && !step3Locked)
             return (
               <div key={s.n} className="flex items-center gap-2 shrink-0">
                 <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors
                   ${done ? 'bg-green-500 text-white' : active ? 'bg-primary-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
-                  {done ? <CheckCircle size={14}/> : s.n}
+                  {done ? <CheckCircle size={14} /> : s.n}
                 </div>
                 <span className={`text-xs font-medium ${active ? 'text-gray-800' : 'text-gray-400'}`}>{s.label}</span>
-                {i < 2 && <ChevronRight size={14} className="text-gray-300 ml-1"/>}
+                {i < 2 && <ChevronRight size={14} className="text-gray-300 ml-1" />}
               </div>
             )
           })}
@@ -2060,7 +2049,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
 
           {methodsLoading ? (
             <div className="flex items-center gap-3 text-gray-400 text-sm py-4">
-              <Loader2 size={18} className="animate-spin text-primary-500"/>Loading payment methods…
+              <Loader2 size={18} className="animate-spin text-primary-500" />Loading payment methods…
             </div>
           ) : methods.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2082,7 +2071,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                       <p className={`font-semibold text-sm ${selected ? 'text-primary-700' : 'text-gray-900'}`}>{m.name}</p>
                       <p className="text-xs text-gray-500">{TYPE_LABELS[m.type] || m.type}</p>
                     </div>
-                    {selected && <CheckCircle size={16} className="text-primary-500 shrink-0"/>}
+                    {selected && <CheckCircle size={16} className="text-primary-500 shrink-0" />}
                   </button>
                 )
               })}
@@ -2131,7 +2120,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                         />
                       ) : (
                         <div className="p-3 bg-white rounded-xl border border-indigo-100 shadow-sm">
-                          <QRCodeSVG value={upiQrValue} size={192} level="M" includeMargin={true}/>
+                          <QRCodeSVG value={upiQrValue} size={192} level="M" includeMargin={true} />
                         </div>
                       )}
                       <p className="text-sm font-bold text-indigo-700">📲 Scan to Pay</p>
@@ -2151,9 +2140,9 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                       <div className="flex items-center gap-2 bg-white border border-indigo-200 rounded-xl px-4 py-3 shadow-sm">
                         <span className="text-base font-mono font-bold text-indigo-900 flex-1 select-all">{selectedMethod.upi_id}</span>
                         <button type="button"
-                          onClick={() => navigator.clipboard.writeText(selectedMethod.upi_id).then(() => toast.success('UPI ID copied!')).catch(() => {})}
+                          onClick={() => navigator.clipboard.writeText(selectedMethod.upi_id).then(() => toast.success('UPI ID copied!')).catch(() => { })}
                           className="flex items-center gap-1.5 text-xs font-bold text-white bg-indigo-500 hover:bg-indigo-600 px-3 py-1.5 rounded-lg transition shrink-0">
-                          <Copy size={12}/> Copy
+                          <Copy size={12} /> Copy
                         </button>
                       </div>
                     </div>
@@ -2165,19 +2154,19 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                     {showInstructions ? 'Hide Instructions' : 'View Payment Instructions'}
                   </button>
                   {showInstructions && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-2.5">
-                    <AlertCircle size={14} className="text-amber-500 mt-0.5 shrink-0"/>
-                    <div>
-                      <p className="text-xs font-bold text-amber-800">How to pay via UPI</p>
-                      <ol className="text-xs text-amber-700 mt-1 space-y-0.5 list-decimal list-inside">
-                        <li>Open your UPI app (PhonePe, GPay, Paytm, etc.)</li>
-                        <li>Scan the QR code above OR enter the UPI ID</li>
-                        <li>Enter amount: <strong>{effectiveAmount}</strong></li>
-                        <li>Complete the payment &amp; take a screenshot</li>
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-2.5">
+                      <AlertCircle size={14} className="text-amber-500 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs font-bold text-amber-800">How to pay via UPI</p>
+                        <ol className="text-xs text-amber-700 mt-1 space-y-0.5 list-decimal list-inside">
+                          <li>Open your UPI app (PhonePe, GPay, Paytm, etc.)</li>
+                          <li>Scan the QR code above OR enter the UPI ID</li>
+                          <li>Enter amount: <strong>{effectiveAmount}</strong></li>
+                          <li>Complete the payment &amp; take a screenshot</li>
                           <li>Upload your payment confirmation below</li>
-                      </ol>
+                        </ol>
+                      </div>
                     </div>
-                  </div>
                   )}
                 </div>
               )}
@@ -2190,20 +2179,20 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                   </p>
 
                   <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-start gap-2">
-                    <Shield size={14} className="text-blue-500 mt-0.5 shrink-0"/>
+                    <Shield size={14} className="text-blue-500 mt-0.5 shrink-0" />
                     <p className="text-xs text-blue-700">
                       <strong>Manual Payment:</strong> Your payment will be verified by admin within 1–2 business days after submission.
                     </p>
                   </div>
 
-                  <ReferenceIdCard/>
+                  <ReferenceIdCard />
 
                   <div className="bg-white rounded-xl border border-blue-100 shadow-sm overflow-hidden divide-y divide-gray-50">
-                    <CopyRow label="Account Name"  value={selectedMethod.account_name}   mono={false}/>
-                    <CopyRow label="Bank Name"      value={selectedMethod.bank_name}      mono={false}/>
-                    <CopyRow label="Account No."    value={selectedMethod.account_number} mono={true}/>
-                    <CopyRow label="IFSC Code"      value={selectedMethod.ifsc_code}      mono={true}/>
-                    {selectedMethod.upi_id && <CopyRow label="UPI ID" value={selectedMethod.upi_id} mono={true}/>}
+                    <CopyRow label="Account Name" value={selectedMethod.account_name} mono={false} />
+                    <CopyRow label="Bank Name" value={selectedMethod.bank_name} mono={false} />
+                    <CopyRow label="Account No." value={selectedMethod.account_number} mono={true} />
+                    <CopyRow label="IFSC Code" value={selectedMethod.ifsc_code} mono={true} />
+                    {selectedMethod.upi_id && <CopyRow label="UPI ID" value={selectedMethod.upi_id} mono={true} />}
                   </div>
 
                   <button type="button"
@@ -2212,12 +2201,12 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                     {showInstructions ? 'Hide Instructions' : 'View Payment Instructions'}
                   </button>
                   {showInstructions && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-2.5">
-                    <AlertCircle size={14} className="text-amber-500 mt-0.5 shrink-0"/>
-                    <p className="text-xs text-amber-700">
-                      <strong>Important:</strong> Transfer exactly <strong>{effectiveAmount}</strong> and include <strong>{referenceId}</strong> in the payment remarks / narration. Upload your receipt below after transfer.
-                    </p>
-                  </div>
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-2.5">
+                      <AlertCircle size={14} className="text-amber-500 mt-0.5 shrink-0" />
+                      <p className="text-xs text-amber-700">
+                        <strong>Important:</strong> Transfer exactly <strong>{effectiveAmount}</strong> and include <strong>{referenceId}</strong> in the payment remarks / narration. Upload your receipt below after transfer.
+                      </p>
+                    </div>
                   )}
                 </div>
               )}
@@ -2230,22 +2219,22 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                   </p>
 
                   <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex items-start gap-2">
-                    <Shield size={14} className="text-emerald-500 mt-0.5 shrink-0"/>
+                    <Shield size={14} className="text-emerald-500 mt-0.5 shrink-0" />
                     <p className="text-xs text-emerald-700">
                       <strong>Manual Payment:</strong> Use the following details to complete your international transfer. Your payment will be verified by admin after submission.
                     </p>
                   </div>
 
-                  <ReferenceIdCard/>
+                  <ReferenceIdCard />
 
                   <div className="bg-white rounded-xl border border-emerald-100 shadow-sm overflow-hidden divide-y divide-gray-50">
-                    <CopyRow label="Account Name"  value={selectedMethod.account_name}   mono={false}/>
-                    <CopyRow label="Bank Name"      value={selectedMethod.bank_name}      mono={false}/>
-                    <CopyRow label="Account No."    value={selectedMethod.account_number} mono={true}/>
-                    <CopyRow label="SWIFT / BIC"    value={selectedMethod.swift_code}     mono={true}/>
-                    {selectedMethod.iban && <CopyRow label="IBAN" value={selectedMethod.iban} mono={true}/>}
-                    {selectedMethod.ifsc_code && <CopyRow label="IFSC" value={selectedMethod.ifsc_code} mono={true}/>}
-                    {selectedMethod.bank_address && <CopyRow label="Bank Address" value={selectedMethod.bank_address} mono={false}/>}
+                    <CopyRow label="Account Name" value={selectedMethod.account_name} mono={false} />
+                    <CopyRow label="Bank Name" value={selectedMethod.bank_name} mono={false} />
+                    <CopyRow label="Account No." value={selectedMethod.account_number} mono={true} />
+                    <CopyRow label="SWIFT / BIC" value={selectedMethod.swift_code} mono={true} />
+                    {selectedMethod.iban && <CopyRow label="IBAN" value={selectedMethod.iban} mono={true} />}
+                    {selectedMethod.ifsc_code && <CopyRow label="IFSC" value={selectedMethod.ifsc_code} mono={true} />}
+                    {selectedMethod.bank_address && <CopyRow label="Bank Address" value={selectedMethod.bank_address} mono={false} />}
                   </div>
 
                   <button type="button"
@@ -2254,23 +2243,23 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                     {showInstructions ? 'Hide Instructions' : 'View Payment Instructions'}
                   </button>
                   {showInstructions && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-2.5">
-                    <AlertCircle size={14} className="text-amber-500 mt-0.5 shrink-0"/>
-                    <div>
-                      <p className="text-xs font-bold text-amber-800">How to complete International Wire</p>
-                      <ol className="text-xs text-amber-700 mt-1 space-y-0.5 list-decimal list-inside">
-                        <li>Log in to your bank’s international transfer / SWIFT portal</li>
-                        <li>Add beneficiary using the details above</li>
-                        <li>Transfer exactly <strong>{effectiveAmount}</strong> (send bank charges separately)</li>
-                        <li>Add <strong>{referenceId}</strong> in the transfer note / description</li>
-                        <li>Note the SWIFT / Reference ID provided by your bank</li>
-                        <li>Click <em>“I have completed payment”</em> below, then upload confirmation</li>
-                      </ol>
-                      <p className="text-[11px] text-amber-600 font-semibold mt-2 flex items-center gap-1">
-                        <AlertCircle size={11}/> Bank charges may apply. Transfer the exact membership amount — charges must be borne by sender.
-                      </p>
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-2.5">
+                      <AlertCircle size={14} className="text-amber-500 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs font-bold text-amber-800">How to complete International Wire</p>
+                        <ol className="text-xs text-amber-700 mt-1 space-y-0.5 list-decimal list-inside">
+                          <li>Log in to your bank’s international transfer / SWIFT portal</li>
+                          <li>Add beneficiary using the details above</li>
+                          <li>Transfer exactly <strong>{effectiveAmount}</strong> (send bank charges separately)</li>
+                          <li>Add <strong>{referenceId}</strong> in the transfer note / description</li>
+                          <li>Note the SWIFT / Reference ID provided by your bank</li>
+                          <li>Click <em>“I have completed payment”</em> below, then upload confirmation</li>
+                        </ol>
+                        <p className="text-[11px] text-amber-600 font-semibold mt-2 flex items-center gap-1">
+                          <AlertCircle size={11} /> Bank charges may apply. Transfer the exact membership amount — charges must be borne by sender.
+                        </p>
+                      </div>
                     </div>
-                  </div>
                   )}
                 </div>
               )}
@@ -2282,17 +2271,17 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                     {TYPE_ICONS[selectedMethod.type]} {TYPE_LABELS[selectedMethod.type]} Payment
                   </p>
                   <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-start gap-2">
-                    <Shield size={14} className="text-blue-500 mt-0.5 shrink-0"/>
+                    <Shield size={14} className="text-blue-500 mt-0.5 shrink-0" />
                     <p className="text-xs text-blue-700">
                       <strong>Manual Payment:</strong> Your payment will be verified by admin after submission.
                     </p>
                   </div>
-                  <ReferenceIdCard/>
+                  <ReferenceIdCard />
                   {(selectedMethod.bank_name || selectedMethod.account_name || selectedMethod.account_number) && (
                     <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-50">
-                      <CopyRow label="Account Name"  value={selectedMethod.account_name}   mono={false}/>
-                      <CopyRow label="Bank Name"      value={selectedMethod.bank_name}      mono={false}/>
-                      <CopyRow label="Account No."    value={selectedMethod.account_number} mono={true}/>
+                      <CopyRow label="Account Name" value={selectedMethod.account_name} mono={false} />
+                      <CopyRow label="Bank Name" value={selectedMethod.bank_name} mono={false} />
+                      <CopyRow label="Account No." value={selectedMethod.account_number} mono={true} />
                     </div>
                   )}
                 </div>
@@ -2305,9 +2294,9 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                   <button type="button"
                     onClick={() => setPaymentConfirmed(true)}
                     className="inline-flex items-center gap-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold text-sm px-7 py-3 rounded-xl shadow-lg shadow-green-200 hover:shadow-green-300 transition-all duration-200">
-                    <CheckCircle size={16}/> I have completed payment
+                    <CheckCircle size={16} /> I have completed payment
                   </button>
-                  <FieldError msg={errors.payment_confirmed}/>
+                  <FieldError msg={errors.payment_confirmed} />
                 </div>
               )}
 
@@ -2315,7 +2304,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
               {isManualMethod && paymentConfirmed && (
                 <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center shrink-0">
-                    <CheckCircle size={16} className="text-white"/>
+                    <CheckCircle size={16} className="text-white" />
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-bold text-green-800">Payment Confirmed!</p>
@@ -2330,9 +2319,9 @@ export default function MembershipApplicationForm({ prefill = {} }) {
 
             {/* Divider with arrow pointing down */}
             <div className="flex items-center gap-3 px-5 py-2 bg-white border-t border-b border-primary-100">
-              <div className="h-px flex-1 bg-primary-100"/>
+              <div className="h-px flex-1 bg-primary-100" />
               <span className="text-xs text-primary-500 font-semibold">After paying, complete Step 3 below ↓</span>
-              <div className="h-px flex-1 bg-primary-100"/>
+              <div className="h-px flex-1 bg-primary-100" />
             </div>
           </div>
         )}
@@ -2344,7 +2333,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
             <p className="text-sm font-bold text-gray-800 flex items-center gap-2">
               <span className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center shrink-0
                 ${form.payment_screenshot ? 'bg-green-500 text-white' : 'bg-primary-500 text-white'}`}>
-                {form.payment_screenshot ? <CheckCircle size={14}/> : '3'}
+                {form.payment_screenshot ? <CheckCircle size={14} /> : '3'}
               </span>
               Upload Payment Proof
               {step3Locked && (
@@ -2363,22 +2352,22 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                   onChange={e => handleFile('payment_screenshot', e.target.files[0], setSsPreview)} />
                 {ssPreview ? (
                   <div className="flex items-center gap-3 bg-green-50 rounded-lg p-3 border border-green-200">
-                    <img src={ssPreview} alt="Screenshot" className="h-12 w-12 object-cover rounded-lg border border-green-200"/>
+                    <img src={ssPreview} alt="Screenshot" className="h-12 w-12 object-cover rounded-lg border border-green-200" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-green-700 font-semibold flex items-center gap-1"><CheckCircle size={11}/>Screenshot uploaded</p>
+                      <p className="text-xs text-green-700 font-semibold flex items-center gap-1"><CheckCircle size={11} />Screenshot uploaded</p>
                       <p className="text-[11px] text-gray-400 truncate">Tap Replace to change</p>
                     </div>
                     <button type="button" className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded border border-gray-200 hover:bg-gray-50 transition"
                       onClick={() => ssRef.current?.click()}>Replace</button>
                     <button type="button" className="text-red-400 hover:text-red-600 transition"
                       onClick={() => clearFile('payment_screenshot', setSsPreview)}>
-                      <Trash2 size={14}/>
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 ) : (
                   <div className="border-2 border-dashed border-gray-300 bg-gray-50 rounded-xl p-5 flex flex-col items-center gap-2 cursor-pointer hover:border-primary-400 hover:bg-primary-50 transition"
                     onClick={() => ssRef.current?.click()}>
-                    <Upload size={22} className="text-gray-400"/>
+                    <Upload size={22} className="text-gray-400" />
                     <span className="text-sm text-gray-500 font-medium">Upload payment receipt / screenshot</span>
                     <span className="text-[11px] text-gray-400">JPG, PNG, PDF – max 5 MB</span>
                   </div>
@@ -2395,7 +2384,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                   target="_blank"
                   rel="noreferrer"
                   className="text-[#25D366] font-semibold hover:underline inline-flex items-center gap-1">
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3 shrink-0"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3 shrink-0"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
                   Chat on WhatsApp
                 </a>
               </p>
@@ -2418,9 +2407,9 @@ export default function MembershipApplicationForm({ prefill = {} }) {
           <div className="relative max-w-sm w-full" onClick={e => e.stopPropagation()}>
             <button type="button" onClick={() => setPhotoZoom(false)}
               className="absolute -top-3 -right-3 bg-white rounded-full p-1.5 shadow-lg hover:bg-gray-100 z-10 transition">
-              <X size={18} className="text-gray-600"/>
+              <X size={18} className="text-gray-600" />
             </button>
-            <img src={profilePreview} alt="Profile Photo" className="w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl bg-white"/>
+            <img src={profilePreview} alt="Profile Photo" className="w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl bg-white" />
             <div className="mt-3 flex justify-center">
               <button type="button" onClick={() => { setPhotoZoom(false); profileRef.current?.click() }}
                 className="text-xs bg-white/90 hover:bg-white text-gray-700 font-semibold px-4 py-2 rounded-xl shadow transition">
@@ -2436,17 +2425,17 @@ export default function MembershipApplicationForm({ prefill = {} }) {
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-2xl overflow-hidden w-full max-w-sm shadow-2xl">
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-              <h3 className="font-semibold text-gray-800 flex items-center gap-2"><Camera size={16}/> Take Photo</h3>
-              <button type="button" onClick={closeCameraModal} className="text-gray-400 hover:text-gray-600 transition"><X size={18}/></button>
+              <h3 className="font-semibold text-gray-800 flex items-center gap-2"><Camera size={16} /> Take Photo</h3>
+              <button type="button" onClick={closeCameraModal} className="text-gray-400 hover:text-gray-600 transition"><X size={18} /></button>
             </div>
             <div className="bg-black">
               <video ref={videoRef} autoPlay playsInline muted className="w-full aspect-[4/3] object-cover" />
             </div>
-            <canvas ref={canvasRef} className="hidden"/>
+            <canvas ref={canvasRef} className="hidden" />
             <div className="p-4 flex gap-3">
               <button type="button" onClick={capturePhoto}
                 className="flex-1 bg-primary-600 hover:bg-primary-700 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 transition">
-                <Camera size={16}/> Capture
+                <Camera size={16} /> Capture
               </button>
               <button type="button" onClick={closeCameraModal}
                 className="px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
@@ -2462,7 +2451,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
 
       {errors._global && (
         <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2 text-red-700 text-sm">
-          <AlertCircle size={16}/>{errors._global}
+          <AlertCircle size={16} />{errors._global}
         </div>
       )}
 
@@ -2470,7 +2459,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
         {step > 0 ? (
           <button type="button" onClick={handleBack}
             className="btn-outline flex items-center gap-2 text-gray-600 hover:bg-gray-50">
-            <ChevronLeft size={16}/> Back
+            <ChevronLeft size={16} /> Back
           </button>
         ) : (
           <button type="button" onClick={() => navigate('/')} className="btn-outline text-gray-500 hover:bg-gray-50">
@@ -2482,15 +2471,15 @@ export default function MembershipApplicationForm({ prefill = {} }) {
           <button type="button" onClick={handleNext} disabled={submitting}
             className="btn-primary flex items-center gap-2 shadow-md shadow-primary-200 hover:shadow-lg disabled:opacity-60 disabled:shadow-none"
             aria-disabled={submitting}>
-            Save & Next <ChevronRight size={16}/>
+            Save & Next <ChevronRight size={16} />
           </button>
         ) : (
           <button type="button" onClick={handleSubmit} disabled={submitting || !isStepComplete(4)}
             className="btn-primary btn-lg flex items-center gap-2 disabled:opacity-60 shadow-md shadow-primary-200 hover:shadow-lg"
             aria-disabled={submitting || !isStepComplete(4)}>
             {submitting
-              ? <><Loader2 size={16} className="animate-spin"/>Submitting…</>
-              : <><CheckCircle size={16}/>Submit Application</>}
+              ? <><Loader2 size={16} className="animate-spin" />Submitting…</>
+              : <><CheckCircle size={16} />Submit Application</>}
           </button>
         )}
       </div>

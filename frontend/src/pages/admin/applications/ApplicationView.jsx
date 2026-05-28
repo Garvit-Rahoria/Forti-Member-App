@@ -292,7 +292,9 @@ export default function ApplicationView() {
         const a = document.createElement('a')
         a.href = url
         a.download = `invoice-${data.invoice_number || data.id}.pdf`
+        document.body.appendChild(a)
         a.click()
+        document.body.removeChild(a)
         window.URL.revokeObjectURL(url)
       } catch { toast.error('Download failed') }
     },

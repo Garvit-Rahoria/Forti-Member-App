@@ -241,15 +241,19 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
 
     // ── STRICT: No approval without payment verified (all roles) ──
     if (status === 'approved') {
-      // Submission status is the authoritative source — if it's payment_verified, allow approval
-      if (!['payment_verified'].includes(sub.status)) {
-        return fail(res, 'Action not allowed. Complete previous steps first.', 422);
-      }
-      // Also check portal_payments table, but auto-sync it if submission is already payment_verified
       const [[pmt]] = await pool.query(
         'SELECT id, status FROM portal_payments WHERE submission_id=? ORDER BY id DESC LIMIT 1',
         [req.params.id]
       );
+      
+      const isPaymentVerified = ['payment_verified'].includes(sub.status) || 
+                                sub.payment_status === 'verified' || 
+                                (pmt && pmt.status === 'verified');
+
+      if (!isPaymentVerified) {
+        return fail(res, 'Action not allowed. Complete previous steps first (Payment must be verified).', 422);
+      }
+      
       if (!pmt) {
         // No payment record yet — create a minimal verified stub so downstream logic works
         const { v4: uuidv4 } = require('uuid');

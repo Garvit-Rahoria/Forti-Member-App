@@ -11,18 +11,20 @@ import toast from 'react-hot-toast'
 const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
 
 async function downloadWithAuth(url, filename) {
-  const token = sessionStorage.getItem('forti_token')
-  if (!token) throw new Error('No token provided')
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.message || `Download failed (${res.status})`)
+  try {
+    const res = await api.get(url, { responseType: 'blob' })
+    const blob = new Blob([res.data], { type: 'application/pdf' })
+    const blobUrl = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = blobUrl
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(blobUrl)
+  } catch (err) {
+    throw new Error(err.response?.data?.message || 'Download failed')
   }
-  const blob = await res.blob()
-  const blobUrl = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = blobUrl; a.download = filename; a.click()
-  URL.revokeObjectURL(blobUrl)
 }
 
 function durationLabel(row) {
@@ -309,7 +311,7 @@ export default function MembersList() {
     setCertLoading(row.id)
     try {
       await downloadWithAuth(
-        `${API_BASE}/api/certificates/${row.id}`,
+        `/certificates/${row.id}`,
         `certificate_${row.membership_id || row.id}.pdf`,
       )
       toast.success('Certificate downloaded')
@@ -324,7 +326,7 @@ export default function MembersList() {
       const invId = res.data.data?.id
       if (!invId) throw new Error('Invoice ID not returned')
       await downloadWithAuth(
-        `${API_BASE}/api/invoices/${invId}/download`,
+        `/invoices/${invId}/download`,
         `invoice_${row.membership_id || row.id}.pdf`,
       )
       toast.success('Invoice downloaded')
@@ -334,7 +336,7 @@ export default function MembersList() {
 
   async function handleExportCsv() {
     try {
-      await downloadWithAuth(`${API_BASE}/api/reports/export/members`, 'members.csv')
+      await downloadWithAuth(`/reports/export/members`, 'members.csv')
       toast.success('CSV downloaded')
     } catch (err) {
       toast.error(err.message || 'Export failed')

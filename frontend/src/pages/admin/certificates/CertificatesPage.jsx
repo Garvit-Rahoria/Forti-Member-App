@@ -7,13 +7,21 @@ import toast from 'react-hot-toast'
 const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
 
 function downloadFile(url, filename) {
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.target = '_blank'
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
+  api.get(url, { responseType: 'blob' })
+    .then(resp => {
+      const blobUrl = window.URL.createObjectURL(new Blob([resp.data], { type: 'application/pdf' }))
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(blobUrl)
+    })
+    .catch(err => {
+      console.error(err)
+      toast.error('Download failed. Ensure payment is verified.')
+    })
 }
 
 export default function CertificatesPage() {
@@ -30,8 +38,8 @@ export default function CertificatesPage() {
   const totalPages = data?.totalPages || 1
   const total = data?.total || 0
 
-  const genCert = (m) => downloadFile(`${API_BASE}/api/certificates/${m.id}`, `certificate-${m.membership_id || m.id}.pdf`)
-  const genCard = (m) => downloadFile(`${API_BASE}/api/certificates/card/${m.id}`, `idcard-${m.membership_id || m.id}.pdf`)
+  const genCert = (m) => downloadFile(`/certificates/${m.id}`, `certificate-${m.membership_id || m.id}.pdf`)
+  const genCard = (m) => downloadFile(`/certificates/card/${m.id}`, `idcard-${m.membership_id || m.id}.pdf`)
 
   return (
     <div className="space-y-5">

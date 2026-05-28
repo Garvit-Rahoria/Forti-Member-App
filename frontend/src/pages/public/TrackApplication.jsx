@@ -144,13 +144,13 @@ export default function TrackApplication() {
                   <p className="text-base font-bold text-gray-800 font-mono">{result.membership_id}</p>
                 </div>
                 <span className={`text-xs font-semibold px-3 py-1 rounded-full capitalize ${
-                  result.member_status === 'active'
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : result.status === 'rejected'
+                  result.status === 'rejected'
                     ? 'bg-red-100 text-red-600'
+                    : ['payment_verified', 'approved', 'active'].includes(steps[lastIdx]?.key)
+                    ? 'bg-emerald-100 text-emerald-700'
                     : 'bg-amber-100 text-amber-700'
                 }`}>
-                  {result.member_status === 'active' ? 'Active' : String(result.status || '').replace(/_/g, ' ')}
+                  {result.status === 'rejected' ? 'Rejected' : (steps[lastIdx]?.label || 'Submitted')}
                 </span>
               </div>
 

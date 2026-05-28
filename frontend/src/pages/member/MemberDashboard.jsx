@@ -698,21 +698,16 @@ function DocumentsTab({ member, apiClient }) {
   async function download(type, uuid) {
     setDownloading(d => ({ ...d, [type]: true }))
     try {
-      const token = localStorage.getItem('forti_member_token')
-      const url = `/api/member/${type}/${uuid}/download`
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}))
-        throw new Error(j.message || 'File not available')
-      }
-      const blob = await res.blob()
+      const url = `/member/${type}/${uuid}/download`
+      const res = await apiClient().get(url, { responseType: 'blob' })
+      const blob = new Blob([res.data], { type: 'application/pdf' })
       const link = document.createElement('a')
       link.href = URL.createObjectURL(blob)
       link.download = `FORTI_${type}_${uuid}.pdf`
       link.click()
       URL.revokeObjectURL(link.href)
     } catch (err) {
-      alert(err.message || 'Download failed')
+      alert(err.response?.data?.message || 'Download failed')
     } finally {
       setDownloading(d => ({ ...d, [type]: false }))
     }
@@ -812,22 +807,15 @@ function PaymentsTab({ apiClient }) {
   async function downloadInvoice(submissionUuid, membershipId) {
     setDlState(s => ({ ...s, [submissionUuid]: true }))
     try {
-      const token = localStorage.getItem('forti_member_token')
-      const res = await fetch(`/api/member/invoice/${submissionUuid}/download`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}))
-        throw new Error(j.message || 'Invoice not available yet')
-      }
-      const blob = await res.blob()
+      const res = await apiClient().get(`/member/invoice/${submissionUuid}/download`, { responseType: 'blob' })
+      const blob = new Blob([res.data], { type: 'application/pdf' })
       const link = document.createElement('a')
       link.href = URL.createObjectURL(blob)
       link.download = `FORTI_Invoice_${membershipId || submissionUuid}.pdf`
       link.click()
       URL.revokeObjectURL(link.href)
     } catch (err) {
-      alert(err.message || 'Invoice download failed')
+      alert(err.response?.data?.message || 'Invoice download failed')
     } finally {
       setDlState(s => ({ ...s, [submissionUuid]: false }))
     }

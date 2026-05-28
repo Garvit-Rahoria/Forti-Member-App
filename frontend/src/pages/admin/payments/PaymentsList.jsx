@@ -769,13 +769,8 @@ function TransactionsTab() {
       const res = await api.post(`/invoices/member/${row.submission_id}/generate`, { payment_id: row.id })
       const invId = res.data.data?.id
       if (!invId) { toast.error('Invoice ID not returned'); return }
-      // Download with auth token so the protected PDF route works
-      const token = sessionStorage.getItem('forti_token')
-      const resp = await fetch(`${API_BASE}/api/invoices/${invId}/download`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (!resp.ok) throw new Error('Download failed')
-      const blob = await resp.blob()
+      const resp = await api.get(`/invoices/${invId}/download`, { responseType: 'blob' })
+      const blob = new Blob([resp.data], { type: 'application/pdf' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
