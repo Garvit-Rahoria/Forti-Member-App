@@ -1,24 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import {
-  Globe, Link2, Plus, Trash2, Loader2, CheckCircle, Image, Youtube,
-  GripVertical, ExternalLink, Upload,
-} from 'lucide-react'
+import { Globe, Loader2, Upload, ExternalLink, Image as ImageIcon } from 'lucide-react'
 import { assetUrl } from '../../utils/assetUrl'
 import toast from 'react-hot-toast'
-
-const LINK_TYPES = [
-  { value: 'custom', label: 'Custom link' },
-  { value: 'youtube', label: 'YouTube video' },
-  { value: 'photo', label: 'Photo' },
-  { value: 'about_me', label: 'About (inline)' },
-  { value: 'my_org', label: 'My organisation' },
-  { value: 'org_history', label: 'History' },
-]
+import LinktreeManager from './LinktreeManager'
+import MobilePreview from './MobilePreview'
 
 export default function MemberPublicProfileSection({ apiClient }) {
   const qc = useQueryClient()
-  const [linkDraft, setLinkDraft] = useState({ link_type: 'custom', title: '', url: '', content: '' })
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['member-public-profile'],
@@ -31,9 +20,10 @@ export default function MemberPublicProfileSection({ apiClient }) {
     about_me: '',
     my_org: '',
     org_history: '',
-    show_email: false,
-    show_phone: false,
     theme_color: '#6C3EAB',
+    text_color: '#000000',
+    background_style: 'solid',
+    button_style: 'rounded',
     public_slug: '',
   })
 
@@ -46,16 +36,17 @@ export default function MemberPublicProfileSection({ apiClient }) {
       about_me: p.about_me || '',
       my_org: p.my_org || '',
       org_history: p.org_history || '',
-      show_email: !!p.show_email,
-      show_phone: !!p.show_phone,
       theme_color: p.theme_color || '#6C3EAB',
+      text_color: p.text_color || '#000000',
+      background_style: p.background_style || 'solid',
+      button_style: p.button_style || 'rounded',
       public_slug: p.public_slug || '',
     })
   }, [data])
 
   const saveMut = useMutation({
     mutationFn: () => apiClient().put('/member/public-profile', form),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['member-public-profile'] }); toast.success('Public profile saved') },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['member-public-profile'] }); toast.success('Profile saved') },
     onError: e => toast.error(e.response?.data?.message || 'Save failed'),
   })
 
@@ -69,163 +60,211 @@ export default function MemberPublicProfileSection({ apiClient }) {
     onError: () => toast.error('Upload failed'),
   })
 
-  const addLinkMut = useMutation({
-    mutationFn: () => apiClient().post('/member/public-profile/links', linkDraft),
-    onSuccess: () => {
-      refetch()
-      setLinkDraft({ link_type: 'custom', title: '', url: '', content: '' })
-      toast.success('Link added')
-    },
-    onError: e => toast.error(e.response?.data?.message || 'Failed'),
-  })
+  const handleBlurSave = () => {
+    saveMut.mutate()
+  }
 
-  const delLinkMut = useMutation({
-    mutationFn: id => apiClient().delete(`/member/public-profile/links/${id}`),
-    onSuccess: () => { refetch(); toast.success('Removed') },
-  })
-
-  async function uploadLinkMedia(linkId, file) {
-    const fd = new FormData()
-    fd.append('media', file)
-    try {
-      await apiClient().post(`/member/public-profile/links/${linkId}/media`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-      refetch()
-      toast.success('Media uploaded')
-    } catch {
-      toast.error('Upload failed')
-    }
+  const handleColorChange = (key, value) => {
+    setForm(f => ({ ...f, [key]: value }))
+    clearTimeout(window.colorSaveTimeout)
+    window.colorSaveTimeout = setTimeout(() => {
+      saveMut.mutate()
+    }, 1000)
   }
 
   if (isLoading) {
-    return <div className="card p-8 flex justify-center"><Loader2 className="animate-spin text-primary-500" /></div>
+    return <div className="p-8 flex justify-center"><Loader2 className="animate-spin text-[#8b3dff]" /></div>
   }
 
   const publicUrl = data?.public_url || (form.public_slug ? `/m/${form.public_slug}` : null)
   const photo = data?.profile?.profile_photo_path
 
   return (
-    <div className="space-y-6">
-      <div className="card overflow-hidden">
-        <div className="h-2" style={{ background: form.theme_color }} />
-        <div className="card-header flex flex-wrap items-center justify-between gap-2">
-          <h3 className="font-semibold text-gray-900 flex items-center gap-2"><Globe size={17} /> Public profile page</h3>
-          {publicUrl && form.is_public && (
-            <a href={publicUrl} target="_blank" rel="noreferrer" className="text-sm text-primary-600 flex items-center gap-1 hover:underline">
-              <ExternalLink size={14} /> Preview
-            </a>
-          )}
+    <div className="flex flex-col lg:flex-row gap-8 items-start w-full mx-auto pb-20">
+      
+      {/* Left Column: Editor */}
+      <div className="flex-1 space-y-6 w-full">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between pb-2">
+          <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Profile</h2>
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-full shadow-sm border border-gray-100">
+              <span className="text-sm font-semibold text-gray-700">Public visibility</span>
+              <div className="relative inline-flex items-center">
+                <input 
+                  type="checkbox" 
+                  className="sr-only peer" 
+                  checked={form.is_public} 
+                  onChange={e => {
+                    setForm(f => ({ ...f, is_public: e.target.checked }))
+                    setTimeout(() => saveMut.mutate(), 0)
+                  }} 
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+              </div>
+            </label>
+            {publicUrl && form.is_public && (
+              <a href={publicUrl} target="_blank" rel="noreferrer" className="text-sm font-semibold text-[#8b3dff] flex items-center gap-1 hover:underline">
+                <ExternalLink size={16} /> View live
+              </a>
+            )}
+          </div>
         </div>
-        <div className="card-body space-y-5">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="relative">
+
+        {/* Profile Details Block */}
+        <div className="bg-white rounded-[24px] p-6 shadow-sm border border-gray-100 space-y-6">
+          <div className="flex items-center gap-6">
+            <div className="relative shrink-0">
               {photo ? (
-                <img src={assetUrl(photo)} alt="" className="w-20 h-20 rounded-2xl object-cover border-2 border-gray-100" />
+                <img src={assetUrl(photo)} alt="" className="w-24 h-24 rounded-full object-cover border border-gray-100 shadow-sm" />
               ) : (
-                <div className="w-20 h-20 rounded-2xl bg-primary-100 flex items-center justify-center text-primary-700 font-bold text-2xl">?</div>
+                <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 font-bold text-3xl border border-gray-100 shadow-sm">?</div>
               )}
-              <label className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-primary-600 text-white flex items-center justify-center cursor-pointer shadow-lg hover:bg-primary-700">
+              <label className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-[#8b3dff] text-white flex items-center justify-center cursor-pointer shadow-md hover:bg-[#722ce0] transition-colors">
                 <Upload size={14} />
                 <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && photoMut.mutate(e.target.files[0])} />
               </label>
             </div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={form.is_public} onChange={e => setForm(f => ({ ...f, is_public: e.target.checked }))} className="w-4 h-4 accent-primary-600" />
-              <span className="text-sm font-medium">Make my profile public</span>
-            </label>
+            <div className="flex-1 space-y-4">
+               <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Profile Title</label>
+                  <input 
+                    className="w-full bg-gray-50 border-none rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-[#8b3dff]/20 font-medium" 
+                    value={form.headline} 
+                    onChange={e => setForm(f => ({ ...f, headline: e.target.value }))} 
+                    onBlur={handleBlurSave}
+                    placeholder="@username or Title" 
+                  />
+               </div>
+            </div>
           </div>
-
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="sm:col-span-2">
-              <label className="label">Headline</label>
-              <input className="input" value={form.headline} onChange={e => setForm(f => ({ ...f, headline: e.target.value }))} placeholder="e.g. President, Rajasthan Chapter" />
+          
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Bio</label>
+              <span className={`text-xs font-semibold ${form.about_me.trim().split(/\s+/).filter(Boolean).length > 200 ? 'text-red-500' : 'text-gray-400'}`}>
+                {form.about_me.trim().split(/\s+/).filter(Boolean).length} / 200 words
+              </span>
             </div>
-            <div>
-              <label className="label">Profile URL slug</label>
-              <div className="flex items-center gap-1 text-sm text-gray-500">
-                <span>/m/</span>
-                <input className="input flex-1" value={form.public_slug} onChange={e => setForm(f => ({ ...f, public_slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') }))} />
-              </div>
-            </div>
-            <div>
-              <label className="label">Accent colour</label>
-              <input type="color" className="h-10 w-full rounded cursor-pointer" value={form.theme_color} onChange={e => setForm(f => ({ ...f, theme_color: e.target.value }))} />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="label">About me</label>
-              <textarea className="input" rows={4} value={form.about_me} onChange={e => setForm(f => ({ ...f, about_me: e.target.value }))} />
-            </div>
-            <div>
-              <label className="label">My organisation</label>
-              <textarea className="input" rows={3} value={form.my_org} onChange={e => setForm(f => ({ ...f, my_org: e.target.value }))} />
-            </div>
-            <div>
-              <label className="label">History</label>
-              <textarea className="input" rows={3} value={form.org_history} onChange={e => setForm(f => ({ ...f, org_history: e.target.value }))} />
-            </div>
-            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.show_email} onChange={e => setForm(f => ({ ...f, show_email: e.target.checked }))} /> Show email</label>
-            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.show_phone} onChange={e => setForm(f => ({ ...f, show_phone: e.target.checked }))} /> Show phone</label>
+            <textarea 
+              className="w-full bg-gray-50 border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#8b3dff]/20 text-sm resize-y" 
+              rows={8} 
+              value={form.about_me} 
+              onChange={e => {
+                const text = e.target.value;
+                const words = text.trim().split(/\s+/).filter(Boolean);
+                if (words.length <= 200 || text.length < form.about_me.length) {
+                  setForm(f => ({ ...f, about_me: text }))
+                }
+              }} 
+              onBlur={handleBlurSave}
+              placeholder="Tell us about yourself..." 
+            />
           </div>
-
-          <button type="button" className="btn-primary flex items-center gap-2" disabled={saveMut.isPending} onClick={() => saveMut.mutate()}>
-            {saveMut.isPending ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />} Save public profile
-          </button>
         </div>
-      </div>
 
-      <div className="card">
-        <div className="card-header"><h3 className="font-semibold flex items-center gap-2"><Link2 size={16} /> Links & media</h3></div>
-        <div className="card-body space-y-4">
-          <div className="grid sm:grid-cols-2 gap-3 p-3 bg-gray-50 rounded-xl">
-            <select className="input" value={linkDraft.link_type} onChange={e => setLinkDraft(d => ({ ...d, link_type: e.target.value }))}>
-              {LINK_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
-            <input className="input" placeholder="Title" value={linkDraft.title} onChange={e => setLinkDraft(d => ({ ...d, title: e.target.value }))} />
-            {(linkDraft.link_type === 'custom' || linkDraft.link_type === 'youtube') && (
-              <input className="input sm:col-span-2" placeholder={linkDraft.link_type === 'youtube' ? 'YouTube URL' : 'https://…'} value={linkDraft.url} onChange={e => setLinkDraft(d => ({ ...d, url: e.target.value }))} />
-            )}
-            {['about_me', 'my_org', 'org_history', 'custom'].includes(linkDraft.link_type) && linkDraft.link_type !== 'youtube' && (
-              <textarea className="input sm:col-span-2" rows={2} placeholder="Content (optional)" value={linkDraft.content} onChange={e => setLinkDraft(d => ({ ...d, content: e.target.value }))} />
-            )}
-            <button type="button" className="btn-outline sm:col-span-2 flex items-center justify-center gap-2" disabled={!linkDraft.title || addLinkMut.isPending}
-              onClick={() => addLinkMut.mutate()}>
-              <Plus size={14} /> Add item
-            </button>
-          </div>
-
-          <ul className="space-y-3">
-            {(data?.links || []).map(link => (
-              <li key={link.id} className="flex items-start gap-3 p-3 border border-gray-100 rounded-xl bg-white">
-                <GripVertical size={16} className="text-gray-300 mt-1 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm flex items-center gap-2">
-                    {link.link_type === 'youtube' && <Youtube size={14} className="text-red-600" />}
-                    {link.link_type === 'photo' && <Image size={14} className="text-emerald-600" />}
-                    {link.title}
-                    <span className="text-xs text-gray-400 font-normal">({link.link_type})</span>
-                  </p>
-                  {link.url && <p className="text-xs text-gray-500 truncate">{link.url}</p>}
-                  {link.media_path && <img src={assetUrl(link.media_path)} alt="" className="mt-2 h-20 rounded-lg object-cover" />}
-                  {link.link_type === 'photo' && !link.media_path && (
-                    <label className="mt-2 inline-flex items-center gap-1 text-xs text-primary-600 cursor-pointer">
-                      <Upload size={12} /> Upload photo
-                      <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && uploadLinkMedia(link.id, e.target.files[0])} />
-                    </label>
-                  )}
+        {/* Linktree Manager */}
+        <div>
+           <h3 className="font-semibold text-gray-900 mb-4 px-1">Links</h3>
+           <LinktreeManager links={data?.links || []} apiClient={apiClient} refetch={refetch} />
+        </div>
+        
+        {/* Appearance / Advanced Settings */}
+        <div className="bg-white rounded-[24px] p-6 shadow-sm border border-gray-100 space-y-5">
+           <h3 className="font-semibold text-gray-900 mb-2">Appearance & URLs</h3>
+           <div className="grid sm:grid-cols-2 gap-5">
+             <div>
+               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Custom Slug</label>
+               <div className="flex items-center bg-gray-50 rounded-xl px-4 py-2.5 focus-within:ring-2 focus-within:ring-[#8b3dff]/20">
+                 <span className="text-gray-400 text-sm">forti.in/m/</span>
+                 <input 
+                   className="bg-transparent border-none p-0 focus:ring-0 flex-1 text-sm font-medium" 
+                   value={form.public_slug} 
+                   onChange={e => setForm(f => ({ ...f, public_slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') }))} 
+                   onBlur={handleBlurSave}
+                 />
+               </div>
+             </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Theme Color</label>
+                <div className="flex items-center gap-3">
+                  <div className="relative w-10 h-10 rounded-full overflow-hidden border border-gray-300 shadow-sm shrink-0 cursor-pointer group">
+                    <div className="w-full h-full pointer-events-none group-hover:opacity-90 transition-opacity" style={{ backgroundColor: form.theme_color }} />
+                    <input 
+                      type="color" 
+                      className="absolute inset-0 w-full h-full cursor-pointer opacity-0" 
+                      value={form.theme_color} 
+                      onChange={e => handleColorChange('theme_color', e.target.value)} 
+                      onBlur={handleBlurSave}
+                    />
+                  </div>
+                  <input 
+                    type="text" 
+                    className="w-24 text-sm font-medium text-gray-600 uppercase bg-transparent border-b border-transparent hover:border-gray-300 focus:border-[#8b3dff] focus:outline-none focus:ring-0 px-1 py-0.5 transition-colors" 
+                    value={form.theme_color}
+                    onChange={e => handleColorChange('theme_color', e.target.value)}
+                    onBlur={handleBlurSave}
+                    maxLength={7}
+                  />
                 </div>
-                <button type="button" className="text-red-400 hover:text-red-600 p-1" onClick={() => delLinkMut.mutate(link.id)}>
-                  <Trash2 size={16} />
-                </button>
-              </li>
-            ))}
-          </ul>
+              </div>
+             <div>
+               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Background Style</label>
+               <select 
+                 className="w-full bg-gray-50 border-none rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-[#8b3dff]/20 text-sm font-medium text-gray-700 cursor-pointer"
+                 value={form.background_style}
+                 onChange={e => { setForm(f => ({ ...f, background_style: e.target.value })); setTimeout(handleBlurSave, 0) }}
+               >
+                 <option value="solid">Solid Color</option>
+                 <option value="gradient">Gradient Blend</option>
+               </select>
+             </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Text Color</label>
+                <div className="flex items-center gap-3">
+                  <div className="relative w-10 h-10 rounded-full overflow-hidden border border-gray-300 shadow-sm shrink-0 cursor-pointer group">
+                    <div className="w-full h-full pointer-events-none group-hover:opacity-90 transition-opacity" style={{ backgroundColor: form.text_color }} />
+                    <input 
+                      type="color" 
+                      className="absolute inset-0 w-full h-full cursor-pointer opacity-0" 
+                      value={form.text_color} 
+                      onChange={e => handleColorChange('text_color', e.target.value)} 
+                      onBlur={handleBlurSave}
+                    />
+                  </div>
+                  <input 
+                    type="text" 
+                    className="w-24 text-sm font-medium text-gray-600 uppercase bg-transparent border-b border-transparent hover:border-gray-300 focus:border-[#8b3dff] focus:outline-none focus:ring-0 px-1 py-0.5 transition-colors" 
+                    value={form.text_color}
+                    onChange={e => handleColorChange('text_color', e.target.value)}
+                    onBlur={handleBlurSave}
+                    maxLength={7}
+                  />
+                </div>
+              </div>
+             <div>
+               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Button Style</label>
+               <select 
+                 className="w-full bg-gray-50 border-none rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-[#8b3dff]/20 text-sm font-medium text-gray-700 cursor-pointer"
+                 value={form.button_style}
+                 onChange={e => { setForm(f => ({ ...f, button_style: e.target.value })); setTimeout(handleBlurSave, 0) }}
+               >
+                 <option value="rounded">Rounded Rectangle</option>
+                 <option value="pill">Pill Shape</option>
+                 <option value="outline">Outline Only</option>
+               </select>
+             </div>
+           </div>
         </div>
+        
       </div>
 
-      {data?.positions?.length > 0 && (
-        <p className="text-xs text-gray-500 text-center">
-          Your current positions are shown automatically on your public page when enabled.
-        </p>
-      )}
+      {/* Right Column: Live Preview */}
+      <div className="hidden lg:flex w-[400px] shrink-0 justify-center sticky top-24 pt-4 h-fit">
+        <MobilePreview profile={form} links={data?.links || []} photo={photo} />
+      </div>
+
     </div>
   )
 }

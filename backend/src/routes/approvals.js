@@ -163,7 +163,7 @@ router.post('/actions', async (req, res) => {
           const [[{ cnt }]] = await pool.query(
             "SELECT COUNT(*) AS cnt FROM fb_submissions WHERE membership_id IS NOT NULL AND membership_id != ''"
           );
-          finalMembershipId = `FORTI${String(cnt + 1).padStart(4, '0')}`;
+          finalMembershipId = `FR-${String(Math.floor(100000 + Math.random() * 900000))}`;
           await pool.query(
             'UPDATE fb_submissions SET membership_id=?, approved_at=COALESCE(approved_at, NOW()) WHERE id=?',
             [finalMembershipId, submission_id]
@@ -335,7 +335,7 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
         const [[{ cnt }]] = await pool.query(
           "SELECT COUNT(*) AS cnt FROM fb_submissions WHERE membership_id IS NOT NULL AND membership_id != ''"
         );
-        finalMembershipId = `FORTI-${Date.now()}${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
+        finalMembershipId = `FR-${String(Math.floor(100000 + Math.random() * 900000))}`;
         await pool.query(
           'UPDATE fb_submissions SET membership_id=?, approved_at=COALESCE(approved_at, NOW()) WHERE id=?',
           [finalMembershipId, req.params.id]
@@ -349,7 +349,7 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
       const [[{ cnt }]] = await pool.query(
         "SELECT COUNT(*) AS cnt FROM fb_submissions WHERE membership_id IS NOT NULL AND membership_id != ''"
       );
-      finalMembershipId = `FORTI-${Date.now()}${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
+      finalMembershipId = `FR-${String(Math.floor(100000 + Math.random() * 900000))}`;
     }
 
     // ── ACTIVATE action: explicit admin-triggered membership activation ──

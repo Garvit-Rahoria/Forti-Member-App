@@ -116,7 +116,7 @@ function AboutVisionMission() {
       borderHover: 'hover:border-primary-200',
       content: 'Federation of Rajasthan Trade and Industry, abbreviated as FORTI, is a registered body with the Registrar of Non-Trading Companies and is the apex chamber of Trade and Industry in Rajasthan. FORTI acts as a bridge between the Government of India at the National Level and the Government of Rajasthan at the state level for its members.',
       cta: 'Know More',
-      href: '/about',
+      href: '/about#who-we-are',
     },
     {
       icon: Eye,
@@ -127,7 +127,7 @@ function AboutVisionMission() {
       borderHover: 'hover:border-emerald-200',
       content: 'To enhance the efficiency and global competitiveness of the Indian industry and expand business opportunities in domestic and foreign markets through a range of specialised services and international linkages while also ensuring the businesses have the right to business ethics.',
       cta: 'Know More',
-      href: '/about',
+      href: '/about#vision',
     },
     {
       icon: Target,
@@ -138,7 +138,7 @@ function AboutVisionMission() {
       borderHover: 'hover:border-indigo-200',
       content: "FORTI's mission is to promote the culture and business of Rajasthan globally by collaborating with partners, hosting exhibitions, providing employment opportunities to women, creating favorable policies, establishing Jaipur Night Bazaars, organizing award shows, and providing a platform for start-ups.",
       cta: 'Know More',
-      href: '/about',
+      href: '/about#purpose',
     },
   ]
 
@@ -164,7 +164,10 @@ function AboutVisionMission() {
                   </div>
                 </div>
                 <p className="text-gray-600 text-sm leading-relaxed">{content}</p>
-                <button onClick={() => navigate(href)}
+                <button onClick={() => {
+                  const [path, hash] = href.split('#')
+                  navigate({ pathname: path, hash: hash ? '#' + hash : '' })
+                }}
                   className={`inline-flex items-center gap-1.5 text-sm font-bold px-4 py-2 rounded-lg bg-gradient-to-r ${color} text-white hover:opacity-90 transition shadow-sm`}>
                   {cta} <ArrowRight size={13}/>
                 </button>
@@ -217,10 +220,12 @@ function PlansPreview({ onApply }) {
   const navigate = useNavigate()
   const staticPlans = [
     { name: 'Individual Membership', badge: 'Most Popular', badgeColor: 'bg-primary-100 text-primary-700', icon: '👤',
+      type: 'individual',
       desc: 'For professionals, consultants, freelancers, students, and independent practitioners.',
       features: ['Personal membership certificate','Digital ID card with QR code','Access to FORTI events','Networking directory listing','Monthly newsletter','Renewal management'],
       cta: 'Apply as Individual', gradient: 'from-primary-600 to-primary-800' },
     { name: 'Corporate Membership', badge: 'Best Value', badgeColor: 'bg-amber-100 text-amber-700', icon: '🏢',
+      type: 'corporate',
       desc: 'For companies, organisations, institutions, and enterprises looking to associate with FORTI.',
       features: ['Multiple member seats','Corporate profile listing','Priority event access','Dedicated account manager','Corporate certificate','Custom payment terms'],
       cta: 'Apply as Corporate', gradient: 'from-amber-500 to-amber-700' },
@@ -252,7 +257,7 @@ function PlansPreview({ onApply }) {
                   </div>
                 ))}
                 <div className="pt-4">
-                  <button onClick={onApply}
+                  <button onClick={() => onApply(t.type)}
                     className={`w-full py-2.5 rounded-xl font-bold text-sm text-white bg-gradient-to-r ${t.gradient} hover:opacity-90 transition flex items-center justify-center gap-2 shadow-md`}>
                     {t.cta} <ChevronRight size={16}/>
                   </button>
@@ -447,7 +452,7 @@ function VerifySection() {
         <p className="text-primary-200 mb-8">Enter a FORTI Membership ID to verify its authenticity and current status.</p>
         <form onSubmit={e => { e.preventDefault(); if (input.trim()) navigate(`/verify?id=${encodeURIComponent(input.trim())}`) }}
           className="flex gap-3 max-w-md mx-auto">
-          <input type="text" placeholder="e.g. FORTI-2026-00001" value={input} onChange={e => setInput(e.target.value)}
+          <input type="text" placeholder="e.g. FR-123456" value={input} onChange={e => setInput(e.target.value)}
             className="flex-1 px-4 py-3 rounded-xl text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"/>
           <button type="submit"
             className="bg-white text-primary-700 font-bold px-6 py-3 rounded-xl flex items-center gap-2 hover:bg-primary-50 transition shrink-0 shadow-lg">
@@ -622,13 +627,21 @@ function Footer() {
 // ── Landing Page (main) ─────────────────────────────────────────────────────
 export default function LandingPage() {
   const [showOTPModal, setShowOTPModal] = useState(false)
+  const [pendingPlanType, setPendingPlanType] = useState(null)
   const navigate = useNavigate()
 
-  function handleApply() { setShowOTPModal(true) }
+  function handleApply(type = null) {
+    if (typeof type === 'string') {
+      setPendingPlanType(type)
+    } else {
+      setPendingPlanType(null)
+    }
+    setShowOTPModal(true)
+  }
 
   function handleOTPVerified(data) {
     setShowOTPModal(false)
-    navigate('/membership', { state: { otpData: data } })
+    navigate('/membership', { state: { otpData: data, prefill: { membership_type: pendingPlanType } } })
   }
 
   return (

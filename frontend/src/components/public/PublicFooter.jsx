@@ -12,8 +12,8 @@ export default function PublicFooter() {
       <div className="relative container-page py-16">
         <div className="grid md:grid-cols-4 gap-10">
           <div className="md:col-span-2">
-            <Link to="/" className="flex items-center gap-3 mb-4">
-              <img src={SITE_LOGO} alt="FORTI" className="h-10 brightness-0 invert opacity-90" onError={e => { e.target.style.display = 'none' }} />
+            <Link to="/" className="inline-block mb-4 bg-white p-2.5 rounded-xl">
+              <img src={SITE_LOGO} alt="FORTI" className="h-10 object-contain" onError={e => { e.target.style.display = 'none' }} />
             </Link>
             <p className="text-primary-200/80 text-sm leading-relaxed max-w-md">
               Federation of Rajasthan Trade & Industry — the apex chamber connecting businesses, policy, and opportunity across Rajasthan and beyond.

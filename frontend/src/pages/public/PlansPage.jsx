@@ -12,19 +12,10 @@ import PublicFooter from '../../components/public/PublicFooter'
 
 const http = axios.create({ baseURL: '/api' })
 
-function deriveLocationType({ membershipType, countryId, stateId, states, countries }) {
-  if (membershipType === 'overseas') return 'overseas'
-  const country = countries.find(c => String(c.id) === String(countryId))
-  const state = states.find(s => String(s.id) === String(stateId))
-  const isIndia = country?.iso2 === 'IN' || String(country?.name || '').toLowerCase() === 'india'
-  if (isIndia && String(state?.name || '').toLowerCase() === 'rajasthan') return 'rajasthan'
-  if (isIndia) return 'other_states'
-  return 'other_states'
-}
+// Removed deriveLocationType since we're simplifying the UI
 
-function canMatchPlan({ membershipType, planType, locationType, countryId }) {
+function canMatchPlan({ membershipType, planType, locationType }) {
   if (!membershipType || !planType || !locationType) return false
-  if (locationType === 'overseas') return !!countryId
   return true
 }
 
@@ -36,7 +27,8 @@ const MEMBERSHIP_TYPES = [
 ]
 
 const PLAN_TYPES = [
-  { value: 'yearly',   label: 'Yearly',   badge: '' },
+  { value: '1year',    label: '1 Year',   badge: '' },
+  { value: '3years',   label: '3 Years',  badge: 'Popular' },
   { value: 'lifetime', label: 'Lifetime', badge: 'Best Value' },
 ]
 
@@ -45,8 +37,9 @@ function PackageCard({ pkg, onApply }) {
     try { return typeof pkg.benefits === 'string' ? JSON.parse(pkg.benefits) : (pkg.benefits || []) } catch { return [] }
   })()
 
-  const formatPrice = (price) => {
-    return Number(price || 0).toLocaleString('en-IN')
+  const formatPrice = (price, currency) => {
+    const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : currency === 'JPY' ? '¥' : '₹'
+    return `${symbol}${Number(price || 0).toLocaleString('en-IN')}`
   }
 
   return (
@@ -65,7 +58,7 @@ function PackageCard({ pkg, onApply }) {
             )}
           </div>
           <div className="text-right">
-            <p className="text-2xl font-black text-primary-600">{formatPrice(pkg.price)}</p>
+            <p className="text-2xl font-black text-primary-600">{formatPrice(pkg.price, pkg.currency)}</p>
             <p className="text-xs text-gray-400">
               {pkg.duration_months >= 999 ? 'Lifetime' : pkg.duration_months === 36 ? '3 Years' : pkg.duration_months ? `${pkg.duration_months} months` : ''}
             </p>
@@ -98,49 +91,22 @@ function PackageCard({ pkg, onApply }) {
 export default function PlansPage() {
   const navigate = useNavigate()
   const [membershipType, setMembershipType] = useState('individual')
-  const [planType, setPlanType] = useState('yearly')
-  const [countryId, setCountryId] = useState('')
-  const [stateId, setStateId] = useState('')
+  const [planType, setPlanType] = useState('1year')
+  const [indiaRegion, setIndiaRegion] = useState('rajasthan')
   const isOverseas = membershipType === 'overseas'
 
-  const { data: countries = [], isLoading: countriesLoading, isError: countriesError } = useQuery({
-    queryKey: ['public-countries'],
-    queryFn: () => http.get('/locations/countries').then(r => r.data.data),
-    staleTime: 10 * 60 * 1000,
-  })
+  const locationType = isOverseas ? 'overseas' : indiaRegion
 
-  const indiaCountry = useMemo(
-    () => countries.find(c => c.iso2 === 'IN' || String(c.name).toLowerCase() === 'india') || null,
-    [countries]
-  )
+  const matchReady = canMatchPlan({ membershipType, planType, locationType })
 
-  useEffect(() => {
-    if (isOverseas || countryId || !indiaCountry) return
-    setCountryId(String(indiaCountry.id))
-  }, [isOverseas, countryId, indiaCountry])
-
-  const { data: states = [], isLoading: statesLoading } = useQuery({
-    queryKey: ['public-states', countryId],
-    queryFn: () => http.get(`/locations/states?country_id=${countryId}`).then(r => r.data.data),
-    enabled: !!countryId && !isOverseas,
-  })
-
-  const locationType = useMemo(
-    () => deriveLocationType({ membershipType, countryId, stateId, states, countries }),
-    [membershipType, countryId, stateId, states, countries]
-  )
-
-  const matchReady = canMatchPlan({ membershipType, planType, locationType, countryId })
-
-  const { data: matchedPkg, isLoading, error: matchError } = useQuery({
-    queryKey: ['plan-match', membershipType, planType, locationType, countryId],
+  const { data: matchedPkgs = [], isLoading, error: matchError } = useQuery({
+    queryKey: ['plan-match', membershipType, planType, locationType],
     queryFn: () => {
       const params = new URLSearchParams({
         membership_type: membershipType,
         plan_type: planType,
         location_type: locationType,
       })
-      if (locationType === 'overseas' && countryId) params.set('country_id', countryId)
       return http.get(`/membership/packages/match?${params}`).then(r => r.data.data)
     },
     enabled: matchReady,
@@ -174,7 +140,7 @@ export default function PlansPage() {
             <label className="label mb-2">Membership Type</label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {MEMBERSHIP_TYPES.map(t => (
-                <button key={t.value} onClick={() => { setMembershipType(t.value); setCountryId(''); setStateId('') }}
+                <button key={t.value} onClick={() => setMembershipType(t.value)}
                   className={`rounded-xl p-3 border-2 text-left transition ${membershipType === t.value ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'}`}>
                   <div className="text-xl mb-1">{t.icon}</div>
                   <p className="font-bold text-sm text-gray-900">{t.label}</p>
@@ -187,7 +153,7 @@ export default function PlansPage() {
           {/* Plan Type */}
           <div className="mb-5">
             <label className="label mb-2">Duration</label>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               {PLAN_TYPES.map(p => (
                 <button key={p.value} onClick={() => setPlanType(p.value)}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 font-semibold text-sm transition ${planType === p.value ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
@@ -198,62 +164,23 @@ export default function PlansPage() {
             </div>
           </div>
 
-          {/* Location (only for non-overseas) */}
+          {/* Location Selection */}
           {!isOverseas && (
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="label mb-1">Country</label>
-                {countriesLoading ? (
-                  <div className="input flex items-center gap-2 text-ink-muted text-sm">
-                    <Loader2 size={14} className="animate-spin" /> Loading countries…
-                  </div>
-                ) : countriesError ? (
-                  <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
-                    Could not load countries. Please refresh or try again later.
-                  </div>
-                ) : (
-                  <select className="input" value={countryId} onChange={e => { setCountryId(e.target.value); setStateId('') }}>
-                    <option value="">Select Country</option>
-                    {countries.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                )}
+            <div className="mb-5">
+              <label className="label mb-2">Location</label>
+              <div className="flex flex-wrap gap-3">
+                <button onClick={() => setIndiaRegion('rajasthan')}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 font-semibold text-sm transition ${indiaRegion === 'rajasthan' ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                  Rajasthan
+                </button>
+                <button onClick={() => setIndiaRegion('other_states')}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 font-semibold text-sm transition ${indiaRegion === 'other_states' ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                  Other Indian States
+                </button>
               </div>
-              {countryId && (
-                <div>
-                  <label className="label mb-1">State / Region</label>
-                  {statesLoading ? (
-                    <div className="input flex items-center gap-2 text-ink-muted text-sm">
-                      <Loader2 size={14} className="animate-spin" /> Loading states…
-                    </div>
-                  ) : (
-                    <select className="input" value={stateId} onChange={e => setStateId(e.target.value)}>
-                      <option value="">Select state (optional)</option>
-                      {states.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
-                  )}
-                  {countryId && !statesLoading && states.length === 0 && (
-                    <p className="text-xs text-ink-subtle mt-1">No states listed for this country.</p>
-                  )}
-                </div>
-              )}
             </div>
           )}
 
-          {isOverseas && (
-            <div>
-              <label className="label mb-1">Country</label>
-              {countriesLoading ? (
-                <div className="input flex items-center gap-2 text-ink-muted text-sm">
-                  <Loader2 size={14} className="animate-spin" /> Loading countries…
-                </div>
-              ) : (
-                <select className="input" value={countryId} onChange={e => setCountryId(e.target.value)}>
-                  <option value="">Select your country</option>
-                  {countries.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Result */}
@@ -273,18 +200,16 @@ export default function PlansPage() {
           <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center">
             <Award size={36} className="text-gray-300 mx-auto mb-3"/>
             <p className="text-gray-500">
-              {isOverseas && !countryId
-                ? 'Select your country to see overseas pricing.'
-                : countriesLoading
-                  ? 'Loading location options…'
-                  : 'Select your membership type, duration, and location above to see pricing.'}
+              Select your membership type, duration, and location above to see pricing.
             </p>
           </div>
-        ) : matchedPkg ? (
+        ) : matchedPkgs.length > 0 ? (
           <div>
-            <p className="text-sm text-gray-500 mb-4 text-center">Best matching plan for your selection:</p>
-            <div className="max-w-md mx-auto">
-              <PackageCard pkg={matchedPkg} onApply={handleApply}/>
+            <p className="text-sm text-gray-500 mb-4 text-center">Best matching plans for your selection:</p>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+              {matchedPkgs.map(pkg => (
+                <PackageCard key={pkg.id || pkg.code} pkg={pkg} onApply={handleApply}/>
+              ))}
             </div>
             <div className="mt-8 bg-blue-50 border border-blue-200 rounded-2xl p-5 text-center">
               <p className="text-sm text-blue-700 font-medium">

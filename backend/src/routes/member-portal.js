@@ -485,7 +485,7 @@ router.get('/certificate/:uuid/download', memberAuth, async (req, res) => {
     const isActive = member.member_status === 'active' || member.status === 'active';
     if (!isActive) return fail(res, 'Certificate available only for active members', 403);
 
-    const certNo    = member.membership_id || `FORTI-${member.submission_id}`;
+    const certNo    = member.membership_id || `FR-${String(member.submission_id).padStart(6, '0')}`;
     const issuedOn  = member.approved_at
       ? new Date(member.approved_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })
       : new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -523,12 +523,12 @@ router.get('/idcard/:uuid/download', memberAuth, async (req, res) => {
     const isActive = member.member_status === 'active' || member.status === 'active';
     if (!isActive) return fail(res, 'ID Card available only for active members', 403);
 
-    const certNo    = member.membership_id || `FORTI-${member.submission_id}`;
+    const certNo    = member.membership_id || `FR-${String(member.submission_id).padStart(6, '0')}`;
     const validUpto = member.expiry_date
       ? new Date(member.expiry_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })
       : 'Lifetime';
 
-    const qrData    = `FORTI-MEMBER:${certNo}:${member.email}`;
+    const qrData    = `FR-MEMBER:${certNo}:${member.email}`;
     const qrDataUrl = await QRCode.toDataURL(qrData, {
       width: 160, margin: 1,
       color: { dark: '#5A2D95', light: '#FFFFFF' },
@@ -574,7 +574,7 @@ router.get('/invoice/:uuid/download', memberAuth, async (req, res) => {
     const inv         = invRows[0] || {};
     const memberName  = inv.member_name   || member?.full_name     || 'Member';
     const memberEmail = inv.member_email  || member?.email         || req.member.email;
-    const memberId    = inv.member_id_str || member?.membership_id || `FORTI-${member?.submission_id || 0}`;
+    const memberId    = inv.member_id_str || member?.membership_id || `FR-${String(member?.submission_id || 0).padStart(6, '0')}`;
     const invoiceNum  = inv.invoice_number || `INV-${Date.now()}`;
     const packageName = inv.package_name   || 'FORTI Membership';
     const amount      = parseFloat(inv.amount      || member?.amount || 0);

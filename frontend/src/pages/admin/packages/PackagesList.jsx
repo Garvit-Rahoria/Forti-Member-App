@@ -486,7 +486,7 @@ function PricingRulesPanel() {
 export default function PackagesList() {
   const qc = useQueryClient()
   const [modal, setModal] = useState(null)
-  const [filter, setFilter] = useState({ location: '', mt: '', dur: '' })
+  const [filter, setFilter] = useState({ location: '', mt: '', dur: '', wing: '' })
   const [countries, setCountries] = useState([])
   const [durations, setDurations] = useState([])
   const [wings, setWings] = useState([])
@@ -581,6 +581,7 @@ export default function PackagesList() {
     if (filter.location && pkg.location !== filter.location) return false
     if (filter.mt && pkg.membership_type !== filter.mt) return false
     if (filter.dur && pkg.duration !== filter.dur) return false
+    if (filter.wing && String(pkg.wing_id || '') !== filter.wing) return false
     return true
   })
 
@@ -611,8 +612,12 @@ export default function PackagesList() {
           <option value="">All Durations</option>
           {durationOptions.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
         </select>
-        {(filter.location || filter.mt || filter.dur) && (
-          <button className="text-xs text-gray-400 hover:text-gray-600" onClick={() => setFilter({ location: '', mt: '', dur: '' })}>Clear</button>
+        <select className="input w-40 text-sm" value={filter.wing} onChange={e => setFilter(f => ({ ...f, wing: e.target.value }))}>
+          <option value="">All Wings</option>
+          {wings.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+        </select>
+        {(filter.location || filter.mt || filter.dur || filter.wing) && (
+          <button className="text-xs text-gray-400 hover:text-gray-600" onClick={() => setFilter({ location: '', mt: '', dur: '', wing: '' })}>Clear</button>
         )}
         <span className="text-xs text-gray-400 ml-auto">{filtered.length} shown</span>
       </div>

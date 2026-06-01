@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import {
   ArrowLeft, Shield, Globe, Award, Users, CheckCircle,
   Target, Heart, Lightbulb, TrendingUp, MapPin, Building2,
@@ -8,6 +9,21 @@ import PublicHeader from '../../components/public/PublicHeader'
 import PublicFooter from '../../components/public/PublicFooter'
 
 export default function AboutPage() {
+  const { hash } = useLocation()
+
+  useEffect(() => {
+    if (hash) {
+      setTimeout(() => {
+        const element = document.getElementById(hash.replace('#', ''))
+        if (element) {
+          const y = element.getBoundingClientRect().top + window.scrollY - 100 // offset for fixed header
+          window.scrollTo({ top: y, behavior: 'smooth' })
+        }
+      }, 100)
+    } else {
+      window.scrollTo(0, 0)
+    }
+  }, [hash])
   const milestones = [
     { year: '2010', title: 'FORTI Founded', desc: 'Established in New Delhi with a founding membership of 200 professionals.' },
     { year: '2013', title: 'State Chapters Launched', desc: 'Expanded to 5 major Indian states including Maharashtra, Tamil Nadu, and Karnataka.' },
@@ -47,7 +63,7 @@ export default function AboutPage() {
       </section>
 
       {/* Mission / Vision */}
-      <section className="py-20 bg-gray-50">
+      <section id="purpose" className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-black text-gray-900">Our Purpose</h2>
@@ -66,8 +82,63 @@ export default function AboutPage() {
         </div>
       </section>
 
+      {/* Our Vision */}
+      <section id="vision" className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-12">
+            <span className="text-primary-600 font-semibold text-sm uppercase tracking-widest">Our Vision</span>
+            <h2 className="text-3xl font-black text-gray-900 mt-2">Shaping the Future of Industry</h2>
+            <p className="text-gray-600 leading-relaxed max-w-3xl mx-auto mt-4 text-lg">
+              The Federation of Rajasthan Trade and Industry (FORTI) envisions enhancing the global competitiveness of local industries while creating a prosperous, sustainable, and opportunity-rich environment for entrepreneurs in Rajasthan.
+            </p>
+          </div>
+          
+          <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+            <div className="bg-gray-50 p-8 rounded-2xl border border-gray-100 hover:shadow-md transition hover:border-primary-200 group">
+              <div className="w-14 h-14 bg-white shadow-sm rounded-xl flex items-center justify-center mb-5 text-primary-600 group-hover:scale-110 transition">
+                <Globe size={26} />
+              </div>
+              <h3 className="font-bold text-gray-900 text-lg mb-2">Global Competitiveness</h3>
+              <p className="text-gray-500 leading-relaxed">
+                Expanding business opportunities for members in both domestic and international markets.
+              </p>
+            </div>
+            
+            <div className="bg-gray-50 p-8 rounded-2xl border border-gray-100 hover:shadow-md transition hover:border-emerald-200 group">
+              <div className="w-14 h-14 bg-white shadow-sm rounded-xl flex items-center justify-center mb-5 text-emerald-600 group-hover:scale-110 transition">
+                <Lightbulb size={26} />
+              </div>
+              <h3 className="font-bold text-gray-900 text-lg mb-2">Digital Empowerment</h3>
+              <p className="text-gray-500 leading-relaxed">
+                Helping local businesses and startups transition online and leverage e-commerce platforms.
+              </p>
+            </div>
+            
+            <div className="bg-gray-50 p-8 rounded-2xl border border-gray-100 hover:shadow-md transition hover:border-purple-200 group">
+              <div className="w-14 h-14 bg-white shadow-sm rounded-xl flex items-center justify-center mb-5 text-purple-600 group-hover:scale-110 transition">
+                <Users size={26} />
+              </div>
+              <h3 className="font-bold text-gray-900 text-lg mb-2">Empowerment</h3>
+              <p className="text-gray-500 leading-relaxed">
+                Actively nurturing leadership for women entrepreneurs and offering specialized support for MSMEs.
+              </p>
+            </div>
+            
+            <div className="bg-gray-50 p-8 rounded-2xl border border-gray-100 hover:shadow-md transition hover:border-amber-200 group">
+              <div className="w-14 h-14 bg-white shadow-sm rounded-xl flex items-center justify-center mb-5 text-amber-600 group-hover:scale-110 transition">
+                <Building2 size={26} />
+              </div>
+              <h3 className="font-bold text-gray-900 text-lg mb-2">Bridging the Gap</h3>
+              <p className="text-gray-500 leading-relaxed">
+                Acting as an intermediary between the government and businesses to advocate for favorable trade policies.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Who We Are */}
-      <section className="py-20 bg-white">
+      <section id="who-we-are" className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { MemberProvider, useMember } from './contexts/MemberContext'
 import ErrorBoundary from './components/ErrorBoundary'
+import ScrollToTop from './components/ScrollToTop'
 import AdminLayout from './layouts/AdminLayout'
 import Login from './pages/auth/Login'
 import ResetPassword from './pages/auth/ResetPassword'
@@ -84,6 +85,7 @@ export default function App() {
   return (
     <ErrorBoundary>
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <ScrollToTop />
       <AuthProvider>
         <MemberProvider>
           <Routes>
@@ -142,14 +144,14 @@ export default function App() {
                 <Route path="packages" element={<RoleRoute roles={['super_admin','admin']}><PackagesList /></RoleRoute>} />
 
                 {/* Payments Hub — Transactions + Payment Methods tabs */}
-                <Route path="payments" element={<PaymentsHub />} />
+                <Route path="payments" element={<RoleRoute roles={['super_admin','admin','office_staff']}><PaymentsHub /></RoleRoute>} />
                 {/* Old payment-methods route redirects to Payments Hub */}
                 <Route path="payment-methods" element={<Navigate to="/payments?tab=methods" replace />} />
 
-                <Route path="renewals" element={<RenewalsPage />} />
+                <Route path="renewals" element={<RoleRoute roles={['super_admin','admin','branch_manager']}><RenewalsPage /></RoleRoute>} />
                 <Route path="invoices" element={<InvoicesPage />} />
                 <Route path="email-templates" element={<RoleRoute roles={['super_admin','admin']}><EmailTemplatesPage /></RoleRoute>} />
-                <Route path="reports" element={<Reports />} />
+                <Route path="reports" element={<RoleRoute roles={['super_admin','admin']}><Reports /></RoleRoute>} />
                 <Route path="manager-reports" element={<RoleRoute roles={['branch_manager']}><ManagerReports /></RoleRoute>} />
                 <Route path="audit" element={<RoleRoute roles={['super_admin']}><AuditLog /></RoleRoute>} />
                 <Route path="blog" element={<RoleRoute roles={['super_admin','admin']}><BlogManagerPage /></RoleRoute>} />

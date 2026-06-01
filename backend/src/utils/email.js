@@ -313,7 +313,7 @@ async function baseTemplate(content) {
   const privacyUrl = escapeHtml(`${websiteUrlRaw.replace(/\/+$/, '')}/privacy`);
   const logoHtml = org.logoUrl
     ? `<img src="${escapeHtml(org.logoUrl)}" alt="${orgName}" class="header-brand-logo">`
-    : `<span class="header-brand-name">${orgShortName}</span>`;
+    : `<span class="header-brand-name">${orgShortName}</span>\n        <span class="header-brand-sub">${orgSubtitle}</span>`;
 
   return `
   <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -322,8 +322,8 @@ async function baseTemplate(content) {
     body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;margin:0;padding:0}
     .wrap{max-width:620px;margin:30px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.10)}
     .header{background:linear-gradient(135deg,#4c1d95 0%,#6d28d9 55%,#7c3aed 100%);padding:36px;text-align:center}
-    .header-brand{display:inline-block;margin-bottom:14px}
-    .header-brand-logo{display:block;max-height:64px;max-width:220px;width:auto;height:auto;object-fit:contain;margin:0 auto}
+    .header-brand{display:inline-block;margin-bottom:14px;width:100%}
+    .header-brand-logo{display:block;max-height:90px;max-width:400px;width:auto;height:auto;object-fit:contain;margin:0 auto}
     .header-brand-name{display:block;font-size:38px;font-weight:900;color:#fff;letter-spacing:4px;line-height:1;font-family:'Segoe UI Black','Arial Black',sans-serif;text-shadow:0 2px 8px rgba(0,0,0,.2)}
     .header-brand-sub{display:block;font-size:11px;font-weight:600;color:#c4b5fd;letter-spacing:2.5px;text-transform:uppercase;margin-top:4px}
     .header-divider{width:48px;height:2px;background:rgba(255,255,255,.3);margin:14px auto}
@@ -358,7 +358,6 @@ async function baseTemplate(content) {
     <div class="header">
       <div class="header-brand">
         ${logoHtml}
-        <span class="header-brand-sub">${orgSubtitle}</span>
       </div>
       <div class="header-divider"></div>
       <h1>Membership Portal</h1>

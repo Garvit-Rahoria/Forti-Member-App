@@ -111,7 +111,7 @@ const MEMBERSHIP_OPTIONS = [
 ]
 
 const PLAN_OPTIONS = [
-  { value: 'yearly', label: 'Yearly', desc: '12-month membership, renewable annually', icon: () => <img src="/images/yearly-icon.png" alt="Yearly" className="w-14 h-14 object-contain mix-blend-multiply" />, noIconBg: true, gradient: 'from-blue-50 to-indigo-50', selectedGradient: 'from-blue-100 to-indigo-100', iconFrom: 'from-blue-400', iconTo: 'to-indigo-500', iconBg: 'bg-blue-100', iconColor: 'text-blue-600', border: 'border-blue-400' },
+  { value: '1year', label: 'Yearly', desc: '12-month membership, renewable annually', icon: () => <img src="/images/yearly-icon.png" alt="Yearly" className="w-14 h-14 object-contain mix-blend-multiply" />, noIconBg: true, gradient: 'from-blue-50 to-indigo-50', selectedGradient: 'from-blue-100 to-indigo-100', iconFrom: 'from-blue-400', iconTo: 'to-indigo-500', iconBg: 'bg-blue-100', iconColor: 'text-blue-600', border: 'border-blue-400' },
   { value: '3years', label: '3 Years', desc: '3-year membership — save more vs yearly', icon: () => <img src="/images/3years-icon.png" alt="3 Years" className="w-14 h-14 object-contain mix-blend-multiply" />, noIconBg: true, gradient: 'from-green-50 to-teal-50', selectedGradient: 'from-green-100 to-teal-100', iconFrom: 'from-green-400', iconTo: 'to-teal-500', iconBg: 'bg-green-100', iconColor: 'text-green-600', border: 'border-green-400' },
   { value: 'lifetime', label: 'Lifetime', desc: 'One-time payment, valid forever', icon: () => <img src="/images/lifetime-icon.png" alt="Lifetime" className="w-14 h-14 object-contain mix-blend-multiply" />, noIconBg: true, gradient: 'from-orange-50 to-amber-50', selectedGradient: 'from-orange-100 to-amber-100', iconFrom: 'from-orange-400', iconTo: 'to-amber-500', iconBg: 'bg-orange-100', iconColor: 'text-orange-600', border: 'border-orange-400' },
 ]
@@ -493,7 +493,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
     city_other: '',
     overseas_city: '',
     wing_id: '',
-    membership_type: '',
+    membership_type: prefill?.membership_type || '',
     plan_type: '',
     package_id: null,
     payment_method: '',
@@ -535,6 +535,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
   const [citiesLoading, setCitiesLoading] = useState(false)
   const [countries, setCountries] = useState([])
   const [countriesLoading, setCountriesLoading] = useState(true)
+  const [availablePkgs, setAvailablePkgs] = useState([])
   const [pkg, setPkg] = useState(null)
   const [pkgLoading, setPkgLoading] = useState(false)
   const [pkgError, setPkgError] = useState('')
@@ -547,7 +548,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
   const [showInstructions, setShowInstructions] = useState(false)
 
   // Stable reference ID generated once per form session
-  const referenceId = useMemo(() => `FORTI-${Math.floor(100000 + Math.random() * 900000)}`, [])
+  const referenceId = useMemo(() => `FR-${Math.floor(100000 + Math.random() * 900000)}`, [])
   const normalizedCountryName = String(form.country_name || 'India').trim()
   const isIndianApplicant = isIndianCountryName(normalizedCountryName)
   const idTypeOptions = useMemo(() => getIdTypeOptionsForCountry(normalizedCountryName), [normalizedCountryName])
@@ -977,12 +978,21 @@ export default function MembershipApplicationForm({ prefill = {} }) {
     http.get(`/membership/packages/match?${qp}`, { signal: controller.signal })
       .then(r => {
         if (controller.signal.aborted) return
-        const p = r.data?.data
-        if (p && p.id && Number(p.price) > 0) {
-          setPkg(p)
-          setForm(f => ({ ...f, package_id: p.id }))
+        const pData = r.data?.data
+        const pkgs = Array.isArray(pData) ? pData : (pData ? [pData] : [])
+        if (pkgs.length > 0) {
+          setAvailablePkgs(pkgs)
+          // Auto-select if there is only 1 package. Otherwise, wait for user selection.
+          if (pkgs.length === 1) {
+            setPkg(pkgs[0])
+            setForm(f => ({ ...f, package_id: pkgs[0].id }))
+          } else {
+            setPkg(null)
+            setForm(f => ({ ...f, package_id: null }))
+          }
           setPkgError('')
         } else {
+          setAvailablePkgs([])
           setPkg(null)
           setForm(f => ({ ...f, package_id: null }))
           setPkgError('No package configured for this selection. Please contact the administrator.')
@@ -1897,6 +1907,28 @@ export default function MembershipApplicationForm({ prefill = {} }) {
             <div>
               <p className="text-sm font-semibold">Package Not Available</p>
               <p className="text-xs mt-0.5">{pkgError}</p>
+            </div>
+          </div>
+        )}
+
+        {/* ── Multiple Packages Selection ── */}
+        {!pkgLoading && !pkgError && availablePkgs.length > 1 && (
+          <div className="mt-5 space-y-3">
+            <p className="text-sm font-semibold text-gray-700">Multiple packages are available. Please select one:</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+               {availablePkgs.map(p => {
+                 const isSelected = p.id === pkg?.id;
+                 return (
+                   <button key={p.id} type="button" onClick={() => { setPkg(p); setForm(f => ({ ...f, package_id: p.id })); }}
+                     className={`text-left p-4 rounded-xl border-2 transition-all ${isSelected ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+                     <div className="flex justify-between items-start mb-1">
+                       <p className={`font-bold text-base ${isSelected ? 'text-primary-700' : 'text-gray-900'}`}>{p.name}</p>
+                     </div>
+                     <p className="font-extrabold text-primary-700 mb-2">{getCurrencySymbol(p.currency)}{Number(p.price).toLocaleString()}</p>
+                     {p.description && <p className="text-xs text-gray-500 mb-2">{p.description}</p>}
+                   </button>
+                 )
+               })}
             </div>
           </div>
         )}

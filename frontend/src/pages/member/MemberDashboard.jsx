@@ -362,6 +362,8 @@ function OverviewTab({ member, onTab, apiClient }) {
   const [copyToggled, setCopyToggled] = useState(false)
   const [togglingUrl, setTogglingUrl] = useState(false)
 
+  const photoUrl = member.data?.profile_photo || member.profile_photo_path || profileData?.profile?.profile_photo_path
+
   useEffect(() => {
     apiClient().get('/member/public-profile')
       .then(res => setProfileData(res.data.data))
@@ -396,128 +398,169 @@ function OverviewTab({ member, onTab, apiClient }) {
   return (
     <div className="space-y-6">
       {/* Welcome */}
-      <div className="bg-gradient-to-r from-primary-700 to-primary-900 rounded-2xl p-6 text-white">
-        <p className="text-primary-200 text-sm mb-1">Welcome back,</p>
-        <h2 className="text-2xl font-black">{member.full_name || 'Member'}</h2>
-        <p className="text-primary-200 text-sm mt-1">Membership ID: <span className="font-mono text-white">{member.membership_id}</span></p>
-        <div className="flex flex-wrap gap-4 mt-4">
-          <div>
-            <p className="text-xs text-primary-300">Status</p>
-            <MemberStatusBadge status={getMembershipStatus(member)}/>
-          </div>
-          {member.expiry_date && (
+      <div className="bg-gradient-to-r from-primary-700 to-primary-900 rounded-[24px] p-8 text-white shadow-lg flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+        <div className="flex-1">
+          <p className="text-primary-200 text-sm mb-1">Welcome back,</p>
+          <h2 className="text-3xl font-black">{member.full_name || 'Member'}</h2>
+          <p className="text-primary-200 text-sm mt-1">Membership ID: <span className="font-mono text-white">{member.membership_id}</span></p>
+          <div className="flex flex-wrap gap-6 mt-6">
             <div>
-              <p className="text-xs text-primary-300">Expires</p>
-              <p className="text-sm font-semibold">{new Date(member.expiry_date).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })}</p>
+              <p className="text-xs text-primary-300 mb-1">Status</p>
+              <MemberStatusBadge status={getMembershipStatus(member)}/>
             </div>
-          )}
-          {(member.package_name || member.plan_type) && (
-            <div>
-              <p className="text-xs text-primary-300">Package</p>
-              <p className="text-sm font-semibold">{member.package_name || (member.plan_type === 'lifetime' ? 'Lifetime' : member.plan_type === '3years' || member.plan_type === '3_years' ? '3 Year Plan' : member.plan_type === 'yearly' || member.plan_type === '1year' ? '1 Year Plan' : member.plan_type)}</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Share Profile Banner */}
-      {profileData && profileData.public_url && (
-        <div className="rounded-2xl border border-primary-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center shrink-0 mt-0.5">
-                <Globe size={20} className="text-primary-600" />
-              </div>
+            {member.expiry_date && (
               <div>
-                <h3 className="font-bold text-gray-900">Share Your Profile</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Share your FORTI public profile with others.</p>
+                <p className="text-xs text-primary-300 mb-1">Expires</p>
+                <p className="text-sm font-semibold bg-white/10 px-3 py-1 rounded-lg">{new Date(member.expiry_date).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })}</p>
               </div>
-            </div>
-            <div className="flex items-center gap-3 w-full sm:w-auto">
-              <label className="flex items-center gap-2 cursor-pointer text-sm font-medium whitespace-nowrap bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
-                <span className="text-gray-700">Visible to Public</span>
-                <input type="checkbox" className="w-4 h-4 accent-primary-600" 
-                  checked={!!profileData.profile?.is_public} 
-                  onChange={handleToggleVisibility} 
-                  disabled={togglingUrl} />
-              </label>
-            </div>
+            )}
+            {(member.package_name || member.plan_type) && (
+              <div>
+                <p className="text-xs text-primary-300 mb-1">Package</p>
+                <p className="text-sm font-semibold bg-white/10 px-3 py-1 rounded-lg">{member.package_name || (member.plan_type === 'lifetime' ? 'Lifetime' : member.plan_type === '3years' || member.plan_type === '3_years' ? '3 Year Plan' : member.plan_type === 'yearly' || member.plan_type === '1year' ? '1 Year Plan' : member.plan_type)}</p>
+              </div>
+            )}
           </div>
-          <div className="mt-4 flex flex-col sm:flex-row items-center gap-2">
-            <div className="flex-1 w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-500 font-mono truncate select-all">
-              {window.location.origin}{profileData.public_url}
-            </div>
-            <div className="flex gap-2 w-full sm:w-auto">
-              <button onClick={handleCopy} disabled={!profileData.profile?.is_public} className="flex-1 sm:flex-none btn-primary btn-sm flex items-center justify-center gap-2 disabled:opacity-50">
-                {copyToggled ? <CheckCircle size={14}/> : <Link2 size={14}/>}
-                {copyToggled ? 'Copied!' : 'Copy Link'}
-              </button>
-              <a href={profileData.public_url} target="_blank" rel="noreferrer" 
-                 className={`flex-1 sm:flex-none btn-outline btn-sm flex items-center justify-center gap-2 ${!profileData.profile?.is_public ? 'opacity-50 pointer-events-none' : ''}`}>
-                <ExternalLink size={14}/> Preview
-              </a>
-            </div>
-          </div>
-          {!profileData.profile?.is_public && (
-            <div className="mt-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-2 rounded-lg flex items-start gap-2">
-              <AlertCircle size={14} className="shrink-0 mt-0.5" />
-              <p>Turn on <strong>Visible to Public</strong> to activate your link. People won't be able to view your profile until you do.</p>
-            </div>
-          )}
         </div>
-      )}
 
-      {/* Expiry warning */}
-      {daysLeft !== null && daysLeft <= 30 && getMembershipStatus(member) === 'active' && (
-        <div className={`flex items-start gap-3 p-4 rounded-xl border ${daysLeft <= 7 ? 'bg-red-50 border-red-200 text-red-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
-          <Bell size={18} className="shrink-0 mt-0.5"/>
-          <div>
-            <p className="font-semibold text-sm">Membership Expiring Soon!</p>
-            <p className="text-xs mt-0.5">Your membership expires in <strong>{daysLeft} day{daysLeft !== 1 ? 's' : ''}</strong>. Renew now to avoid interruption.</p>
-            <button onClick={() => onTab('renewal')} className="mt-2 text-xs font-bold underline">Renew Membership →</button>
-          </div>
-        </div>
-      )}
-
-      {/* Application status */}
-      <div className="card">
-        <div className="card-header">
-          <h3 className="font-semibold text-gray-900 flex items-center gap-2"><Activity size={17}/>Application Status</h3>
-        </div>
-        <div className="card-body">
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-gray-600">Current Status</p>
-            <StatusBadge status={getDisplayStatus(member)}/>
-          </div>
-          <StatusTimeline status={getApplicationStatus(member)} membershipStatus={getMembershipStatus(member)}/>
-          {member.applied_at && (
-            <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
-              <p className="text-sm text-gray-600">Applied On</p>
-              <p className="text-sm font-medium text-gray-900">{new Date(member.applied_at).toLocaleDateString('en-IN', { day:'2-digit', month:'long', year:'numeric' })}</p>
-            </div>
-          )}
-          {member.payment_amount && (
-            <div className="flex items-center justify-between mt-3">
-              <p className="text-sm text-gray-600">Amount Paid</p>
-              <p className="text-sm font-bold text-primary-700">{Number(member.payment_amount).toLocaleString('en-IN')}</p>
+        {/* Profile Avatar / Photo Slot */}
+        <div className="shrink-0 flex items-center justify-center md:justify-end">
+          {photoUrl ? (
+            <img 
+              src={assetUrl(photoUrl)} 
+              alt="Profile" 
+              className="w-36 h-36 md:w-[185px] md:h-[185px] rounded-2xl object-cover border-4 border-white/20 shadow-xl hover:scale-105 transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-36 h-36 md:w-[185px] md:h-[185px] rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center text-white font-black text-4xl border-4 border-white/20 shadow-xl">
+              {(member.full_name || '?').charAt(0).toUpperCase()}
             </div>
           )}
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid sm:grid-cols-3 gap-4">
-        {[
-          { label: 'Download Certificate', icon: Award, tab: 'documents', color: 'text-yellow-600 bg-yellow-50 hover:bg-yellow-100' },
-          { label: 'Download ID Card',     icon: CreditCard, tab: 'documents', color: 'text-blue-600 bg-blue-50 hover:bg-blue-100' },
-          { label: 'Download Invoice',     icon: FileText, tab: 'documents', color: 'text-green-600 bg-green-50 hover:bg-green-100' },
-        ].map(({ label, icon: Icon, tab, color }) => (
-          <button key={label} onClick={() => onTab(tab)}
-            className={`flex flex-col items-center gap-2 p-5 rounded-xl transition ${color}`}>
-            <Icon size={24}/>
-            <span className="text-xs font-semibold text-center">{label}</span>
-          </button>
-        ))}
+      <div className="grid lg:grid-cols-3 gap-6 items-start">
+        {/* Main Column */}
+        <div className="lg:col-span-2 space-y-6 order-1 lg:order-2">
+          {/* Share Profile Banner */}
+          {profileData && profileData.public_url && (
+            <div className="rounded-[24px] border border-primary-100 bg-white p-6 shadow-sm">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center shrink-0">
+                    <Globe size={24} className="text-primary-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-lg">Share Your Profile</h3>
+                    <p className="text-sm text-gray-500 mt-0.5">Share your FORTI public profile with others.</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm font-medium whitespace-nowrap bg-gray-50 px-4 py-2 rounded-xl border border-gray-200 hover:bg-gray-100 transition-colors">
+                    <span className="text-gray-700">Visible to Public</span>
+                    <input type="checkbox" className="w-4 h-4 accent-primary-600" 
+                      checked={!!profileData.profile?.is_public} 
+                      onChange={handleToggleVisibility} 
+                      disabled={togglingUrl} />
+                  </label>
+                </div>
+              </div>
+              <div className="mt-5 flex flex-col sm:flex-row items-center gap-2">
+                <div className="flex-1 w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-600 font-mono truncate select-all">
+                  {window.location.origin}{profileData.public_url}
+                </div>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <button onClick={handleCopy} disabled={!profileData.profile?.is_public} className="flex-1 sm:flex-none btn-primary py-3 px-5 flex items-center justify-center gap-2 disabled:opacity-50 rounded-xl">
+                    {copyToggled ? <CheckCircle size={16}/> : <Link2 size={16}/>}
+                    {copyToggled ? 'Copied!' : 'Copy'}
+                  </button>
+                  <a href={profileData.public_url} target="_blank" rel="noreferrer" 
+                     className={`flex-1 sm:flex-none btn-outline py-3 px-5 flex items-center justify-center gap-2 rounded-xl ${!profileData.profile?.is_public ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <ExternalLink size={16}/> Preview
+                  </a>
+                </div>
+              </div>
+              {!profileData.profile?.is_public && (
+                <div className="mt-4 bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3 rounded-xl flex items-start gap-3">
+                  <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                  <p>Turn on <strong>Visible to Public</strong> to activate your link. People won't be able to view your profile until you do.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Payment & Application Details */}
+          {(member.applied_at || member.payment_amount) && (
+            <div className="bg-white rounded-[24px] border border-gray-100 p-6 shadow-sm">
+              <div className="flex flex-col gap-4">
+                {member.applied_at && (
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-gray-500 font-medium">Applied On</p>
+                    <p className="text-sm font-bold text-gray-900">
+                      {new Date(member.applied_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
+                    </p>
+                  </div>
+                )}
+                {member.payment_amount && (
+                  <div className={`flex items-center justify-between ${member.applied_at ? 'pt-4 border-t border-gray-100' : ''}`}>
+                    <p className="text-sm text-gray-500 font-medium">Amount Paid</p>
+                    <p className="text-sm font-black text-primary-700">
+                      ₹{Number(member.payment_amount).toLocaleString('en-IN')}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Quick Actions */}
+          <div className="grid sm:grid-cols-3 gap-4">
+            {[
+              { label: 'Download Certificate', icon: Award, tab: 'documents', color: 'text-amber-600 bg-amber-50 border border-amber-100 hover:bg-amber-100 hover:border-amber-200' },
+              { label: 'Download ID Card',     icon: CreditCard, tab: 'documents', color: 'text-blue-600 bg-blue-50 border border-blue-100 hover:bg-blue-100 hover:border-blue-200' },
+              { label: 'Download Invoice',     icon: FileText, tab: 'documents', color: 'text-emerald-600 bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 hover:border-emerald-200' },
+            ].map(({ label, icon: Icon, tab, color }) => (
+              <button key={label} onClick={() => onTab(tab)}
+                className={`flex flex-col items-center gap-3 p-6 rounded-[20px] transition shadow-sm ${color}`}>
+                <Icon size={28}/>
+                <span className="text-sm font-bold text-center">{label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Sidebar Column */}
+        <div className="lg:col-span-1 space-y-6 order-2 lg:order-1">
+          {/* Expiry warning */}
+          {daysLeft !== null && daysLeft <= 30 && getMembershipStatus(member) === 'active' && (
+            <div className={`flex items-start gap-3 p-5 rounded-[20px] border shadow-sm ${daysLeft <= 7 ? 'bg-red-50 border-red-200 text-red-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+              <Bell size={20} className="shrink-0 mt-0.5"/>
+              <div>
+                <p className="font-bold text-base">Membership Expiring!</p>
+                <p className="text-sm mt-1">Your membership expires in <strong>{daysLeft} day{daysLeft !== 1 ? 's' : ''}</strong>.</p>
+                <button onClick={() => onTab('renewal')} className="mt-3 text-sm font-bold underline px-3 py-1.5 bg-white rounded-lg shadow-sm w-fit border border-current/20">Renew Now →</button>
+              </div>
+            </div>
+          )}
+
+          {/* Application status */}
+          <div className="bg-white rounded-[24px] border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-6 py-5 border-b border-gray-50 flex items-center gap-2 bg-gray-50/50">
+              <Activity size={18} className="text-primary-600"/>
+              <h3 className="font-bold text-gray-900 text-lg">Application Status</h3>
+            </div>
+            <div className="p-6">
+              <div className="flex flex-col gap-1 mb-6">
+                <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Current Phase</p>
+                <StatusBadge status={getDisplayStatus(member)}/>
+              </div>
+              
+              <div className="bg-gray-50 rounded-xl p-5 border border-gray-100">
+                <StatusTimeline status={getApplicationStatus(member)} membershipStatus={getMembershipStatus(member)}/>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -1532,6 +1575,7 @@ export default function MemberDashboard() {
   const { member, loading, logout, apiClient, refetch } = useMember()
   const [activeTab, setActiveTab] = useState('overview')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [showExpiryPopup, setShowExpiryPopup] = useState(true)
   const daysLeft = member?.expiry_date
     ? Math.ceil((new Date(member.expiry_date) - new Date()) / 86400000)
     : null
@@ -1635,10 +1679,38 @@ export default function MemberDashboard() {
         </div>
 
         {/* Tab content */}
-        <div className="p-6 max-w-5xl">
+        <div className="p-6 w-full max-w-[1400px] mx-auto">
           {tabContent[activeTab]}
         </div>
       </div>
+
+      {/* Expiry Warning Popup */}
+      {daysLeft !== null && daysLeft <= 90 && getMembershipStatus(member) === 'active' && showExpiryPopup && (
+        <div className="fixed bottom-6 right-6 z-50 shadow-2xl">
+          <div className="bg-white rounded-2xl shadow-2xl border border-amber-200 p-4 max-w-sm flex items-start gap-3 w-80">
+            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0 text-amber-600 mt-0.5">
+              <Bell size={20} />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-start justify-between">
+                <h3 className="font-bold text-gray-900">Plan Expiring</h3>
+                <button onClick={() => setShowExpiryPopup(false)} className="text-gray-400 hover:text-gray-600 transition">
+                  <XCircle size={16} />
+                </button>
+              </div>
+              <p className="text-xs text-gray-600 mt-1">
+                Your membership expires in <strong className="text-amber-700">{daysLeft} days</strong>.
+              </p>
+              <button 
+                onClick={() => { setActiveTab('renewal'); setShowExpiryPopup(false) }} 
+                className="mt-3 w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-xl text-sm transition shadow-sm"
+              >
+                Renew Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )

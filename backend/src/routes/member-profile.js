@@ -78,14 +78,17 @@ router.put('/', memberAuth, async (req, res) => {
     await ensurePublicSlug(sid);
     await pool.query(
       `INSERT INTO member_public_profiles (submission_id, is_public, headline, about_me, my_org, org_history,
-         show_email, show_phone, show_positions, show_past_positions, theme_color, public_slug, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+         show_email, show_phone, show_positions, show_past_positions, theme_color, text_color, public_slug, background_style, button_style, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
        ON CONFLICT (submission_id) DO UPDATE SET
          is_public=EXCLUDED.is_public, headline=EXCLUDED.headline, about_me=EXCLUDED.about_me,
          my_org=EXCLUDED.my_org, org_history=EXCLUDED.org_history,
          show_email=EXCLUDED.show_email, show_phone=EXCLUDED.show_phone,
          show_positions=EXCLUDED.show_positions, show_past_positions=EXCLUDED.show_past_positions,
          theme_color=EXCLUDED.theme_color,
+         text_color=EXCLUDED.text_color,
+         background_style=EXCLUDED.background_style,
+         button_style=EXCLUDED.button_style,
          public_slug=COALESCE(EXCLUDED.public_slug, member_public_profiles.public_slug),
          updated_at=NOW()
        RETURNING submission_id`,
@@ -101,7 +104,10 @@ router.put('/', memberAuth, async (req, res) => {
         body.show_positions !== false,
         body.show_past_positions !== false,
         body.theme_color || '#6C3EAB',
+        body.text_color || '#000000',
         body.public_slug || null,
+        body.background_style || 'solid',
+        body.button_style || 'rounded',
       ]
     );
     const [[profile]] = await pool.query('SELECT * FROM member_public_profiles WHERE submission_id = ?', [sid]);
@@ -154,13 +160,13 @@ router.post('/photo', memberAuth, upload.single('photo'), async (req, res) => {
 // CRUD links
 router.post('/links', memberAuth, async (req, res) => {
   const sid = submissionId(req);
-  const { link_type, title, url, content, sort_order, is_active } = req.body;
+  const { link_type, title, url, content, sort_order, is_active, is_featured } = req.body;
   if (!title) return fail(res, 'title required', 422);
   try {
     const [r] = await pool.query(
-      `INSERT INTO member_profile_links (submission_id, link_type, title, url, content, sort_order, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [sid, link_type || 'custom', title, url || null, content || null, sort_order ?? 0, is_active !== false]
+      `INSERT INTO member_profile_links (submission_id, link_type, title, url, content, sort_order, is_active, is_featured)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [sid, link_type || 'custom', title, url || null, content || null, sort_order ?? 0, is_active !== false, is_featured === true]
     );
     const [[row]] = await pool.query('SELECT * FROM member_profile_links WHERE id = ?', [r.insertId]);
     return ok(res, row, 'Added', 201);
@@ -170,13 +176,13 @@ router.post('/links', memberAuth, async (req, res) => {
 });
 
 router.put('/links/:linkId', memberAuth, async (req, res) => {
-  const { title, url, content, link_type, sort_order, is_active } = req.body;
+  const { title, url, content, link_type, sort_order, is_active, is_featured } = req.body;
   try {
     await pool.query(
       `UPDATE member_profile_links SET title=COALESCE(?,title), url=?, content=?, link_type=COALESCE(?,link_type),
-       sort_order=COALESCE(?,sort_order), is_active=COALESCE(?,is_active), updated_at=NOW()
+       sort_order=COALESCE(?,sort_order), is_active=COALESCE(?,is_active), is_featured=COALESCE(?,is_featured), updated_at=NOW()
        WHERE id=? AND submission_id=?`,
-      [title, url, content, link_type, sort_order, is_active, req.params.linkId, submissionId(req)]
+      [title, url, content, link_type, sort_order, is_active, is_featured, req.params.linkId, submissionId(req)]
     );
     const [[row]] = await pool.query('SELECT * FROM member_profile_links WHERE id = ?', [req.params.linkId]);
     return ok(res, row);

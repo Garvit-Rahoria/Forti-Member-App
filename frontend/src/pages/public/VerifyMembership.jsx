@@ -63,7 +63,7 @@ export default function VerifyMembership() {
             <input
               type="text"
               className="input flex-1 font-mono uppercase"
-              placeholder="e.g. FORTI-2026-00001"
+              placeholder="e.g. FR-123456"
               value={input}
               onChange={e => { setInput(e.target.value.toUpperCase()); setError(''); setResult(null) }}
             />
@@ -136,7 +136,7 @@ export default function VerifyMembership() {
           <div className="bg-white rounded-2xl border border-gray-200 p-6 text-center">
             <Shield size={32} className="text-gray-300 mx-auto mb-3"/>
             <p className="text-gray-500 text-sm">Enter a Membership ID above to verify its status.</p>
-            <p className="text-xs text-gray-400 mt-2">FORTI membership IDs are formatted as <span className="font-mono font-semibold">FORTI-YEAR-NNNNN</span></p>
+            <p className="text-xs text-gray-400 mt-2">FORTI membership IDs are formatted as <span className="font-mono font-semibold">FR-NNNNNN</span></p>
           </div>
         )}
 

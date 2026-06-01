@@ -12,7 +12,7 @@ const router = express.Router();
 // ──────── All membership routes are PUBLIC (no authMiddleware) ────────────────
 
 // Helper: parse JSON fields and resolve payment_methods to full objects
-async function sendPackage(res, pkg, pool, currencyOverride) {
+async function enrichPackage(pkg, pool, currencyOverride) {
   ['benefits', 'bank_details', 'payment_methods'].forEach(f => {
     if (pkg[f] && typeof pkg[f] === 'string') {
       try { pkg[f] = JSON.parse(pkg[f]); } catch {}
@@ -35,7 +35,12 @@ async function sendPackage(res, pkg, pool, currencyOverride) {
     }
   }
 
-  return ok(res, pkg);
+  return pkg;
+}
+
+async function sendPackages(res, pkgs, pool, currencyOverride) {
+  const enriched = await Promise.all(pkgs.map(p => enrichPackage(p, pool, currencyOverride)));
+  return ok(res, enriched);
 }
 
 // GET /api/membership/packages/match
@@ -122,11 +127,11 @@ router.get('/packages/match', async (req, res) => {
            AND membership_type = ?
            AND duration = ?
            AND country_id = ?
-         ORDER BY auto_generated ASC, sort_order ASC, id ASC LIMIT 1`,
+         ORDER BY auto_generated ASC, sort_order ASC, id ASC`,
         [mtype, dur, Number(resolvedCountryId)]
       );
       console.log(`[PKG MATCH] country-specific search → found ${countryRows.length} rows`);
-      if (countryRows.length) return sendPackage(res, countryRows[0], pool, countryCurrency);
+      if (countryRows.length) return sendPackages(res, countryRows, pool, countryCurrency);
     }
 
     // Base package lookup (country_id IS NULL for base packages)
@@ -138,12 +143,12 @@ router.get('/packages/match', async (req, res) => {
          AND membership_type = ?
          AND duration = ?
          AND country_id IS NULL
-       ORDER BY auto_generated ASC, sort_order ASC, id ASC LIMIT 1`,
+       ORDER BY auto_generated ASC, sort_order ASC, id ASC`,
       [loc, mtype, dur]
     );
     console.log(`[PKG MATCH] base lookup (loc=${loc} mtype=${mtype} dur=${dur}) → found ${rows.length} rows${rows[0] ? ` id=${rows[0].id} price=${rows[0].price}` : ''}`);
 
-    if (rows.length) return sendPackage(res, rows[0], pool, countryCurrency);
+    if (rows.length) return sendPackages(res, rows, pool, countryCurrency);
 
     // ── AUTO-CREATE DEFAULT PLAN (per spec: if plan does NOT exist, auto-generate) ──
     const currency = countryCurrency || CURRENCY_MAP[loc] || 'INR';
@@ -207,14 +212,14 @@ router.get('/packages/match', async (req, res) => {
       );
       const [[newPkg]] = await pool.query('SELECT * FROM portal_packages WHERE id = ?', [ins.insertId]);
       console.log(`[AUTO-PLAN] Created: "${autoName}" (${autoCode}) @ ${currency} ${basePrice}`);
-      return sendPackage(res, newPkg, pool, countryCurrency);
+      return sendPackages(res, [newPkg], pool, countryCurrency);
     } catch (autoErr) {
       // If auto-creation fails (e.g. duplicate code), try fetching the existing one
       console.error('[AUTO-PLAN] Insert failed:', autoErr.message, '— retrying fetch by code:', autoCode);
       const [retry] = await pool.query(
         `SELECT * FROM portal_packages WHERE code = ? LIMIT 1`, [autoCode]
       );
-      if (retry.length) return sendPackage(res, retry[0], pool, countryCurrency);
+      if (retry.length) return sendPackages(res, retry, pool, countryCurrency);
       console.error('[AUTO-PLAN] Retry fetch also failed for code:', autoCode);
       return fail(res, 'Plan not configured. Please contact admin.', 404);
     }
@@ -398,7 +403,7 @@ router.post(
       await conn.beginTransaction();
 
       const submUuid     = require('crypto').randomUUID();
-      const membershipId = `FORTI-${Date.now()}`;
+      const membershipId = `FR-${String(Math.floor(100000 + Math.random() * 900000))}`;
 
       // Resolve payment_method → method_id FK
       // Frontend sends the method ID directly now

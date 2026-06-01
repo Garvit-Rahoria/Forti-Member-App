@@ -161,7 +161,7 @@ router.patch('/:id([0-9]+)/credit-inr', requireRole('super_admin', 'admin', 'off
       const [[{ cnt }]] = await pool.query(
         "SELECT COUNT(*) AS cnt FROM fb_submissions WHERE membership_id IS NOT NULL AND membership_id != ''"
       );
-      membershipId = `FORTI-${year}-${String(Number(cnt) + 1).padStart(6, '0')}`;
+      membershipId = `FR-${String(Math.floor(100000 + Math.random() * 900000))}`;
       await pool.query('UPDATE fb_submissions SET membership_id=? WHERE id=?', [membershipId, payment.sub_id]);
     }
 
@@ -240,7 +240,7 @@ router.patch('/:id/verify', requireRole('super_admin', 'admin', 'office_staff'),
         const [[{ cnt }]] = await pool.query(
           "SELECT COUNT(*) AS cnt FROM fb_submissions WHERE membership_id IS NOT NULL AND membership_id != ''"
         );
-        membershipId = `FORTI-${year}-${String(Number(cnt) + 1).padStart(6, '0')}`;
+        membershipId = `FR-${String(Math.floor(100000 + Math.random() * 900000))}`;
         await pool.query(
           'UPDATE fb_submissions SET membership_id=? WHERE id=?',
           [membershipId, payment.submission_id]

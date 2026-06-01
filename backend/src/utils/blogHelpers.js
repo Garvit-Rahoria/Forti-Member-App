@@ -3,14 +3,20 @@
  */
 const { pool } = require('../config/database');
 
-function buildCategoryTree(categories, parentId = null) {
+function buildCategoryTree(categories, parentId = null, seen = new Set()) {
   return categories
     .filter(c => (c.parent_id ?? null) === parentId)
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name))
-    .map(c => ({
-      ...c,
-      children: buildCategoryTree(categories, c.id),
-    }));
+    .map(c => {
+      if (seen.has(c.id)) {
+        console.warn('Circular reference detected in category tree:', c.id);
+        return { ...c, children: [] };
+      }
+      return {
+        ...c,
+        children: buildCategoryTree(categories, c.id, new Set([...seen, c.id])),
+      };
+    });
 }
 
 async function getCategoryDescendantIds(categoryId) {

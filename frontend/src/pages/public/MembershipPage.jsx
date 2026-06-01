@@ -58,7 +58,7 @@ export default function MembershipPage() {
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Apply for Membership</h1>
               <p className="text-gray-500 mt-2 text-sm">Complete all 5 steps to submit your membership application</p>
             </div>
-            <MembershipApplicationForm key={otpVerified.applicant?.email || otpVerified.applicant?.phone_full || 'membership-application'} prefill={otpVerified.applicant} />
+            <MembershipApplicationForm key={otpVerified.applicant?.email || otpVerified.applicant?.phone_full || 'membership-application'} prefill={{ ...location.state?.prefill, ...otpVerified.applicant }} />
           </>
         )}
       </main>
