@@ -180,12 +180,17 @@ export default function ContactPage() {
           <div className="lg:col-span-2 flex flex-col gap-5">
             {/* Map placeholder */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex-1">
-              <div className="bg-gradient-to-br from-gray-100 to-gray-200 h-48 flex items-center justify-center">
-                <div className="text-center text-gray-400">
-                  <MapPin size={32} className="mx-auto mb-2"/>
-                  <p className="text-sm font-medium">FORTI National Office</p>
-                  <p className="text-xs">4th Floor, Commerce Tower, New Delhi</p>
-                </div>
+              <div className="h-48 w-full border-b border-gray-100">
+                <iframe
+                  src="https://maps.google.com/maps?q=Commerce%20Tower,%20New%20Delhi&t=&z=15&ie=UTF8&iwloc=&output=embed"
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  allowFullScreen=""
+                  loading="lazy"
+                  title="FORTI National Office Map"
+                  className="w-full h-full"
+                ></iframe>
               </div>
               <div className="p-4">
                 <p className="text-sm font-semibold text-gray-700 mb-1">Office Hours</p>

@@ -90,9 +90,58 @@ router.post('/:uuid/submit', async (req, res) => {
     if (!sub) return fail(res, 'Not found', 404);
     if (sub.status !== 'draft') return fail(res, 'Already submitted', 409);
 
-    await pool.query(
-      `UPDATE fb_submissions SET status='submitted', submitted_at=NOW() WHERE id=?`,
+    // Extract key fields from fb_submission_data to update fb_submissions columns
+    const [subData] = await pool.query(
+      'SELECT field_key, value FROM fb_submission_data WHERE submission_id = ?',
       [sub.id]
+    );
+    const dataMap = {};
+    for (const r of subData) {
+      dataMap[r.field_key] = r.value;
+    }
+
+    const applicant_name = dataMap.full_name || dataMap.applicant_name || sub.applicant_name || null;
+    const applicant_email = dataMap.email || dataMap.applicant_email || sub.applicant_email || null;
+    const applicant_phone = dataMap.phone || dataMap.applicant_phone || sub.applicant_phone || null;
+    const state_id = dataMap.state_id ? Number(dataMap.state_id) : (sub.state_id || null);
+    const city_id = dataMap.city_id ? Number(dataMap.city_id) : (sub.city_id || null);
+    const country_id = dataMap.country_id ? Number(dataMap.country_id) : (sub.country_id || null);
+    const membership_type = dataMap.membership_type || sub.membership_type || null;
+    const plan_type = dataMap.plan_type || dataMap.plan || dataMap.duration || sub.plan_type || null;
+    const package_id = dataMap.package_id ? Number(dataMap.package_id) : (sub.package_id || null);
+    const wing_id = dataMap.wing_id ? Number(dataMap.wing_id) : (sub.wing_id || null);
+    const fullJsonData = JSON.stringify(dataMap);
+
+    await pool.query(
+      `UPDATE fb_submissions 
+       SET status='submitted', 
+           submitted_at=NOW(),
+           applicant_name=COALESCE(?, applicant_name),
+           applicant_email=COALESCE(?, applicant_email),
+           applicant_phone=COALESCE(?, applicant_phone),
+           state_id=COALESCE(?, state_id),
+           city_id=COALESCE(?, city_id),
+           country_id=COALESCE(?, country_id),
+           membership_type=COALESCE(?, membership_type),
+           plan_type=COALESCE(?, plan_type),
+           package_id=COALESCE(?, package_id),
+           wing_id=COALESCE(?, wing_id),
+           data=COALESCE(?, data)
+       WHERE id=?`,
+      [
+        applicant_name,
+        applicant_email,
+        applicant_phone,
+        state_id,
+        city_id,
+        country_id,
+        membership_type,
+        plan_type,
+        package_id,
+        wing_id,
+        fullJsonData,
+        sub.id
+      ]
     );
 
     // Create provisional member_accounts entry (is_active=0) pinned to THIS submission only.

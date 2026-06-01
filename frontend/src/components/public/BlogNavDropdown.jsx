@@ -7,7 +7,7 @@ export default function BlogNavDropdown({ item }) {
   const ref = useRef(null)
   const location = useLocation()
   const path = item.path || `/content/${item.slug}`
-  const isActive = location.pathname === path || location.pathname.startsWith(`${path}/`)
+  const isActive = location.pathname !== path && location.pathname.startsWith(`${path}/`)
 
   useEffect(() => {
     const fn = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }

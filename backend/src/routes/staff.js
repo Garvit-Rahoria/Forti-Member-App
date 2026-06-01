@@ -10,6 +10,23 @@ const router = express.Router();
 router.use(authMiddleware);
 router.use(requireRole('office_staff'));
 
+// ── GET /api/staff/region ─────────────────────────────────────────────────────
+// Returns the office staff's assigned region info (like manager/region)
+router.get('/region', async (req, res) => {
+  try {
+    const user = req.user;
+    let regionName = null;
+    if (user.assigned_state_id) {
+      const [[state]] = await pool.query('SELECT name FROM states WHERE id = ? LIMIT 1', [user.assigned_state_id]);
+      if (state) regionName = state.name;
+    }
+    return ok(res, {
+      assigned_state_id: user.assigned_state_id || null,
+      region_name: regionName,
+    });
+  } catch (err) { return fail(res, 'Server error', 500); }
+});
+
 // ── GET /api/staff/applications ───────────────────────────────────────────────
 // Paginated list of applications assigned for review
 router.get('/applications', async (req, res) => {

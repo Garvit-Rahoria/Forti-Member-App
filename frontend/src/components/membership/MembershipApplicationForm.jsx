@@ -455,7 +455,30 @@ export default function MembershipApplicationForm({ prefill = {} }) {
   const navigate = useNavigate()
   const topRef = useRef()
 
-  const [step, setStep] = useState(0)
+  // Helper to load saved form draft
+  const loadSavedForm = () => {
+    try {
+      const saved = localStorage.getItem('forti_application_form')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        return {
+          ...parsed,
+          profile_photo: null,
+          organisation_logo: null,
+          payment_screenshot: null,
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load saved form draft:', e)
+    }
+    return null
+  }
+
+  const [step, setStep] = useState(() => {
+    const savedStep = localStorage.getItem('forti_application_step')
+    return savedStep ? Number(savedStep) : 0
+  })
+
   const [orgTypes, setOrgTypes] = useState(ORG_TYPE_DEFAULTS)
   const [orgTypesLoading, setOrgTypesLoading] = useState(true)
   useEffect(() => {
@@ -467,55 +490,134 @@ export default function MembershipApplicationForm({ prefill = {} }) {
     return () => { active = false }
   }, [])
 
-  const [form, setForm] = useState({
-    full_name: prefill?.full_name || '',
-    email: prefill?.email || '',
-    phone: prefill?.phone || '',
-    phone_country_code: prefill?.phone_country_code || '+91',
-    phone_country_iso2: prefill?.phone_country_iso2 || 'IN',
-    country_name: prefill?.country_name || 'India',
-    profile_photo: null,
-    gender: '',
-    id_type: prefill?.id_type || '',
-    aadhaar_number: '',
-    passport_number: '',
-    national_id_number: '',
-    pin_code: '',
-    organisation_name: '',
-    organisation_type: '',
-    organisation_type_other: '',
-    organisation_logo: null,
-    location_type: '',
-    state_id: '',
-    city_id: '',
-    country_id: '',
-    state_other: '',
-    city_other: '',
-    overseas_city: '',
-    wing_id: '',
-    membership_type: prefill?.membership_type || '',
-    plan_type: '',
-    package_id: null,
-    payment_method: '',
-    payment_screenshot: null,
+  const [form, setForm] = useState(() => {
+    return loadSavedForm() || {
+      full_name: prefill?.full_name || '',
+      email: prefill?.email || '',
+      phone: prefill?.phone || '',
+      phone_country_code: prefill?.phone_country_code || '+91',
+      phone_country_iso2: prefill?.phone_country_iso2 || 'IN',
+      country_name: prefill?.country_name || 'India',
+      profile_photo: null,
+      gender: '',
+      id_type: prefill?.id_type || '',
+      aadhaar_number: '',
+      passport_number: '',
+      national_id_number: '',
+      pin_code: '',
+      organisation_name: '',
+      organisation_type: '',
+      organisation_type_other: '',
+      organisation_logo: null,
+      location_type: '',
+      state_id: '',
+      city_id: '',
+      country_id: '',
+      state_other: '',
+      city_other: '',
+      overseas_city: '',
+      wing_id: '',
+      membership_type: prefill?.membership_type || '',
+      plan_type: '',
+      package_id: null,
+      payment_method: '',
+      payment_screenshot: null,
+    }
   })
+  
+  const [errors, setErrors] = useState({})
+  const [touched, setTouched] = useState({})
+  const [submitting, setSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(null)
+  const [pincodeVerifying, setPincodeVerifying] = useState(false)
+  const [pincodeDetails, setPincodeDetails] = useState(null)
+
+  const verifyPincode = async (pincode) => {
+    setPincodeVerifying(true)
+    setPincodeDetails(null)
+    setErrors(current => {
+      const next = { ...current }
+      delete next.pin_code
+      return next
+    })
+    try {
+      const res = await fetch(`https://api.postalpincode.in/pincode/${pincode}`)
+      const data = await res.json()
+      if (data && data[0] && data[0].Status === 'Success' && data[0].PostOffice && data[0].PostOffice.length > 0) {
+        const first = data[0].PostOffice[0]
+        setPincodeDetails({
+          verified: true,
+          state: first.State,
+          district: first.District
+        })
+      } else {
+        setPincodeDetails({ verified: false })
+        setErrors(current => ({
+          ...current,
+          pin_code: 'Invalid PIN code. Please enter a valid Indian PIN code.'
+        }))
+      }
+    } catch (err) {
+      console.error('PIN code verification network error:', err)
+      setPincodeDetails(null)
+    } finally {
+      setPincodeVerifying(false)
+    }
+  }
+
   const formRef = useRef(form)
   useEffect(() => {
     formRef.current = form
   }, [form])
 
   /* Social links: array of { platform, url } */
-  const [socialLinks, setSocialLinks] = useState([{ platform: '', url: '' }])
+  const [socialLinks, setSocialLinks] = useState(() => {
+    try {
+      const savedSocial = localStorage.getItem('forti_application_social')
+      if (savedSocial) return JSON.parse(savedSocial)
+    } catch {}
+    return [{ platform: '', url: '' }]
+  })
+
+  // Persist form state changes (excluding files)
+  useEffect(() => {
+    const serializeForm = { ...form }
+    delete serializeForm.profile_photo
+    delete serializeForm.organisation_logo
+    delete serializeForm.payment_screenshot
+    localStorage.setItem('forti_application_form', JSON.stringify(serializeForm))
+  }, [form])
+
+  // Persist step changes
+  useEffect(() => {
+    localStorage.setItem('forti_application_step', String(step))
+  }, [step])
+
+  // Persist social links changes
+  useEffect(() => {
+    localStorage.setItem('forti_application_social', JSON.stringify(socialLinks))
+  }, [socialLinks])
+
+  // Warn user on window unload if they have started filling the form and haven't submitted yet
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      const hasContent = form.full_name || form.email || form.phone || step > 0
+      if (hasContent && !submitted) {
+        e.preventDefault()
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?'
+        return e.returnValue
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [form, step, submitted])
   const [wings, setWings] = useState([])
 
   useEffect(() => {
     http.get('/wings').then(r => setWings(r.data.data || [])).catch(() => setWings([]))
   }, [])
-
-  const [errors, setErrors] = useState({})
-  const [touched, setTouched] = useState({})
-  const [submitting, setSubmitting] = useState(false)
-  const [submitted, setSubmitted] = useState(null)
 
   const [profilePreview, setProfilePreview] = useState(null)
   const [photoZoom, setPhotoZoom] = useState(false)
@@ -651,7 +753,11 @@ export default function MembershipApplicationForm({ prefill = {} }) {
         case 'pin_code':
           if (currentIsIndianApplicant) {
             if (!String(currentForm.pin_code || '').trim()) return REQUIRED_FIELD_MESSAGE
-            return /^\d{6}$/.test(currentForm.pin_code || '') ? '' : 'Valid 6-digit PIN code is required'
+            if (!/^\d{6}$/.test(currentForm.pin_code || '')) return 'Valid 6-digit PIN code is required'
+            if (pincodeDetails && pincodeDetails.verified === false) {
+              return 'Invalid PIN code. Please enter a valid Indian PIN code.'
+            }
+            return ''
           }
           return currentForm.pin_code?.trim() ? '' : REQUIRED_FIELD_MESSAGE
         case 'organisation_type':
@@ -743,6 +849,15 @@ export default function MembershipApplicationForm({ prefill = {} }) {
   }
 
   function handleFieldChange(fieldName, value, options = {}) {
+    if (fieldName === 'pin_code') {
+      if (isIndianApplicant && value.length === 6) {
+        verifyPincode(value)
+      } else {
+        setPincodeDetails(null)
+        setPincodeVerifying(false)
+      }
+    }
+
     const relatedFields = options.relatedFields || [fieldName]
     const nextForm = { ...formRef.current, [fieldName]: value }
     formRef.current = nextForm
@@ -1170,6 +1285,12 @@ export default function MembershipApplicationForm({ prefill = {} }) {
       const res = await http.post('/membership/apply', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
+      
+      // Clear localStorage drafts on successful submission
+      localStorage.removeItem('forti_application_form')
+      localStorage.removeItem('forti_application_step')
+      localStorage.removeItem('forti_application_social')
+
       const resData = res.data.data
       const membershipId = resData?.membership_id || resData?.application_id || ''
       navigate(`/track${membershipId ? `?membership_id=${encodeURIComponent(membershipId)}` : ''}`, {
@@ -1476,6 +1597,17 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                 value={form.pin_code}
                 onChange={e => handleFieldChange('pin_code', e.target.value.replace(/[^A-Za-z0-9 -]/g, '').slice(0, 20))}
                 onBlur={() => validateField('pin_code')} />
+            )}
+            {isIndianApplicant && pincodeVerifying && (
+              <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5 animate-pulse">
+                <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-ping" />
+                Verifying PIN code...
+              </p>
+            )}
+            {isIndianApplicant && pincodeDetails && pincodeDetails.verified && (
+              <p className="text-xs text-emerald-600 mt-1 font-semibold flex items-center gap-1">
+                ✓ Valid PIN code - {pincodeDetails.district}, {pincodeDetails.state}
+              </p>
             )}
             <FieldError msg={errors.pin_code} />
           </div>

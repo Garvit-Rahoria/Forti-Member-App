@@ -46,6 +46,7 @@ import BlogManagerPage from './pages/admin/blog/BlogManagerPage'
 import ContentTagPage from './pages/public/ContentTagPage'
 import CurrencySettings from './pages/admin/currency/CurrencySettings'
 import ManagerReports from './pages/admin/reports/ManagerReports'
+import MessagesPage from './pages/admin/messages/MessagesPage'
 import { getMemberLandingPath, hasMemberDashboardAccess } from './utils/memberAccess'
 
 function PrivateRoute() {
@@ -149,6 +150,7 @@ export default function App() {
                 <Route path="payment-methods" element={<Navigate to="/payments?tab=methods" replace />} />
 
                 <Route path="renewals" element={<RoleRoute roles={['super_admin','admin','branch_manager']}><RenewalsPage /></RoleRoute>} />
+                <Route path="messages" element={<RoleRoute roles={['office_staff']}><MessagesPage /></RoleRoute>} />
                 <Route path="invoices" element={<InvoicesPage />} />
                 <Route path="email-templates" element={<RoleRoute roles={['super_admin','admin']}><EmailTemplatesPage /></RoleRoute>} />
                 <Route path="reports" element={<RoleRoute roles={['super_admin','admin']}><Reports /></RoleRoute>} />

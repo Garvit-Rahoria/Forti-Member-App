@@ -4,7 +4,7 @@ function request(method, path, body) {
   return new Promise((resolve, reject) => {
     const data = body ? JSON.stringify(body) : null;
     const opts = {
-      hostname: 'localhost', port: 5001,
+      hostname: 'localhost', port: 7000,
       path, method,
       headers: { 'Content-Type': 'application/json', ...(data ? { 'Content-Length': Buffer.byteLength(data) } : {}) }
     };
@@ -87,7 +87,7 @@ async function runTests() {
 
   // 5. OTP verify - wrong OTP
   await test('POST /api/otp/verify rejects wrong OTP', async () => {
-    const r = await request('POST', '/api/otp/verify', { email: 'testdiag123@test.com', otp: '000000', purpose: 'apply' });
+    const r = await request('POST', '/api/otp/verify', { email: 'testdiag123@test.com', otp: '999999', purpose: 'apply' });
     return { ok: r.status === 400, reason: `Expected 400, got ${r.status}: ${r.body?.message}` };
   });
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../contexts/AuthContext'
@@ -7,6 +7,7 @@ import {
   LayoutDashboard, FileText, Users, CreditCard, Package,
   BarChart2, Settings, LogOut, ChevronDown, Menu, X,
   UserCog, ClipboardList, RefreshCw, Mail, BookOpen,
+  MailOpen,
 } from 'lucide-react'
 
 // Role-specific navigation trees
@@ -51,6 +52,7 @@ const NAV_BY_ROLE = {
     { label: 'Applications', icon: FileText,        to: '/applications' },
     { label: 'Payments',     icon: CreditCard,      to: '/payments' },
     { label: 'Members',      icon: Users,           to: '/members' },
+    { label: 'Messages',     icon: Mail,            to: '/messages' },
   ],
 }
 
@@ -68,7 +70,7 @@ const ROLE_BADGE = {
   office_staff:    { label: 'Staff',      cls: 'bg-orange-100 text-orange-700' },
 }
 
-function NavItem({ item }) {
+function NavItem({ item, unreadCount }) {
   const [open, setOpen] = useState(false)
   const location = useLocation()
 
@@ -109,9 +111,16 @@ function NavItem({ item }) {
     )
   }
   return (
-    <NavLink to={item.to} className={`sidebar-link ${isItemActive ? 'active' : ''}`}>
-      <item.icon size={18} />
-      {item.label}
+    <NavLink to={item.to} className={`sidebar-link ${isItemActive ? 'active' : ''} flex items-center justify-between`}>
+      <span className="flex items-center gap-3">
+        <item.icon size={18} />
+        {item.label}
+      </span>
+      {item.to === '/messages' && unreadCount > 0 && (
+        <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 min-w-[18px] text-center animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]">
+          {unreadCount}
+        </span>
+      )}
     </NavLink>
   )
 }
@@ -123,12 +132,58 @@ export default function AdminLayout() {
 
   const role = user?.role || 'admin'
 
+  const [showPopup, setShowPopup] = useState(false)
+  const [alertShown, setAlertShown] = useState(() => {
+    return sessionStorage.getItem('contact_alert_shown') === 'true'
+  })
+  const [prevCount, setPrevCount] = useState(null)
+  const [toastMessage, setToastMessage] = useState(null)
+
   const { data: regionData } = useQuery({
     queryKey: ['manager-region'],
     queryFn: () => api.get('/manager/region').then(r => r.data.data),
     enabled: role === 'branch_manager',
     staleTime: 10 * 60 * 1000,
   })
+
+  const { data: staffRegionData } = useQuery({
+    queryKey: ['staff-region'],
+    queryFn: () => api.get('/staff/region').then(r => r.data.data),
+    enabled: role === 'office_staff',
+    staleTime: 10 * 60 * 1000,
+  })
+
+  const { data: unreadData } = useQuery({
+    queryKey: ['unread-messages-count'],
+    queryFn: () => api.get('/contact/unread-count').then(r => r.data.data),
+    enabled: role === 'office_staff',
+    refetchInterval: 15000,
+  })
+
+  useEffect(() => {
+    if (role === 'office_staff' && unreadData?.count > 0 && !alertShown) {
+      setShowPopup(true)
+      setAlertShown(true)
+      sessionStorage.setItem('contact_alert_shown', 'true')
+    }
+  }, [unreadData?.count, alertShown, role])
+
+  useEffect(() => {
+    if (role === 'office_staff' && unreadData) {
+      const currentCount = unreadData.count
+      if (prevCount !== null && currentCount > prevCount) {
+        setToastMessage('New message received')
+      }
+      setPrevCount(currentCount)
+    }
+  }, [unreadData?.count, role, prevCount])
+
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(null), 6000)
+      return () => clearTimeout(timer)
+    }
+  }, [toastMessage])
   const navItems = NAV_BY_ROLE[role] || NAV_BY_ROLE.admin
   const panelLabel = PANEL_LABEL[role] || 'Admin Panel'
   const roleBadge = ROLE_BADGE[role] || { label: role, cls: 'bg-gray-100 text-gray-600' }
@@ -172,7 +227,7 @@ export default function AdminLayout() {
         {/* Navigation */}
         <nav className="flex-1 min-h-0 px-2.5 py-3 flex flex-col">
           <div className="space-y-0.5">
-          {navItems.map(item => <NavItem key={item.label} item={item} />)}
+          {navItems.map(item => <NavItem key={item.label} item={item} unreadCount={unreadData?.count || 0} />)}
           </div>
           <button
             type="button"
@@ -208,6 +263,12 @@ export default function AdminLayout() {
               {regionData.region_name}
             </span>
           )}
+          {role === 'office_staff' && staffRegionData?.region_name && (
+            <span className="inline-flex items-center gap-1 text-xs font-medium bg-orange-100 text-orange-700 px-2.5 py-1 rounded-full">
+              <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"/>
+              {staffRegionData.region_name}
+            </span>
+          )}
           <div className="ml-auto flex items-center gap-3 text-xs text-gray-400">
             <button onClick={handleLogout} title="Logout" className="ml-1 flex items-center gap-1 text-gray-400 hover:text-red-500 transition-colors">
               <LogOut size={15} />
@@ -220,6 +281,86 @@ export default function AdminLayout() {
           <Outlet />
         </main>
       </div>
+
+      {showPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-all animate-fade-in">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-primary-100/50 overflow-hidden transform scale-100 transition-all duration-300">
+            {/* Gradient Top */}
+            <div className="h-2 bg-gradient-to-r from-primary-500 to-indigo-500" />
+            
+            <div className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center text-primary-600 shrink-0">
+                  <Mail size={24} className="animate-pulse" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-bold text-slate-900 font-display">New Messages in Office Inbox</h3>
+                  <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+                    You have <span className="font-semibold text-primary-600 bg-primary-50 px-1.5 py-0.5 rounded">{unreadData?.count}</span> unread contact message{unreadData?.count > 1 ? 's' : ''} awaiting review.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4">
+                <button
+                  onClick={() => setShowPopup(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition"
+                >
+                  Dismiss
+                </button>
+                <button
+                  onClick={() => {
+                    setShowPopup(false)
+                    navigate('/messages')
+                  }}
+                  className="px-4 py-2 text-xs font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-xl shadow-md hover:shadow-lg transition flex items-center gap-1.5"
+                >
+                  <MailOpen size={14} />
+                  Open Inbox
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Top-Right Real-Time Toast Notification */}
+      {toastMessage && (
+        <>
+          <style>{`
+            @keyframes toastSlideIn {
+              from { transform: translate3d(120%, 0, 0); opacity: 0; }
+              to { transform: translate3d(0, 0, 0); opacity: 1; }
+            }
+            .animate-toast-slide-in {
+              animation: toastSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            }
+          `}</style>
+          <div className="fixed top-5 right-5 z-[100] max-w-sm bg-slate-950/90 text-white rounded-2xl shadow-2xl border border-white/10 p-4.5 backdrop-blur-md animate-toast-slide-in flex items-start gap-3.5 transition-all">
+            <div className="w-9 h-9 rounded-xl bg-red-500/20 text-red-400 flex items-center justify-center shrink-0 animate-bounce">
+              <Mail size={18} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">New Message Received</p>
+              <p className="text-sm text-slate-200 mt-1 leading-relaxed">
+                A visitor submitted a new contact enquiry in the public portal.
+              </p>
+              <button
+                onClick={() => {
+                  setToastMessage(null)
+                  navigate('/messages')
+                }}
+                className="mt-3.5 text-xs font-bold text-primary-400 hover:text-primary-300 transition flex items-center gap-1"
+              >
+                Open Inbox &rarr;
+              </button>
+            </div>
+            <button onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-white p-0.5 rounded-lg hover:bg-white/5 transition" title="Dismiss">
+              <X size={15} />
+            </button>
+          </div>
+        </>
+      )}
     </div>
   )
 }

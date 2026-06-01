@@ -6,12 +6,13 @@
 const fs = require('fs');
 const path = require('path');
 
-const BASE_URL = 'http://localhost:5001';
+const BASE_URL = 'http://localhost:7000';
 let adminToken = '';
 let memberToken = '';
 let submissionId = null;
 let submissionUuid = '';
 let membershipId = '';
+const memberEmail = 'qa_test_member_' + Date.now() + '@forti.org';
 
 async function runSuite() {
   console.log('='.repeat(80));
@@ -189,11 +190,13 @@ async function runSuite() {
 
   await test('Retrieve package matching logic', async () => {
     const data = await apiCall('GET', `/api/membership/packages/match?membership_type=individual&plan_type=yearly&location_type=rajasthan`);
-    if (!data.success || !data.data.id) {
+    const pkgs = Array.isArray(data.data) ? data.data : (data.data ? [data.data] : []);
+    if (!data.success || pkgs.length === 0 || !pkgs[0].id) {
       throw new Error('Package match endpoint failed');
     }
-    packageId = data.data.id;
-    console.log(`   → Matched Package: ${data.data.name} (Price: ${data.data.currency} ${data.data.price})`);
+    const matchedPkg = pkgs[0];
+    packageId = matchedPkg.id;
+    console.log(`   → Matched Package: ${matchedPkg.name} (Price: ${matchedPkg.currency} ${matchedPkg.price})`);
   });
 
   await test('Retrieve payment methods matching logic', async () => {
@@ -221,7 +224,7 @@ async function runSuite() {
 
   let applicantToken = '';
   await test('Test Case 8.1 / 4.1: Verify OTP using hardcoded 000000 bypass', async () => {
-    const email = 'qa_test_member@forti.org';
+    const email = memberEmail;
     const data = await apiCall('POST', '/api/otp/verify', {
       email,
       otp: '000000',
@@ -237,7 +240,7 @@ async function runSuite() {
   await test('Test Case 1.2: Reject wrong OTP verification code', async () => {
     try {
       await apiCall('POST', '/api/otp/verify', {
-        email: 'qa_test_member@forti.org',
+        email: memberEmail,
         otp: '999999', // Truly wrong OTP
         purpose: 'apply'
       });
@@ -258,7 +261,7 @@ async function runSuite() {
 
     const form = new FormData();
     form.append('full_name', 'QA Test Applicant');
-    form.append('email', 'qa_test_member@forti.org');
+    form.append('email', memberEmail);
     form.append('phone', '+919999988888');
     form.append('gender', 'male');
     form.append('id_type', 'aadhaar');
@@ -351,7 +354,7 @@ async function runSuite() {
 
   await test('Test Case 8.1: Member Login via OTP verification', async () => {
     const data = await apiCall('POST', '/api/otp/verify', {
-      email: 'qa_test_member@forti.org',
+      email: memberEmail,
       otp: '000000',
       purpose: 'login'
     });
@@ -366,7 +369,7 @@ async function runSuite() {
     const profile = await apiCall('GET', '/api/member/me', null, {
       'Authorization': `Bearer ${memberToken}`
     });
-    if (!profile.success || profile.data.email !== 'qa_test_member@forti.org') {
+    if (!profile.success || profile.data.email !== memberEmail) {
       throw new Error('Member profile retrieve returned incorrect data');
     }
     console.log(`   → Retrieved profile successfully: ${profile.data.full_name}`);
@@ -390,7 +393,7 @@ async function runSuite() {
       throw new Error('Export members CSV endpoint returned error');
     }
     const text = await response.text();
-    if (!text.includes('membership_id') || !text.includes('qa_test_member@forti.org')) {
+    if (!text.includes('membership_id') || !text.includes(memberEmail)) {
       throw new Error('CSV output is missing required headers or target member record');
     }
     console.log(`   → Export CSV successful. CSV length: ${text.length} characters.`);

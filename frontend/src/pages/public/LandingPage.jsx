@@ -40,7 +40,7 @@ function Hero({ onApply }) {
             <span className="badge-gold">Message From the President</span>
             <div>
               <h1 className="heading-display text-4xl sm:text-5xl lg:text-[3.25rem] leading-[1.1]">
-                Mr. Suresh <span className="text-gradient">Agarwal</span>
+                Mr. Suresh Agarwal
               </h1>
               <p className="text-primary-600 font-semibold mt-2 text-lg">President, FORTI</p>
             </div>
@@ -422,7 +422,7 @@ function GalleryPreview() {
               onClick={() => navigate('/gallery')}>
               <img src={item.src} alt={item.title} className="absolute inset-0 w-full h-full object-cover"/>
               <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                <PlayCircle size={32} className="text-white drop-shadow"/>
+                <Eye size={32} className="text-white drop-shadow"/>
               </div>
             </div>
           ))}

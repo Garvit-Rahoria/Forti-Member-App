@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Image, PlayCircle, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Image, Eye, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { GALLERY_ITEMS } from '../../data/siteAssets'
 import PublicHeader from '../../components/public/PublicHeader'
 import PublicFooter from '../../components/public/PublicFooter'
@@ -55,7 +55,7 @@ export default function GalleryPage() {
               onClick={() => open(item)}>
               <img src={item.src} alt={item.title} className="absolute inset-0 w-full h-full object-cover"/>
               <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                <PlayCircle size={36} className="text-white drop-shadow-lg"/>
+                <Eye size={36} className="text-white drop-shadow-lg"/>
               </div>
               <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/50 to-transparent">
                 <p className="text-white font-bold text-sm leading-tight">{item.title}</p>
@@ -67,8 +67,6 @@ export default function GalleryPage() {
             </div>
           ))}
         </div>
-
-        <p className="text-center text-sm text-gray-400 mt-10">Gallery images will be updated regularly as events take place. <Link to="/contact" className="text-primary-600 hover:underline">Submit your event photos</Link>.</p>
       </div>
 
       {lightbox && (

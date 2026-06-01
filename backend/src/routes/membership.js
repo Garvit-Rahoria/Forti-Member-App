@@ -193,7 +193,7 @@ router.get('/packages/match', async (req, res) => {
       '1year': 12,
       'yearly': 12,
       '3years': 36,
-      'lifetime': 0,
+      'lifetime': 999,
     };
     const durationMonths = DURATION_MONTHS_MAP[dur] || 12;
 
@@ -443,12 +443,15 @@ router.post(
         `INSERT INTO fb_submissions
            (uuid, form_id, user_id, status, current_step, submitted_at,
             applicant_name, applicant_email, applicant_phone, membership_id, ip_address, data,
-            plan_type, membership_type, package_id, wing_id)
-         VALUES (?,?,0,'submitted',5,NOW(),?,?,?,?,?,?,?,?,?,?)`,
+            plan_type, membership_type, package_id, wing_id, country_id, state_id, city_id)
+         VALUES (?,?,0,'submitted',5,NOW(),?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         [submUuid, formId, full_name, email, phone || null,
          membershipId, req.ip, JSON.stringify(formData),
          plan_type || null, membership_type || null, package_id ? Number(package_id) : null,
-         resolvedWingId]
+         resolvedWingId,
+         country_id ? Number(country_id) : null,
+         state_id ? Number(state_id) : null,
+         city_id ? Number(city_id) : null]
       );
       const submissionId = r.insertId;
 

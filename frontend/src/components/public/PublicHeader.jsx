@@ -14,7 +14,6 @@ const STATIC_BEFORE = [
   { label: 'Home', to: '/' },
   { label: 'About Us', to: '/about' },
   { label: 'Plans', to: '/plans' },
-  { label: 'Blog', to: '/content/insights' },
 ]
 const STATIC_AFTER = [
   { label: 'Gallery', to: '/gallery' },

@@ -60,6 +60,7 @@ app.use('/api/positions',           require('./routes/positions'));
 app.use('/api/member/public-profile', require('./routes/member-profile'));
 app.use('/api/public/profile',      require('./routes/public-profile'));
 app.use('/api/blog',                require('./routes/blog'));
+app.use('/api/contact',             require('./routes/contact'));
 
 // Email Templates direct API for frontend
 app.use('/api/email-templates', require('./emailTemplatesRouter'));
@@ -233,6 +234,26 @@ async function ensureMemberAccountsSchema() {
   }
 }
 
+async function ensureContactMessagesSchema() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS portal_contact_messages (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(250) NOT NULL,
+        email VARCHAR(250) NOT NULL,
+        phone VARCHAR(50),
+        subject VARCHAR(250),
+        message TEXT NOT NULL,
+        is_read BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('[SCHEMA] Checked/created portal_contact_messages table');
+  } catch (err) {
+    console.error('[SCHEMA] portal_contact_messages table check failed:', err.message);
+  }
+}
+
 async function runBlogMigration() {
   const fs = require('fs');
   const migrationPath = path.join(__dirname, '../../database/migrations/05-blog-content.sql');
@@ -286,13 +307,70 @@ async function runWingsMigration() {
   }
 }
 
+async function backfillSubmissionsLocations() {
+  try {
+    const [rows] = await pool.query(
+      `SELECT id, data FROM fb_submissions 
+       WHERE state_id IS NULL OR country_id IS NULL OR city_id IS NULL`
+    );
+    console.log(`[BACKFILL] Found ${rows.length} submissions needing location backfill`);
+    
+    for (const sub of rows) {
+      let parsedData = null;
+      if (sub.data) {
+        try {
+          parsedData = typeof sub.data === 'string' ? JSON.parse(sub.data) : sub.data;
+        } catch (e) {
+          console.error(`[BACKFILL] Failed to parse JSON for submission ${sub.id}`);
+        }
+      }
+      
+      // Also fetch from fb_submission_data as a fallback/reinforcement
+      const [dbData] = await pool.query(
+        'SELECT field_key, value FROM fb_submission_data WHERE submission_id = ?',
+        [sub.id]
+      );
+      const dataMap = {};
+      for (const r of dbData) {
+        dataMap[r.field_key] = r.value;
+      }
+      
+      const state_id = (parsedData && parsedData.state_id) || dataMap.state_id || null;
+      const city_id = (parsedData && parsedData.city_id) || dataMap.city_id || null;
+      const country_id = (parsedData && parsedData.country_id) || dataMap.country_id || null;
+      
+      if (state_id || city_id || country_id) {
+        await pool.query(
+          `UPDATE fb_submissions 
+           SET state_id = COALESCE(state_id, ?),
+               city_id = COALESCE(city_id, ?),
+               country_id = COALESCE(country_id, ?)
+           WHERE id = ?`,
+          [
+            state_id ? Number(state_id) : null,
+            city_id ? Number(city_id) : null,
+            country_id ? Number(country_id) : null,
+            sub.id
+          ]
+        );
+        console.log(`[BACKFILL] Updated submission ${sub.id}: state_id=${state_id}, city_id=${city_id}, country_id=${country_id}`);
+      }
+    }
+    console.log('[BACKFILL] Location backfill complete ✓');
+  } catch (err) {
+    console.error('[BACKFILL] Location backfill failed:', err.message);
+  }
+}
+
 async function start() {
   await testConnection();
   await runWingsMigration();
   await runBlogMigration();
   await ensureMemberAccountsSchema();
+  await ensureContactMessagesSchema();
   await seedLocationsIfEmpty();
   await seedCurrencyData();
+  await backfillSubmissionsLocations();
   startRenewalReminderCron();
   app.listen(PORT, () => {
     console.log(`✅ FORTI Portal API running on http://localhost:${PORT}`);

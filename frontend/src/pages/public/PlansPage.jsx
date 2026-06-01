@@ -22,7 +22,6 @@ function canMatchPlan({ membershipType, planType, locationType }) {
 const MEMBERSHIP_TYPES = [
   { value: 'individual',   label: 'Individual',   icon: '👤', desc: 'For individual professionals, consultants, freelancers, students' },
   { value: 'corporate',    label: 'Corporate',    icon: '🏢', desc: 'For companies, organisations, and enterprises' },
-  { value: 'institutional',label: 'Institutional',icon: '🏛️', desc: 'For educations institutions, universities, colleges' },
   { value: 'overseas',     label: 'Overseas',     icon: '🌍', desc: 'For international members outside India' },
 ]
 
@@ -138,7 +137,7 @@ export default function PlansPage() {
           {/* Membership Type */}
           <div className="mb-5">
             <label className="label mb-2">Membership Type</label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {MEMBERSHIP_TYPES.map(t => (
                 <button key={t.value} onClick={() => setMembershipType(t.value)}
                   className={`rounded-xl p-3 border-2 text-left transition ${membershipType === t.value ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'}`}>
