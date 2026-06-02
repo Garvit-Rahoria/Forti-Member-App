@@ -7,18 +7,28 @@ const XLSX = require('xlsx');
 const router = express.Router();
 router.use(authMiddleware);
 
-// Helper: build a state_id WHERE clause for state_manager scoping
+// Helper: build a scoping WHERE clause for branch_manager / office_staff
 function stateClause(user, alias = 's') {
-  if (user && user.role === 'branch_manager' && user.assigned_state_id) {
-    return { clause: ` AND ${alias}.state_id=?`, params: [user.assigned_state_id] };
+  if (user && (user.role === 'branch_manager' || user.role === 'office_staff')) {
+    if (user.assigned_branch_id) {
+      return { clause: ` AND ${alias}.branch_id=?`, params: [user.assigned_branch_id] };
+    }
+    if (user.assigned_state_id) {
+      return { clause: ` AND ${alias}.state_id=?`, params: [user.assigned_state_id] };
+    }
   }
   return { clause: '', params: [] };
 }
 
-// Helper: state clause for portal_payments (needs JOIN to fb_submissions)
+// Helper: scoping clause for portal_payments (needs JOIN to fb_submissions)
 function stateClauseViaJoin(user) {
-  if (user && user.role === 'branch_manager' && user.assigned_state_id) {
-    return { clause: ' AND s.state_id=?', params: [user.assigned_state_id] };
+  if (user && (user.role === 'branch_manager' || user.role === 'office_staff')) {
+    if (user.assigned_branch_id) {
+      return { clause: ' AND s.branch_id=?', params: [user.assigned_branch_id] };
+    }
+    if (user.assigned_state_id) {
+      return { clause: ' AND s.state_id=?', params: [user.assigned_state_id] };
+    }
   }
   return { clause: '', params: [] };
 }
@@ -292,9 +302,13 @@ router.get('/submissions', async (req, res) => {
   if (status)  { where += ' AND s.status=?';  params.push(status); }
   if (from)    { where += ' AND s.created_at>=?'; params.push(from); }
   if (to)      { where += ' AND s.created_at<=?'; params.push(to); }
-  // State manager: scope to their state
-  if (req.user.role === 'branch_manager' && req.user.assigned_state_id) {
-    where += ' AND s.state_id=?'; params.push(req.user.assigned_state_id);
+  // Branch/State manager: scope to their branch or state
+  if (req.user.role === 'branch_manager' || req.user.role === 'office_staff') {
+    if (req.user.assigned_branch_id) {
+      where += ' AND s.branch_id=?'; params.push(req.user.assigned_branch_id);
+    } else if (req.user.assigned_state_id) {
+      where += ' AND s.state_id=?'; params.push(req.user.assigned_state_id);
+    }
   }
   try {
     const [rows] = await pool.query(
@@ -319,9 +333,13 @@ router.get('/payments', async (req, res) => {
   if (status) { where += ' AND p.status=?'; params.push(status); }
   if (from)   { where += ' AND p.created_at>=?'; params.push(from); }
   if (to)     { where += ' AND p.created_at<=?'; params.push(to); }
-  // State manager scoping via joined submission
-  if (req.user.role === 'branch_manager' && req.user.assigned_state_id) {
-    where += ' AND s.state_id=?'; params.push(req.user.assigned_state_id);
+  // Branch/State manager scoping via joined submission
+  if (req.user.role === 'branch_manager' || req.user.role === 'office_staff') {
+    if (req.user.assigned_branch_id) {
+      where += ' AND s.branch_id=?'; params.push(req.user.assigned_branch_id);
+    } else if (req.user.assigned_state_id) {
+      where += ' AND s.state_id=?'; params.push(req.user.assigned_state_id);
+    }
   }
   try {
     const [rows] = await pool.query(

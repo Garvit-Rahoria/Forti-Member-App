@@ -12,11 +12,14 @@ export function getDisplayStatus(member) {
 
 export function hasMemberDashboardAccess(member) {
   const membershipStatus = getMembershipStatus(member)
+  console.log("pass")
   const applicationStatus = getApplicationStatus(member)
+  console.log({applicationStatus})
 
-  return membershipStatus === 'active' || applicationStatus === 'active'
+  return membershipStatus === 'active' || applicationStatus === 'payment_verified'
 }
 
 export function getMemberLandingPath(member) {
+  console.log("login redreict", member)
   return hasMemberDashboardAccess(member) ? '/member/dashboard' : '/member/status'
 }

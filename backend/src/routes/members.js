@@ -22,12 +22,13 @@ router.get('/', async (req, res) => {
     where = "s.status IN ('active','approved')";
   }
 
-  // Branch scoping: branch_manager AND office_staff see only their state
-  if (
-    (req.user.role === 'branch_manager' || req.user.role === 'office_staff') &&
-    req.user.assigned_state_id
-  ) {
-    where += ' AND s.state_id=?'; params.push(req.user.assigned_state_id);
+  // Branch scoping: branch_manager AND office_staff see only their branch/state
+  if (req.user.role === 'branch_manager' || req.user.role === 'office_staff') {
+    if (req.user.assigned_branch_id) {
+      where += ' AND s.branch_id=?'; params.push(req.user.assigned_branch_id);
+    } else if (req.user.assigned_state_id) {
+      where += ' AND s.state_id=?'; params.push(req.user.assigned_state_id);
+    }
   }
 
   if (q) {

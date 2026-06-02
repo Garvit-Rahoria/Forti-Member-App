@@ -219,13 +219,13 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
     const [[sub]] = await pool.query('SELECT * FROM fb_submissions WHERE id=?', [req.params.id]);
     if (!sub) return fail(res, 'Not found', 404);
 
-    // Branch-level scoping: branch_manager AND office_staff can only act on their state
+    // Branch-level scoping: branch_manager AND office_staff can only act on their branch
     if (
       (role === 'branch_manager' || role === 'office_staff') &&
-      req.user.assigned_state_id
+      req.user.assigned_branch_id
     ) {
-      if (sub.state_id && String(sub.state_id) !== String(req.user.assigned_state_id))
-        return fail(res, 'This submission is not in your assigned branch', 403);
+      if (sub.branch_id && String(sub.branch_id) !== String(req.user.assigned_branch_id))
+        return fail(res, 'Access denied to this branch application', 403);
     }
 
     // ── Branch manager: can only approve if payment is verified ──
@@ -487,10 +487,10 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
 router.get('/pending', requireRole('super_admin', 'admin', 'branch_manager', 'office_staff'), async (req, res) => {
   const { page = 1, per_page = 20 } = req.query;
   const { paginate } = require('../utils/helpers');
-  const stateClause = (req.user.role === 'branch_manager' && req.user.assigned_state_id)
-    ? ' AND s.state_id=?' : '';
-  const stateParams = (req.user.role === 'branch_manager' && req.user.assigned_state_id)
-    ? [req.user.assigned_state_id] : [];
+  const stateClause = ((req.user.role === 'branch_manager' || req.user.role === 'office_staff') && req.user.assigned_branch_id)
+    ? ' AND s.branch_id=?' : '';
+  const stateParams = ((req.user.role === 'branch_manager' || req.user.role === 'office_staff') && req.user.assigned_branch_id)
+    ? [req.user.assigned_branch_id] : [];
   try {
     const result = await paginate(
       pool,
@@ -512,9 +512,9 @@ router.get('/all', requireRole('super_admin', 'admin', 'branch_manager', 'office
   const params = [];
   let where = '1=1';
 
-  // State manager: scope to their assigned state
-  if (req.user.role === 'branch_manager' && req.user.assigned_state_id) {
-    where += ' AND s.state_id=?'; params.push(req.user.assigned_state_id);
+  // Restrict branch manager / office staff to their assigned branch
+  if ((req.user.role === 'branch_manager' || req.user.role === 'office_staff') && req.user.assigned_branch_id) {
+    where += ' AND s.branch_id=?'; params.push(req.user.assigned_branch_id);
   }
 
   if (status && status !== 'all') {
@@ -568,10 +568,10 @@ router.get('/counts', requireRole('super_admin', 'admin', 'branch_manager', 'off
   try {
     let sql = 'SELECT status, COUNT(*) AS cnt FROM fb_submissions';
     const params = [];
-    // State manager: scope to their assigned state
-    if (req.user.role === 'branch_manager' && req.user.assigned_state_id) {
-      sql += ' WHERE state_id=?';
-      params.push(req.user.assigned_state_id);
+    // Region Scope for Branch Staff
+    if ((req.user.role === 'branch_manager' || req.user.role === 'office_staff') && req.user.assigned_branch_id) {
+      sql += ' WHERE branch_id=?';
+      params.push(req.user.assigned_branch_id);
     }
     sql += ' GROUP BY status';
     const [rows] = await pool.query(sql, params);

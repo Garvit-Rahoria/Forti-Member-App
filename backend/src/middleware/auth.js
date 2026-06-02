@@ -24,7 +24,7 @@ async function authMiddleware(req, res, next) {
 
     const decoded = jwt.verify(token, JWT_SECRET);
     const [rows] = await pool.query(
-      'SELECT id, uuid, full_name, email, role, assigned_state_id, assigned_country_id, is_active FROM portal_admin_users WHERE id = ? AND is_active = 1',
+      'SELECT id, uuid, full_name, email, role, assigned_state_id, assigned_country_id, assigned_branch_id, is_active FROM portal_admin_users WHERE id = ? AND is_active = 1',
       [decoded.id]
     );
     if (!rows.length) {

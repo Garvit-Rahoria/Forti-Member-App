@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Edit, Key, Shield, X, Loader2, Search } from 'lucide-react'
 import api from '../../../api/client'
@@ -53,12 +53,10 @@ function rankStateMatch(label, query) {
 
 // ── User create / edit modal ──────────────────────────────────────────────────
 function UserModal({ user, onClose, onSave, saving }) {
-  const empty = { full_name: '', email: '', password: '', role: 'office_staff', is_active: 1, assigned_state_id: '' }
+  const empty = { full_name: '', email: '', password: '', role: 'office_staff', is_active: 1, assigned_branch_id: '' }
   const [d, setD] = useState(user ? { ...user, password: '' } : empty)
-  const [stateQuery, setStateQuery] = useState('')
-  const [stateOpen, setStateOpen] = useState(false)
-  const [stateTouched, setStateTouched] = useState(false)
-  const stateBoxRef = useRef(null)
+  const [selectedStateId, setSelectedStateId] = useState('')
+  const [branchTouched, setBranchTouched] = useState(false)
   const set = (k, v) => setD(x => ({ ...x, [k]: v }))
 
   const { data: statesData } = useQuery({
@@ -67,72 +65,58 @@ function UserModal({ user, onClose, onSave, saving }) {
     staleTime: 60_000,
   })
   const states = useMemo(
-    () => (statesData || []).map(s => ({ id: s.id, value: s.id, label: s.label || s.name, code: s.code || '' })),
+    () => (statesData || []).map(s => ({ id: s.id, value: s.id, label: s.label || s.name })),
     [statesData],
   )
-  const selectedState = states.find(s => String(s.id) === String(d.assigned_state_id)) || null
+
+  const { data: branchesData } = useQuery({
+    queryKey: ['branches-list'],
+    queryFn: () => api.get('/branches').then(r => r.data.data || []),
+    staleTime: 60_000,
+  })
+  const branches = useMemo(
+    () => {
+      let bData = branchesData || []
+      if (selectedStateId) {
+        bData = bData.filter(b => String(b.state_id) === String(selectedStateId))
+      }
+      return bData.map(b => ({ id: b.id, value: b.id, label: b.name, state_id: b.state_id }))
+    },
+    [branchesData, selectedStateId],
+  )
+  const selectedBranch = branches.find(b => String(b.id) === String(d.assigned_branch_id)) || null
 
   useEffect(() => {
-    if (selectedState) {
-      setStateQuery(selectedState.label)
-      return
-    }
-    if (!d.assigned_state_id) setStateQuery('')
-  }, [selectedState, d.assigned_state_id])
-
-  useEffect(() => {
-    function handleOutsideClick(event) {
-      if (!stateBoxRef.current?.contains(event.target)) {
-        setStateOpen(false)
-        setStateTouched(true)
-        setStateQuery(selectedState?.label || '')
+    if (user && user.assigned_branch_id && branchesData) {
+      const branch = branchesData.find(b => String(b.id) === String(user.assigned_branch_id))
+      if (branch && branch.state_id) {
+        setSelectedStateId(String(branch.state_id))
       }
     }
+  }, [user, branchesData])
 
-    document.addEventListener('mousedown', handleOutsideClick)
-    return () => document.removeEventListener('mousedown', handleOutsideClick)
-  }, [selectedState])
 
-  const filteredStates = useMemo(() => {
-    const query = normalizeStateSearch(stateQuery)
-    if (!query) return []
 
-    return states
-      .map((option) => {
-        const match = rankStateMatch(option.label, query)
-        if (!match) return null
+  const filteredBranches = useMemo(() => {
+    return branches
+      .slice()
+      .sort((a, b) => a.label.localeCompare(b.label))
+  }, [branches])
 
-        return {
-          ...option,
-          _matchScore: match.score,
-          _matchIndex: match.index,
-        }
-      })
-      .filter(Boolean)
-      .sort((left, right) => {
-        if (left._matchScore !== right._matchScore) return left._matchScore - right._matchScore
-        if (left._matchIndex !== right._matchIndex) return left._matchIndex - right._matchIndex
-        return left.label.localeCompare(right.label)
-      })
-  }, [stateQuery, states])
-
-  const showStateError =
+  const showBranchError =
     (d.role === 'branch_manager' || d.role === 'office_staff') &&
-    stateTouched &&
-    !selectedState
+    branchTouched &&
+    !selectedBranch
 
-  function handleStateSelect(state) {
-    set('assigned_state_id', Number(state.id))
-    setStateQuery(state.label)
-    setStateTouched(false)
-    setStateOpen(false)
+  function handleBranchSelect(e) {
+    set('assigned_branch_id', e.target.value ? Number(e.target.value) : '')
+    setBranchTouched(true)
   }
 
   function handleSubmit(e) {
     e.preventDefault()
-    if ((d.role === 'branch_manager' || d.role === 'office_staff') && !selectedState) {
-      setStateTouched(true)
-      setStateOpen(false)
+    if ((d.role === 'branch_manager' || d.role === 'office_staff') && !d.assigned_branch_id) {
+      setBranchTouched(true)
       return
     }
     onSave(d)
@@ -181,52 +165,43 @@ function UserModal({ user, onClose, onSave, saving }) {
             </select>
           </div>
 
-          {/* Assigned state — required for branch_manager and office_staff scoped access */}
+          {/* Assigned branch — required for branch_manager and office_staff scoped access */}
           {(d.role === 'branch_manager' || d.role === 'office_staff') && (
-            <div>
-              <label className="label">Assigned State</label>
-              <div ref={stateBoxRef} className="relative">
-                <input
-                  className="input"
-                  value={stateQuery}
-                  placeholder="— Select State —"
-                  autoComplete="off"
+            <div className="space-y-4 border p-4 rounded-lg bg-gray-50/50">
+              <div>
+                <label className="label">Filter by State</label>
+                <select
+                  className="input bg-white"
+                  value={selectedStateId}
                   onChange={e => {
-                    setStateQuery(e.target.value)
-                    set('assigned_state_id', null)
-                    setStateTouched(true)
-                    setStateOpen(!!e.target.value.trim())
+                    setSelectedStateId(e.target.value)
+                    set('assigned_branch_id', '')
                   }}
-                  onBlur={() => {
-                    window.setTimeout(() => {
-                      setStateOpen(false)
-                      setStateTouched(true)
-                      setStateQuery(selectedState?.label || '')
-                    }, 120)
-                  }}
-                />
-                {stateOpen && (
-                  <div className="absolute left-0 right-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
-                    <div className="max-h-44 overflow-y-auto">
-                      {filteredStates.length ? filteredStates.map(s => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-                          onMouseDown={e => e.preventDefault()}
-                          onClick={() => handleStateSelect(s)}>
-                          {s.label}
-                        </button>
-                      )) : (
-                        <div className="px-3 py-2 text-sm text-gray-400">No states found</div>
-                      )}
-                    </div>
-                  </div>
-                )}
+                >
+                  <option value="">— All States —</option>
+                  {states.map(s => (
+                    <option key={s.id} value={s.id}>{s.label}</option>
+                  ))}
+                </select>
               </div>
-              {showStateError && <p className="text-xs text-red-500 mt-1">Please select a valid state</p>}
+              
+              <div>
+                <label className="label">Assigned Branch *</label>
+                <select
+                  className="input bg-white"
+                  value={d.assigned_branch_id || ''}
+                  onChange={handleBranchSelect}
+                  onBlur={() => setBranchTouched(true)}
+                >
+                  <option value="">— Select Branch —</option>
+                  {filteredBranches.map(b => (
+                    <option key={b.id} value={b.id}>{b.label}</option>
+                  ))}
+                </select>
+              </div>
+              {showBranchError && <p className="text-xs text-red-500 mt-1">Please select a valid branch</p>}
               <p className="text-xs text-gray-400 mt-1">
-                This {d.role === 'branch_manager' ? 'manager' : 'staff user'} will only see records from this state.
+                This {d.role === 'branch_manager' ? 'manager' : 'staff user'} will only see records from this branch.
               </p>
             </div>
           )}
@@ -433,8 +408,8 @@ export default function UsersList() {
                   <tr key={u.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <p className="font-medium text-gray-900">{u.full_name}</p>
-                      {u.assigned_state_id && (
-                        <p className="text-xs text-gray-400">State ID: {u.assigned_state_id}</p>
+                      {u.assigned_branch_id && (
+                        <p className="text-xs text-gray-400">Branch ID: {u.assigned_branch_id}</p>
                       )}
                     </td>
                     <td className="px-4 py-3 text-gray-500">{u.email}</td>

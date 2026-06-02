@@ -146,8 +146,14 @@ export default function Reports() {
   })
 
   const stats = data?.summary || {}
-  const registrations = data?.registrations || []
-  const revenueTrend = data?.revenueTrend || []
+  const registrations = (data?.registrations || []).map(item => ({
+    ...item,
+    count: Number(item.count || 0)
+  }))
+  const revenueTrend = (data?.revenueTrend || []).map(item => ({
+    ...item,
+    revenue: Number(item.revenue || 0)
+  }))
   const topPackages = (data?.topPackages || []).slice(0, 3)
   const recentApplications = (data?.recentApps || []).slice(0, 5)
   const recentPayments = (data?.recentPayments || []).slice(0, 5)

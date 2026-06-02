@@ -41,7 +41,7 @@ router.post('/login', loginLimiter, async (req, res) => {
 
     return ok(res, {
       token,
-      user: { id: user.id, uuid: user.uuid, full_name: user.full_name, email: user.email, role: user.role, assigned_state_id: user.assigned_state_id, assigned_country_id: user.assigned_country_id },
+      user: { id: user.id, uuid: user.uuid, full_name: user.full_name, email: user.email, role: user.role, assigned_state_id: user.assigned_state_id, assigned_country_id: user.assigned_country_id, assigned_branch_id: user.assigned_branch_id },
     }, 'Login successful');
   } catch (err) {
     console.error(err);

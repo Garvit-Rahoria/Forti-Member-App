@@ -272,12 +272,13 @@ router.get('/', async (req, res) => {
   let where = '1=1';
   const params = [];
 
-  // Branch-level scoping: branch_manager AND office_staff see only their state
-  if (
-    (req.user.role === 'branch_manager' || req.user.role === 'office_staff') &&
-    req.user.assigned_state_id
-  ) {
-    where += ' AND s.state_id=?'; params.push(req.user.assigned_state_id);
+  // Branch-level scoping: branch_manager AND office_staff see only their branch/state
+  if (req.user.role === 'branch_manager' || req.user.role === 'office_staff') {
+    if (req.user.assigned_branch_id) {
+      where += ' AND s.branch_id=?'; params.push(req.user.assigned_branch_id);
+    } else if (req.user.assigned_state_id) {
+      where += ' AND s.state_id=?'; params.push(req.user.assigned_state_id);
+    }
   }
 
   if (form_id) { where += ' AND s.form_id=?'; params.push(form_id); }

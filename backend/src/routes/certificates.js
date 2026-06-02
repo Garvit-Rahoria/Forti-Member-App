@@ -341,8 +341,12 @@ router.get('/list', async (req, res) => {
   const { q, page = 1, per_page = 20 } = req.query;
   let where = "s.status IN ('active','approved') AND s.payment_status IN ('approved','verified')";
   const params = [];
-  if (req.user.role === 'branch_manager' && req.user.assigned_state_id) {
-    where += ' AND s.state_id=?'; params.push(req.user.assigned_state_id);
+  if (req.user.role === 'branch_manager' || req.user.role === 'office_staff') {
+    if (req.user.assigned_branch_id) {
+      where += ' AND s.branch_id=?'; params.push(req.user.assigned_branch_id);
+    } else if (req.user.assigned_state_id) {
+      where += ' AND s.state_id=?'; params.push(req.user.assigned_state_id);
+    }
   }
   if (q) {
     where += ' AND (s.applicant_name LIKE ? OR s.applicant_email LIKE ? OR s.membership_id LIKE ?)';

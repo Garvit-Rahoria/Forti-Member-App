@@ -1572,7 +1572,7 @@ function fmtDate(d) {
 // ── Main Dashboard ─────────────────────────────────────────────────────────
 export default function MemberDashboard() {
   const navigate = useNavigate()
-  const { member, loading, logout, apiClient, refetch } = useMember()
+  const { token, member, loading, logout, apiClient, refetch } = useMember()
   const [activeTab, setActiveTab] = useState('overview')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showExpiryPopup, setShowExpiryPopup] = useState(true)
@@ -1581,11 +1581,7 @@ export default function MemberDashboard() {
     : null
   const canRenewNow = daysLeft !== null && daysLeft <= 30
 
-  useEffect(() => {
-    if (!loading && !member) {
-      navigate('/member/login', { replace: true })
-    }
-  }, [member, loading, navigate])
+
 
   if (loading) {
     return (
@@ -1599,13 +1595,24 @@ export default function MemberDashboard() {
       </div>
     )
   }
-
-  if (!member) return null
-
+  
   function handleLogout() {
     clearMemberApplicantSession()
     logout()
     navigate('/', { replace: true })
+  }
+
+  if (!member) {
+    return (
+      <div className="min-h-screen flex items-center justify-center flex-col space-y-4 bg-gray-50 p-6 text-center">
+        <h2 className="text-xl font-semibold text-gray-800">Unable to load dashboard</h2>
+        <p className="text-gray-500 max-w-md">We couldn't retrieve your member profile. The server might be experiencing issues, or your session may be invalid.</p>
+        <div className="flex gap-3">
+          <button onClick={() => window.location.reload()} className="btn-primary">Try Again</button>
+          <button onClick={handleLogout} className="btn-secondary">Log Out</button>
+        </div>
+      </div>
+    )
   }
 
   // ── STRICT BLOCK: role = applicant OR member not yet active → show ONLY the blocking screen ──

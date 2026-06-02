@@ -14,6 +14,7 @@ function removePrefixedKeys(storage, prefixes) {
 }
 
 export function clearMemberApplicantSession() {
+  console.trace('[memberSession] clearMemberApplicantSession called!')
   removePrefixedKeys(window.localStorage, LOCAL_STORAGE_PREFIXES)
   removePrefixedKeys(window.sessionStorage, SESSION_STORAGE_PREFIXES)
   window.localStorage.removeItem('forti_member_token')

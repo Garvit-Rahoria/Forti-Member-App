@@ -43,7 +43,7 @@ router.get('/', requireRole('super_admin'), async (req, res) => {
   try {
     const result = await paginate(
       pool,
-      `SELECT id, uuid, full_name, email, role, is_active, last_login, created_at, assigned_state_id
+      `SELECT id, uuid, full_name, email, role, is_active, last_login, created_at, assigned_state_id, assigned_branch_id
        FROM portal_admin_users
        WHERE ${where} AND id IN (SELECT MAX(id) FROM portal_admin_users GROUP BY LOWER(email))
        ORDER BY created_at DESC`,
@@ -58,7 +58,7 @@ router.get('/', requireRole('super_admin'), async (req, res) => {
 router.get('/:id', requireRole('super_admin', 'admin'), async (req, res) => {
   try {
     const [[user]] = await pool.query(
-      'SELECT id, uuid, full_name, email, role, is_active, last_login, created_at, assigned_state_id FROM portal_admin_users WHERE id=?',
+      'SELECT id, uuid, full_name, email, role, is_active, last_login, created_at, assigned_state_id, assigned_branch_id FROM portal_admin_users WHERE id=?',
       [req.params.id]
     );
     if (!user) return fail(res, 'Not found', 404);
@@ -68,7 +68,7 @@ router.get('/:id', requireRole('super_admin', 'admin'), async (req, res) => {
 
 // POST /api/users  Create admin user
 router.post('/', requireRole('super_admin'), async (req, res) => {
-  const { full_name, email, password, role = 'office_staff', assigned_state_id } = req.body;
+  const { full_name, email, password, role = 'office_staff', assigned_state_id, assigned_branch_id } = req.body;
   if (!full_name || !email || !password) return fail(res, 'full_name, email, password required', 422);
   const validRoles = ['super_admin', 'branch_manager', 'office_staff'];
   if (!validRoles.includes(role)) return fail(res, `Invalid role. Allowed: ${validRoles.join(', ')}`, 422);
@@ -76,11 +76,11 @@ router.post('/', requireRole('super_admin'), async (req, res) => {
     const hash = await bcrypt.hash(password, 12);
     const uuid = require('crypto').randomUUID();
     const [r] = await pool.query(
-      'INSERT INTO portal_admin_users (uuid, full_name, email, password_hash, role, assigned_state_id) VALUES (?,?,?,?,?,?)',
-      [uuid, full_name, email.toLowerCase().trim(), hash, role, assigned_state_id || null]
+      'INSERT INTO portal_admin_users (uuid, full_name, email, password_hash, role, assigned_state_id, assigned_branch_id) VALUES (?,?,?,?,?,?,?)',
+      [uuid, full_name, email.toLowerCase().trim(), hash, role, assigned_state_id || null, assigned_branch_id || null]
     );
     const [[user]] = await pool.query(
-      'SELECT id, uuid, full_name, email, role, is_active, created_at, assigned_state_id FROM portal_admin_users WHERE id=?',
+      'SELECT id, uuid, full_name, email, role, is_active, created_at, assigned_state_id, assigned_branch_id FROM portal_admin_users WHERE id=?',
       [r.insertId]
     );
     createAuditLog(req.user.id, 'CREATE_USER', 'users', String(r.insertId), req.ip);
@@ -93,7 +93,7 @@ router.post('/', requireRole('super_admin'), async (req, res) => {
 
 // PUT /api/users/:id  Update user (partial updates supported)
 router.put('/:id', requireRole('super_admin'), async (req, res) => {
-  const { full_name, email, role, is_active, assigned_state_id } = req.body;
+  const { full_name, email, role, is_active, assigned_state_id, assigned_branch_id } = req.body;
   const validRoles = ['super_admin', 'branch_manager', 'office_staff'];
   if (role && !validRoles.includes(role)) return fail(res, `Invalid role. Allowed: ${validRoles.join(', ')}`, 422);
   try {
@@ -105,6 +105,7 @@ router.put('/:id', requireRole('super_admin'), async (req, res) => {
     if (role !== undefined)            { fields.push('role=?');             params.push(role); }
     if (is_active !== undefined)       { fields.push('is_active=?');        params.push(is_active ? 1 : 0); }
     if (assigned_state_id !== undefined) { fields.push('assigned_state_id=?'); params.push(assigned_state_id || null); }
+    if (assigned_branch_id !== undefined) { fields.push('assigned_branch_id=?'); params.push(assigned_branch_id || null); }
     if (!fields.length) return fail(res, 'No fields to update', 422);
     params.push(req.params.id);
     await pool.query(`UPDATE portal_admin_users SET ${fields.join(', ')} WHERE id=?`, params);

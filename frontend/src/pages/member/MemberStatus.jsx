@@ -7,7 +7,7 @@ import { clearMemberApplicantSession } from '../../utils/memberSession'
 
 export default function MemberStatus() {
   const navigate = useNavigate()
-  const { member, loading, logout, refetch } = useMember()
+  const { token, member, loading, logout, refetch } = useMember()
 
   useEffect(() => {
     if (!loading && !member) {

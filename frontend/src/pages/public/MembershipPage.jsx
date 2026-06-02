@@ -11,17 +11,33 @@ export default function MembershipPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const { logout } = useMember()
-  // Accept pre-verified OTP data from LandingPage via navigate state
-  const [otpVerified, setOtpVerified] = useState(location.state?.otpData || null)
-  const [showOTPModal, setShowOTPModal] = useState(!location.state?.otpData)
+  // Accept pre-verified OTP data from LandingPage via navigate state or session storage
+  const [otpVerified, setOtpVerified] = useState(() => {
+    if (location.state?.otpData) return location.state.otpData
+    const stored = sessionStorage.getItem('forti_otp_verified')
+    if (stored) {
+      try { return JSON.parse(stored) } catch(e) {}
+    }
+    return null
+  })
+  const [showOTPModal, setShowOTPModal] = useState(!otpVerified)
+
+  useEffect(() => {
+    if (location.state?.otpData) {
+      sessionStorage.setItem('forti_otp_verified', JSON.stringify(location.state.otpData))
+    }
+  }, [location.state])
 
   useEffect(() => {
     clearMemberApplicantSession()
     logout()
+    // Don't replace state with null if we have otpData, we want it for the current session.
+    // However, since we now store it in sessionStorage, we can clear location.state.
     window.history.replaceState(null, '', window.location.pathname)
   }, [logout])
 
   function handleOTPVerified(data) {
+    sessionStorage.setItem('forti_otp_verified', JSON.stringify(data))
     setOtpVerified(data)
     setShowOTPModal(false)
   }

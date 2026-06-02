@@ -7,7 +7,7 @@ import {
   LayoutDashboard, FileText, Users, CreditCard, Package,
   BarChart2, Settings, LogOut, ChevronDown, Menu, X,
   UserCog, ClipboardList, RefreshCw, Mail, BookOpen,
-  MailOpen,
+  MailOpen, MapPin
 } from 'lucide-react'
 
 // Role-specific navigation trees
@@ -26,6 +26,7 @@ const NAV_BY_ROLE = {
     { label: 'Blog & Content',  icon: BookOpen,        to: '/blog' },
     { label: 'Email Templates', icon: Mail,            to: '/email-templates' },
     { label: 'Audit Log',       icon: ClipboardList,   to: '/audit' },
+    { label: 'Branches',        icon: MapPin,          to: '/branches' },
     { label: 'Users',           icon: UserCog,         to: '/users' },
     { label: 'Settings',        icon: Settings,        to: '/settings' },
   ],

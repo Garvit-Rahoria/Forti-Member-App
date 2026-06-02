@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import { flushSync } from 'react-dom'
 import api from '../api/client'
 
 const AuthContext = createContext(null)
@@ -50,12 +49,9 @@ export function AuthProvider({ children }) {
     const res = await api.post('/auth/login', { email, password })
     const { token: t, user: u } = res.data.data
     sessionStorage.setItem('forti_token', t)
-    // flushSync forces React to apply these state updates synchronously
-    // BEFORE navigate() is called, so PrivateRoute sees token immediately
-    flushSync(() => {
-      setToken(t)
-      setUser(u)
-    })
+    // State updates will be batched by React 18 correctly
+    setToken(t)
+    setUser(u)
     console.log('[Auth] Login success — token set in state:', t ? 'YES' : 'NO')
     return u
   }

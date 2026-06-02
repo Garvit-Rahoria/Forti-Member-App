@@ -4,36 +4,47 @@ import { clearMemberApplicantSession } from '../utils/memberSession'
 
 const MemberContext = createContext(null)
 
-// 15 s timeout — prevents infinite spinner if backend is slow/unreachable
 const http = axios.create({ baseURL: '/api', timeout: 15_000 })
 const STORAGE_KEY = 'forti_member_token'
 
 export function MemberProvider({ children }) {
+  // Read token from localStorage on first render — this is the KEY fix for persistence
   const [token, setToken]     = useState(() => localStorage.getItem(STORAGE_KEY))
   const [member, setMember]   = useState(null)
-  const [loading, setLoading] = useState(!!localStorage.getItem(STORAGE_KEY))
+  // Start in loading=true only if there IS a saved token (we need to validate it)
+  const [loading, setLoading] = useState(() => !!localStorage.getItem(STORAGE_KEY))
 
-  // Store token in a ref so fetchMe can read latest value without being a dep
   const tokenRef = useRef(token)
-  useEffect(() => { tokenRef.current = token }, [token])
 
-  // fetchMe has NO deps — always call with explicit tok argument
-  const fetchMe = useCallback(async (t) => {
-    const tok = t ?? tokenRef.current
-    if (!tok) { setLoading(false); return null }
+  // Keep ref in sync with state (for use inside callbacks without stale closures)
+  const syncToken = (t) => {
+    if (t === null) {
+      console.trace('[MemberContext] setToken(null) called!')
+    }
+    tokenRef.current = t
+    setToken(t)
+  }
+
+  // Fetch member profile from backend using a given token
+  const fetchMe = useCallback(async (tok) => {
+    if (!tok) {
+      setLoading(false)
+      return null
+    }
     try {
-      const headers = { Authorization: `Bearer ${tok}` }
-      const res = await http.get('/member/me', { headers })
+      const res = await http.get('/member/me', {
+        headers: { Authorization: `Bearer ${tok}` }
+      })
       const data = res.data.data
       setMember(data)
       return data
     } catch (err) {
-      // Clear session on any auth failure (401 = expired, 403 = wrong role/token)
       const status = err?.response?.status
       if (status === 401 || status === 403) {
         console.warn('[MemberContext] Token invalid/expired — clearing session')
+        localStorage.removeItem(STORAGE_KEY)
         clearMemberApplicantSession()
-        setToken(null)
+        syncToken(null)
         setMember(null)
       } else {
         console.warn('[MemberContext] /me fetch failed (non-auth):', err?.message)
@@ -42,26 +53,29 @@ export function MemberProvider({ children }) {
     } finally {
       setLoading(false)
     }
-  }, []) // no deps — uses tokenRef + explicit arg
+  }, [])
 
-  // Run once on mount: restore session from localStorage token
+  // On mount: if we already have a token in localStorage, validate it immediately
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) fetchMe(saved)
-    else setLoading(false)
+    if (saved) {
+      tokenRef.current = saved
+      fetchMe(saved)
+    } else {
+      setLoading(false)
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Cross-tab session sync: if another tab changes/removes the token,
-  // clear or reload the session so a new login doesn't show stale data.
+  // Cross-tab sync: if another tab logs out or in, mirror that here
   useEffect(() => {
     function onStorage(e) {
       if (e.key !== STORAGE_KEY) return
       if (!e.newValue) {
-        // Token was removed in another tab (logout) — clear this tab too
-        setToken(null)
+        console.warn('[MemberContext] Logged out in another tab - clearing session')
+        syncToken(null)
         setMember(null)
       } else if (e.newValue !== tokenRef.current) {
-        // Token changed (new user logged in another tab) — fetch fresh data
+        // New session in another tab
         tokenRef.current = e.newValue
         setToken(e.newValue)
         setLoading(true)
@@ -72,38 +86,52 @@ export function MemberProvider({ children }) {
     return () => window.removeEventListener('storage', onStorage)
   }, [fetchMe])
 
-  // login: called by MemberLogin after OTP — always fetches fresh profile
-  async function login(tok) {
-    // Fully clear previous session before loading new one
-    setMember(null)
-    setToken(null)
-    clearMemberApplicantSession()
+  /**
+   * login(tok) — called from MemberLogin after successful OTP verification.
+   * Order is critical:
+   *   1. Write token to localStorage immediately (so any re-render reads it)
+   *   2. Update tokenRef (so fetchMe uses the right token)
+   *   3. Set token state (triggers re-renders with the correct token)
+   *   4. Fetch member profile
+   *   5. Return memberData so caller can compute the redirect path
+   */
+  const login = useCallback(async (tok) => {
+    // Step 1 & 2: persist and sync ref BEFORE any state update
     localStorage.setItem(STORAGE_KEY, tok)
     tokenRef.current = tok
-    setToken(tok)
+
+    // Step 3: update state — MemberRoute will now see token = tok
+    syncToken(tok)
     setLoading(true)
-    return await fetchMe(tok)
-  }
-
-  async function logout() {
-    try {
-      const t = tokenRef.current;
-      if (t) await http.post('/auth/logout', {}, { headers: { Authorization: `Bearer ${t}` } });
-    } catch (e) {
-      console.warn('Logout API failed:', e);
-    }
-    clearMemberApplicantSession()
-    setToken(null)
     setMember(null)
-  }
 
-  function apiClient() {
+    // Step 4: fetch member profile (setLoading(false) happens inside fetchMe's finally)
+    const memberData = await fetchMe(tok)
+
+    return memberData
+  }, [fetchMe])
+
+  const logout = useCallback(async () => {
+    try {
+      const t = tokenRef.current
+      if (t) await http.post('/auth/logout', {}, { headers: { Authorization: `Bearer ${t}` } })
+    } catch (e) {
+      console.warn('Logout failed:', e)
+    }
+    console.warn('[MemberContext] logout() called - clearing session')
+    clearMemberApplicantSession()
+    syncToken(null)
+    setMember(null)
+    setLoading(false)
+  }, [])
+
+  const apiClient = useCallback(() => {
     const t = tokenRef.current
     return axios.create({
       baseURL: '/api',
       headers: t ? { Authorization: `Bearer ${t}` } : {}
     })
-  }
+  }, [])
 
   return (
     <MemberContext.Provider value={{ token, member, loading, login, logout, apiClient, refetch: () => fetchMe(tokenRef.current) }}>

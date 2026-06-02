@@ -140,12 +140,13 @@ router.get('/', async (req, res) => {
     where += ' AND s.expiry_date <= ?';
     params.push(end_date);
   }
-  // Branch scoping: branch_manager AND office_staff see only their state
-  if (
-    (req.user.role === 'branch_manager' || req.user.role === 'office_staff') &&
-    req.user.assigned_state_id
-  ) {
-    where += ' AND s.state_id=?'; params.push(req.user.assigned_state_id);
+  // Branch scoping: branch_manager AND office_staff see only their branch/state
+  if (req.user.role === 'branch_manager' || req.user.role === 'office_staff') {
+    if (req.user.assigned_branch_id) {
+      where += ' AND s.branch_id=?'; params.push(req.user.assigned_branch_id);
+    } else if (req.user.assigned_state_id) {
+      where += ' AND s.state_id=?'; params.push(req.user.assigned_state_id);
+    }
   }
   const orderBy = RENEWAL_SORTS[sort] || RENEWAL_SORTS.latest;
   try {
@@ -178,8 +179,12 @@ router.get('/expiring', async (req, res) => {
          AND s.expiry_date IS NOT NULL
          AND s.expiry_date >= CURDATE()
          AND DATEDIFF(s.expiry_date, CURDATE()) <= ?`;
-  if (req.user.role === 'branch_manager' && req.user.assigned_state_id) {
-    where += ' AND s.state_id=?'; params.push(req.user.assigned_state_id);
+  if (req.user.role === 'branch_manager' || req.user.role === 'office_staff') {
+    if (req.user.assigned_branch_id) {
+      where += ' AND s.branch_id=?'; params.push(req.user.assigned_branch_id);
+    } else if (req.user.assigned_state_id) {
+      where += ' AND s.state_id=?'; params.push(req.user.assigned_state_id);
+    }
   }
   try {
     await ensureAutoRenewals();
@@ -203,8 +208,12 @@ router.get('/expired', async (req, res) => {
   const { page = 1, per_page = 20 } = req.query;
   const params = [];
   let where = `s.status IN ('active','approved') AND s.expiry_date IS NOT NULL AND s.expiry_date < CURDATE()`;
-  if (req.user.role === 'branch_manager' && req.user.assigned_state_id) {
-    where += ' AND s.state_id=?'; params.push(req.user.assigned_state_id);
+  if (req.user.role === 'branch_manager' || req.user.role === 'office_staff') {
+    if (req.user.assigned_branch_id) {
+      where += ' AND s.branch_id=?'; params.push(req.user.assigned_branch_id);
+    } else if (req.user.assigned_state_id) {
+      where += ' AND s.state_id=?'; params.push(req.user.assigned_state_id);
+    }
   }
   try {
     const result = await paginate(

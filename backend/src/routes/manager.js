@@ -12,10 +12,11 @@ router.use(requireRole('branch_manager'));
 
 // ── Helper: build state-scoped WHERE clause from the logged-in manager ────────
 function regionScope(user) {
-  if (user.assigned_state_id) {
-    return { clause: ' AND s.state_id = ?', params: [user.assigned_state_id] };
+  if (user.assigned_branch_id) {
+    // Show branch-specific submissions only
+    return { clause: ' AND s.branch_id = ?', params: [user.assigned_branch_id] };
   }
-  // If no state assigned, manager sees nothing outside their scope for safety
+  // If no branch assigned, manager sees nothing outside their scope for safety
   return { clause: ' AND 1=0', params: [] };
 }
 
@@ -25,15 +26,14 @@ router.get('/region', async (req, res) => {
   try {
     const user = req.user;
     let regionName = 'All Regions';
-    if (user.assigned_state_id) {
-      const [[state]] = await pool.query('SELECT name FROM states WHERE id = ? LIMIT 1', [user.assigned_state_id]);
-      if (state) regionName = state.name;
+    if (user.assigned_branch_id) {
+      const [[branch]] = await pool.query('SELECT name FROM portal_branches WHERE id = ? LIMIT 1', [user.assigned_branch_id]);
+      if (branch) regionName = branch.name;
     }
     return ok(res, {
-      assigned_state_id: user.assigned_state_id,
-      assigned_city: user.assigned_city || null,
-      region_name: regionName,
-      location_type: user.assigned_location_type || null,
+      role: 'branch_manager',
+      assigned_branch_id: user.assigned_branch_id || null,
+      region_name: regionName
     });
   } catch (err) { return fail(res, 'Server error', 500); }
 });

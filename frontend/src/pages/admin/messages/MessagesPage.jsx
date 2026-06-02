@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Mail, MailOpen, Search, Clock, Phone, User,
-  CheckCircle, Loader2, AlertCircle, Inbox, Tag
+  CheckCircle, Loader2, AlertCircle, Inbox, Tag, MapPin, Building2
 } from 'lucide-react'
 import api from '../../../api/client'
 
@@ -152,6 +152,15 @@ export default function MessagesPage() {
                           {msg.is_read ? 'Read' : 'New'}
                         </span>
                         <p className="text-xs text-primary-600 truncate font-semibold">{msg.subject || 'General'}</p>
+                        {msg.branch_name ? (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-purple-100 text-purple-700 flex items-center gap-0.5 shrink-0">
+                            <Building2 size={8}/>{msg.branch_name}
+                          </span>
+                        ) : msg.state_name ? (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-orange-100 text-orange-700 flex items-center gap-0.5 shrink-0">
+                            <MapPin size={8}/>{msg.state_name}
+                          </span>
+                        ) : null}
                       </div>
                       <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{msg.message}</p>
                     </div>
@@ -213,6 +222,23 @@ export default function MessagesPage() {
                       </div>
                     </div>
                   )}
+                  {selectedMessage.branch_name ? (
+                    <div className="flex items-center gap-2 col-span-2 border-t border-gray-100 pt-3 mt-1">
+                      <Building2 className="text-purple-400" size={16} />
+                      <div>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Branch</p>
+                        <p className="text-sm font-semibold text-purple-700 leading-tight">{selectedMessage.branch_name}</p>
+                      </div>
+                    </div>
+                  ) : selectedMessage.state_name ? (
+                    <div className="flex items-center gap-2 col-span-2 border-t border-gray-100 pt-3 mt-1">
+                      <MapPin className="text-orange-400" size={16} />
+                      <div>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">State / Region</p>
+                        <p className="text-sm font-semibold text-orange-700 leading-tight">{selectedMessage.state_name}</p>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
 

@@ -10,19 +10,30 @@ const router = express.Router();
 router.use(authMiddleware);
 router.use(requireRole('office_staff'));
 
+// ── Helper: build state-scoped WHERE clause from the logged-in staff user ─────
+function regionScope(user) {
+  if (user.assigned_branch_id) {
+    // Show branch-specific submissions only
+    return { clause: ' AND s.branch_id = ?', params: [user.assigned_branch_id] };
+  }
+  // Safety: if no branch assigned, show nothing (shouldn't happen for office_staff)
+  return { clause: ' AND 1=0', params: [] };
+}
+
 // ── GET /api/staff/region ─────────────────────────────────────────────────────
 // Returns the office staff's assigned region info (like manager/region)
 router.get('/region', async (req, res) => {
   try {
     const user = req.user;
     let regionName = null;
-    if (user.assigned_state_id) {
-      const [[state]] = await pool.query('SELECT name FROM states WHERE id = ? LIMIT 1', [user.assigned_state_id]);
-      if (state) regionName = state.name;
+    if (user.assigned_branch_id) {
+      const [[branch]] = await pool.query('SELECT name FROM portal_branches WHERE id = ? LIMIT 1', [user.assigned_branch_id]);
+      if (branch) regionName = branch.name;
     }
     return ok(res, {
-      assigned_state_id: user.assigned_state_id || null,
-      region_name: regionName,
+      role: 'office_staff',
+      assigned_branch_id: user.assigned_branch_id,
+      region_name: regionName
     });
   } catch (err) { return fail(res, 'Server error', 500); }
 });
@@ -31,8 +42,9 @@ router.get('/region', async (req, res) => {
 // Paginated list of applications assigned for review
 router.get('/applications', async (req, res) => {
   const { page = 1, per_page = 20, status, q } = req.query;
-  const params = [];
-  let where = "s.status != 'draft'";
+  const sc = regionScope(req.user);
+  const params = [...sc.params];
+  let where = `s.status != 'draft'${sc.clause}`;
 
   if (status && status !== 'all') { where += ' AND s.status=?'; params.push(status); }
   if (q) {
@@ -64,8 +76,12 @@ router.get('/applications', async (req, res) => {
 // Full application detail including documents and payment
 router.get('/applications/:id', async (req, res) => {
   try {
-    const [[sub]] = await pool.query(`SELECT s.* FROM fb_submissions s WHERE s.id=? LIMIT 1`, [req.params.id]);
-    if (!sub) return fail(res, 'Application not found', 404);
+    const sc = regionScope(req.user);
+    const [[sub]] = await pool.query(
+      `SELECT s.* FROM fb_submissions s WHERE s.id=?${sc.clause} LIMIT 1`,
+      [req.params.id, ...sc.params]
+    );
+    if (!sub) return fail(res, 'Application not found or outside your assigned state', 404);
 
     const [fields] = await pool.query(
       `SELECT sd.field_key, sd.value, sd.file_path, sd.edited_by_staff, sd.original_value,
@@ -213,22 +229,34 @@ router.patch('/applications/:id/fields', async (req, res) => {
 // Stats for office staff: pending/under-review counts
 router.get('/dashboard', async (req, res) => {
   try {
-    const [[{ pending }]]      = await pool.query("SELECT COUNT(*) AS pending FROM fb_submissions WHERE status='submitted'");
-    const [[{ under_review }]] = await pool.query("SELECT COUNT(*) AS under_review FROM fb_submissions WHERE status='under_review'");
-    const [[{ notes_today }]]  = await pool.query(
+    const sc = regionScope(req.user);
+
+    const [[{ pending }]] = await pool.query(
+      `SELECT COUNT(*) AS pending FROM fb_submissions s WHERE s.status='submitted'${sc.clause}`,
+      sc.params
+    );
+    const [[{ under_review }]] = await pool.query(
+      `SELECT COUNT(*) AS under_review FROM fb_submissions s WHERE s.status='under_review'${sc.clause}`,
+      sc.params
+    );
+    const [[{ notes_today }]] = await pool.query(
       "SELECT COUNT(*) AS notes_today FROM application_notes WHERE created_by=? AND DATE(created_at)=CURDATE()",
       [req.user.id]
     );
     const [[{ my_edits }]] = await pool.query(
-      `SELECT COUNT(DISTINCT submission_id) AS my_edits
-       FROM fb_submission_data WHERE edited_by_staff=1`
+      `SELECT COUNT(DISTINCT sd.submission_id) AS my_edits
+       FROM fb_submission_data sd
+       JOIN fb_submissions s ON s.id = sd.submission_id
+       WHERE sd.edited_by_staff=1${sc.clause}`,
+      sc.params
     );
 
     const [recent] = await pool.query(
       `SELECT s.id, s.applicant_name, s.status, s.submitted_at
        FROM fb_submissions s
-       WHERE s.status IN ('submitted','under_review')
-       ORDER BY s.submitted_at ASC LIMIT 10`
+       WHERE s.status IN ('submitted','under_review')${sc.clause}
+       ORDER BY s.submitted_at ASC LIMIT 10`,
+      sc.params
     );
 
     return ok(res, { pending, under_review, notes_today, my_edits, recent });

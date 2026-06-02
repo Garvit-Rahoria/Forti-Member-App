@@ -42,6 +42,7 @@ app.use('/api/packages',     require('./routes/packages'));
 app.use('/api/durations',    require('./routes/durations'));
 app.use('/api/payments',     require('./routes/payments'));
 app.use('/api/locations',    require('./routes/locations'));
+app.use('/api/branches',     require('./routes/branches'));
 app.use('/api/reports',      require('./routes/reports'));
 app.use('/api/certificates', require('./routes/certificates'));
 app.use('/api/settings',     require('./routes/settings'));

@@ -279,12 +279,12 @@ router.post(
       full_name, email, phone, gender,
       phone_country_code, phone_country_iso2, country_name,
       id_type, aadhaar_number, passport_number, national_id_number, pin_code, organisation_name, organisation_type, organisation_type_other, social_links,
-      location_type, state_id, city_id, country_id,
+      location_type, state_id, city_id, branch_id, country_id,
       state_other, city_other, overseas_city,
       membership_type, plan_type, package_id, wing_id,
       payment_method, payment_reference, currency,
     } = req.body;
-
+    console.log(req.body)
     // Basic validation
     if (!full_name || !email)        return fail(res, 'Full name and email are required', 422);
     if (!wing_id)                    return fail(res, 'Wing selection is required', 422);
@@ -385,6 +385,7 @@ router.post(
       location_type:      location_type || null,
       state_id:           state_id  ? Number(state_id) : null,
       city_id:            city_id   ? Number(city_id)  : null,
+      branch_id:          branch_id ? Number(branch_id) : null,
       country_id:         country_id ? Number(country_id) : null,
       state_other:        state_other || null,
       city_other:         city_other || null,
@@ -439,19 +440,82 @@ router.post(
         }
       }
 
+      // ── Auto-resolve country_id, state_id & branch_id ────────────────────────────────────
+      let resolvedCountryId = null;
+      if (country_id) {
+        if (!isNaN(Number(country_id))) {
+          resolvedCountryId = Number(country_id);
+        } else {
+          try {
+            const [[countryRow]] = await conn.query(
+              'SELECT id FROM countries WHERE LOWER(iso_code) = LOWER(?) LIMIT 1',
+              [country_id]
+            );
+            if (countryRow) resolvedCountryId = countryRow.id;
+          } catch (e) { console.error('[country iso resolve]', e.message); }
+        }
+      }
+
+      let resolvedStateId = null;
+      if (state_id) {
+        if (!isNaN(Number(state_id))) {
+          resolvedStateId = Number(state_id);
+        } else {
+          try {
+            const [[stateRow]] = await conn.query(
+              'SELECT id FROM states WHERE LOWER(name) = LOWER(?) LIMIT 1',
+              [state_id]
+            );
+            if (stateRow) resolvedStateId = stateRow.id;
+          } catch (e) { console.error('[state name resolve]', e.message); }
+        }
+      }
+      let resolvedCityId = city_id ? Number(city_id) : null;
+      let resolvedBranchId = null;
+
+      // Rajasthan applicants: form only sends city_id, not state_id → auto-assign Rajasthan
+      if (!resolvedStateId && location_type === 'rajasthan') {
+        try {
+          const [[rajState]] = await conn.query(
+            "SELECT id FROM states WHERE LOWER(name) = 'rajasthan' LIMIT 1"
+          );
+          if (rajState) resolvedStateId = rajState.id;
+        } catch (e) { console.error('[state auto-resolve]', e.message); }
+      }
+
+      // If we have an explicitly provided branch_id, use it. Otherwise, lookup via city_id.
+      if (formData.branch_id) {
+        resolvedBranchId = formData.branch_id;
+      } else {
+        if (resolvedCityId) {
+          try {
+            const [[cityRow]] = await conn.query('SELECT branch_id FROM cities WHERE id = ? LIMIT 1', [resolvedCityId]);
+            if (cityRow && cityRow.branch_id) {
+              resolvedBranchId = cityRow.branch_id;
+            }
+          } catch (e) { console.error('[branch auto-resolve]', e.message); }
+        }
+      }
+
+      // Overseas: No state, No branch. Just leave both null so only Super Admin handles them.
+      // Keep stored JSON payload consistent with the resolved IDs
+      if (resolvedStateId) formData.state_id = resolvedStateId;
+      if (resolvedBranchId) formData.branch_id = resolvedBranchId;
+
       const [r] = await conn.query(
         `INSERT INTO fb_submissions
            (uuid, form_id, user_id, status, current_step, submitted_at,
             applicant_name, applicant_email, applicant_phone, membership_id, ip_address, data,
-            plan_type, membership_type, package_id, wing_id, country_id, state_id, city_id)
-         VALUES (?,?,0,'submitted',5,NOW(),?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            plan_type, membership_type, package_id, wing_id, country_id, state_id, city_id, branch_id)
+         VALUES (?,?,0,'submitted',5,NOW(),?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         [submUuid, formId, full_name, email, phone || null,
          membershipId, req.ip, JSON.stringify(formData),
          plan_type || null, membership_type || null, package_id ? Number(package_id) : null,
          resolvedWingId,
-         country_id ? Number(country_id) : null,
-         state_id ? Number(state_id) : null,
-         city_id ? Number(city_id) : null]
+         resolvedCountryId,
+         resolvedStateId,
+         resolvedCityId,
+         resolvedBranchId]
       );
       const submissionId = r.insertId;
 
