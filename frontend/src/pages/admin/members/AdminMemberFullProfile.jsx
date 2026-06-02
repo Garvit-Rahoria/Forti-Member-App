@@ -113,7 +113,7 @@ export default function AdminMemberFullProfile() {
             <p className="text-sm">The member could not be found or an error occurred.</p>
           </div>
         </div>
-        <button onClick={() => navigate(-1)} className="mt-4 text-primary-600 hover:underline flex items-center gap-1 text-sm font-medium">
+        <button onClick={() => navigate('/members')} className="mt-4 text-primary-600 hover:underline flex items-center gap-1 text-sm font-medium">
           <ArrowLeft size={16} /> Go Back
         </button>
       </div>
@@ -140,7 +140,7 @@ export default function AdminMemberFullProfile() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-8">
       {/* Header */}
       <div className="flex items-center gap-3 mb-2">
-        <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors">
+        <button onClick={() => navigate('/members')} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors">
           <ArrowLeft size={20} />
         </button>
         <div>

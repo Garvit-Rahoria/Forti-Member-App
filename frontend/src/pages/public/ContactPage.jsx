@@ -258,12 +258,13 @@ export default function ContactPage() {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex-1">
               <div className="h-48 w-full border-b border-gray-100">
                 <iframe
-                  src="https://maps.google.com/maps?q=Commerce%20Tower,%20New%20Delhi&t=&z=15&ie=UTF8&iwloc=&output=embed"
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3557.765383454628!2d75.7834395!3d26.910940099999998!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x396db5e5a2b0771b%3A0x69abc68ea202fbaf!2sFORTI%20(Federation%20of%20Rajasthan%20Trade%20%26%20Industry)!5e0!3m2!1sen!2sin!4v1780400455984!5m2!1sen!2sin"
                   width="100%"
                   height="100%"
                   style={{ border: 0 }}
                   allowFullScreen=""
                   loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
                   title="FORTI National Office Map"
                   className="w-full h-full"
                 ></iframe>
