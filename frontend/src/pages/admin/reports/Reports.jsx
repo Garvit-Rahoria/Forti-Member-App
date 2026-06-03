@@ -228,18 +228,18 @@ export default function Reports() {
             <option value="corporate">Corporate</option>
           </FilterSelect>
 
-          <div className="ml-auto flex items-end gap-2">
+          <div className="w-full sm:w-auto sm:ml-auto flex items-end gap-2 pt-1">
             <button
               type="button"
               onClick={resetFilters}
-              className="btn-outline btn-sm flex items-center gap-1"
+              className="flex-1 sm:flex-none btn-outline btn-sm flex items-center justify-center gap-1"
             >
               <RefreshCw size={13} /> Reset
             </button>
             <button
               type="button"
               onClick={applyFilters}
-              className="btn btn-primary btn-sm flex items-center gap-1"
+              className="flex-1 sm:flex-none btn btn-primary btn-sm flex items-center justify-center gap-1"
             >
               Apply Filter
             </button>

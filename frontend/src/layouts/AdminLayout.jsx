@@ -129,7 +129,7 @@ function NavItem({ item, unreadCount }) {
 export default function AdminLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768)
 
   const role = user?.role || 'admin'
 
@@ -199,14 +199,25 @@ export default function AdminLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-surface-base">
+      {/* Mobile Backdrop */}
       {sidebarOpen && (
-      <aside className="w-64 flex-shrink-0 bg-gradient-sidebar border-r border-white/10 flex flex-col transition-all duration-200 shadow-soft-lg">
+        <div
+          className="md:hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`fixed md:relative z-50 w-64 h-full flex-shrink-0 bg-gradient-sidebar border-r border-white/10 flex flex-col shadow-soft-lg transition-transform duration-300 ease-in-out
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:-translate-x-full md:w-0 md:overflow-hidden'}
+        `}>
         <div className="px-5 py-4 border-b border-white/10 flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl bg-gradient-cta flex items-center justify-center text-white font-display font-bold text-sm shadow-glow">
             F
           </div>
           <span className="font-display font-bold text-white text-lg flex-1 tracking-tight">FORTI</span>
-          <button onClick={() => setSidebarOpen(false)} className="text-primary-200/60 hover:text-white transition-colors" title="Close sidebar">
+          <button onClick={() => setSidebarOpen(false)} className="md:hidden text-primary-200/60 hover:text-white transition-colors" title="Close sidebar">
             <X size={18} />
           </button>
         </div>
@@ -250,7 +261,6 @@ export default function AdminLayout() {
           </p>
         </div>
       </aside>
-      )}
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <header className="bg-white/80 backdrop-blur-md border-b border-primary-100/50 px-5 py-3.5 flex items-center gap-3 shadow-sm">
@@ -278,7 +288,7 @@ export default function AdminLayout() {
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto p-6 bg-gradient-section">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 bg-gradient-section">
           <Outlet />
         </main>
       </div>

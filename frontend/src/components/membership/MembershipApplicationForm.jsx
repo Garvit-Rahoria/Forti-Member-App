@@ -193,7 +193,7 @@ const SOCIAL_PLATFORMS = [
 
 const STEP_VALIDATION_FIELDS = {
   0: ['full_name', 'email', 'phone', 'gender', 'id_type', 'aadhaar_number', 'passport_number', 'national_id_number', 'pin_code', 'organisation_name', 'organisation_type', 'organisation_type_other'],
-  1: ['location_type', 'state_id', 'branch_id', 'country_id'],
+  1: ['location_type', 'state_id', 'city_id', 'branch_id', 'country_id'],
   2: ['wing_id', 'membership_type'],
   3: ['plan_type', 'package_id'],
   4: ['payment_method', 'payment_confirmed', 'payment_screenshot'],
@@ -212,6 +212,7 @@ const FIELD_SELECTOR_MAP = {
   organisation_name: '[data-field="organisation_name"]',
   organisation_type: '[data-field="organisation_type"]',
   organisation_type_other: '[data-field="organisation_type_other"]',
+  city_id: '[data-field="city_id"]',
   country_id: '[data-field="country_id"]',
 }
 
@@ -760,6 +761,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
         case 'organisation_name':
           return currentForm.organisation_name?.trim() ? '' : REQUIRED_FIELD_MESSAGE
         case 'pin_code':
+          if (currentForm.id_type !== 'aadhaar') return ''
           if (currentIsIndianApplicant) {
             if (!String(currentForm.pin_code || '').trim()) return REQUIRED_FIELD_MESSAGE
             if (!/^\d{6}$/.test(currentForm.pin_code || '')) return 'Valid 6-digit PIN code is required'
@@ -787,6 +789,8 @@ export default function MembershipApplicationForm({ prefill = {} }) {
         case 'state_id':
           return currentForm.location_type === 'other_states' && !currentForm.state_id ? REQUIRED_FIELD_MESSAGE : ''
         case 'city_id':
+          if (currentForm.location_type === 'rajasthan' && !currentForm.city_id && !currentForm.city_other) return REQUIRED_FIELD_MESSAGE
+          if (currentForm.location_type === 'other_states' && !currentForm.city_id && !currentForm.city_other) return REQUIRED_FIELD_MESSAGE
           return ''
         case 'branch_id':
           if (currentForm.location_type === 'rajasthan' && !currentForm.branch_id) return REQUIRED_FIELD_MESSAGE
@@ -1424,13 +1428,13 @@ export default function MembershipApplicationForm({ prefill = {} }) {
             const active = i === step
             return (
               <div key={i} className="flex flex-col items-center relative group">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300
+                <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold transition-all duration-300
                   ${done ? 'bg-gradient-to-br from-green-400 to-emerald-500 text-white shadow-sm shadow-green-200'
                     : active ? 'bg-gradient-to-br from-primary-500 to-purple-600 text-white shadow-lg shadow-primary-200 ring-4 ring-primary-100 scale-110'
                       : 'bg-gray-100 text-gray-400 border border-gray-200'}`}>
-                  {done ? '✓' : <Icon size={16} />}
+                  {done ? '✓' : <Icon size={14} />}
                 </div>
-                <span className={`text-[11px] mt-2 hidden sm:block max-w-[80px] text-center leading-tight
+                <span className={`text-[10px] sm:text-[11px] mt-1 sm:mt-2 hidden sm:block max-w-[64px] sm:max-w-[80px] text-center leading-tight
                   ${active ? 'text-primary-700 font-bold' : done ? 'text-green-600 font-medium' : 'text-gray-400'}`}>
                   {s.label}
                 </span>
@@ -1596,36 +1600,38 @@ export default function MembershipApplicationForm({ prefill = {} }) {
             />
             <FieldError msg={errors[identityFieldConfig.field]} />
           </div>
-          <div className="space-y-1.5">
-            <label className="label">{isIndianApplicant ? 'PIN Code *' : 'Postal Code *'}</label>
-            {isIndianApplicant ? (
-              <input className={getInputClassName('pin_code')} placeholder="6-digit PIN code" maxLength={6}
-                data-field="pin_code"
-                aria-invalid={!!errors.pin_code}
-                value={form.pin_code}
-                onChange={e => handleFieldChange('pin_code', e.target.value.replace(/\D/g, '').slice(0, 6))}
-                onBlur={() => validateField('pin_code')} />
-            ) : (
-              <input className={getInputClassName('pin_code')} placeholder="Enter postal / zip code" maxLength={20}
-                data-field="pin_code"
-                aria-invalid={!!errors.pin_code}
-                value={form.pin_code}
-                onChange={e => handleFieldChange('pin_code', e.target.value.replace(/[^A-Za-z0-9 -]/g, '').slice(0, 20))}
-                onBlur={() => validateField('pin_code')} />
-            )}
-            {isIndianApplicant && pincodeVerifying && (
-              <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5 animate-pulse">
-                <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-ping" />
-                Verifying PIN code...
-              </p>
-            )}
-            {isIndianApplicant && pincodeDetails && pincodeDetails.verified && (
-              <p className="text-xs text-emerald-600 mt-1 font-semibold flex items-center gap-1">
-                ✓ Valid PIN code - {pincodeDetails.district}, {pincodeDetails.state}
-              </p>
-            )}
-            <FieldError msg={errors.pin_code} />
-          </div>
+          {activeIdType === 'aadhaar' && (
+            <div className="space-y-1.5">
+              <label className="label">{isIndianApplicant ? 'PIN Code *' : 'Postal Code *'}</label>
+              {isIndianApplicant ? (
+                <input className={getInputClassName('pin_code')} placeholder="6-digit PIN code" maxLength={6}
+                  data-field="pin_code"
+                  aria-invalid={!!errors.pin_code}
+                  value={form.pin_code}
+                  onChange={e => handleFieldChange('pin_code', e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  onBlur={() => validateField('pin_code')} />
+              ) : (
+                <input className={getInputClassName('pin_code')} placeholder="Enter postal / zip code" maxLength={20}
+                  data-field="pin_code"
+                  aria-invalid={!!errors.pin_code}
+                  value={form.pin_code}
+                  onChange={e => handleFieldChange('pin_code', e.target.value.replace(/[^A-Za-z0-9 -]/g, '').slice(0, 20))}
+                  onBlur={() => validateField('pin_code')} />
+              )}
+              {isIndianApplicant && pincodeVerifying && (
+                <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5 animate-pulse">
+                  <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-ping" />
+                  Verifying PIN code...
+                </p>
+              )}
+              {isIndianApplicant && pincodeDetails && pincodeDetails.verified && (
+                <p className="text-xs text-emerald-600 mt-1 font-semibold flex items-center gap-1">
+                  ✓ Valid PIN code - {pincodeDetails.district}, {pincodeDetails.state}
+                </p>
+              )}
+              <FieldError msg={errors.pin_code} />
+            </div>
+          )}
           <div className="space-y-1.5">
             <label className="label">Organisation Name *</label>
             <input className={getInputClassName('organisation_name')} placeholder="Company / Organisation name"
@@ -1792,33 +1798,63 @@ export default function MembershipApplicationForm({ prefill = {} }) {
         </div>
         <FieldError msg={errors.location_type} />
 
-        {/* ── Rajasthan: branch dropdown only ── */}
+        {/* ── Rajasthan: city dropdown → branch dropdown ── */}
         {form.location_type === 'rajasthan' && (
-          <div className="mt-5 p-5 bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl border border-orange-100 space-y-3">
+          <div className="mt-5 p-5 bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl border border-orange-100 space-y-4">
             <div className="flex items-center justify-between">
-              <label className="label flex items-center gap-2 text-orange-800 mb-0">
-                <Building2 size={14} /> Select Branch *
-              </label>
+              <p className="text-sm font-semibold text-orange-800">Select City & Branch</p>
               <span className="text-xs font-bold text-orange-700 bg-orange-100 border border-orange-200 px-2.5 py-0.5 rounded-full">
                 {getCurrencySymbol('INR')} INR
               </span>
             </div>
-            <select
-              value={form.branch_id}
-              onChange={(e) => {
-                set('branch_id', e.target.value)
-              }}
-              className={`${getInputClassName('branch_id', 'input w-full bg-white border-orange-200 focus:border-orange-400 focus:ring-orange-200')} ${!form.branch_id ? 'text-gray-500' : 'text-gray-900'}`}
-            >
-              <option value="" disabled>Select preferred branch...</option>
-              {branches.filter(b => {
-                const rajState = states.find(s => s.name.toLowerCase() === 'rajasthan');
-                return String(b.state_id) === String(rajState ? rajState.id : '21');
-              }).map(b => (
-                <option key={b.id} value={b.id} className="text-gray-900">{b.name}</option>
-              ))}
-            </select>
-            <FieldError msg={errors.branch_id} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="label flex items-center gap-2 text-orange-800">
+                  <MapPin size={14} /> City *
+                </label>
+                <SearchableSelect
+                  options={cityOptions}
+                  value={form.city_id || form.city_other}
+                  placeholder={cities.length ? 'Search city...' : 'Loading cities…'}
+                  allowCustom={true}
+                  inputName="city_id"
+                  dataField="city_id"
+                  onChange={(val, opt) => {
+                    if (!opt) {
+                      set('city_id', '')
+                      set('city_other', val)
+                    } else {
+                      set('city_id', val)
+                      set('city_other', '')
+                    }
+                  }}
+                  inputClassName="bg-white border-orange-200 focus:border-orange-400 focus:ring-orange-200"
+                />
+                <FieldError msg={errors.city_id} />
+              </div>
+              <div>
+                <label className="label flex items-center gap-2 text-orange-800">
+                  <Building2 size={14} /> Select Branch *
+                </label>
+                <select
+                  value={form.branch_id}
+                  data-field="branch_id"
+                  onChange={(e) => {
+                    set('branch_id', e.target.value)
+                  }}
+                  className={`${getInputClassName('branch_id', 'input w-full bg-white border-orange-200 focus:border-orange-400 focus:ring-orange-200')} ${!form.branch_id ? 'text-gray-500' : 'text-gray-900'}`}
+                >
+                  <option value="" disabled>Select preferred branch...</option>
+                  {branches.filter(b => {
+                    const rajState = states.find(s => s.name.toLowerCase() === 'rajasthan');
+                    return String(b.state_id) === String(rajState ? rajState.id : '21');
+                  }).map(b => (
+                    <option key={b.id} value={b.id} className="text-gray-900">{b.name}</option>
+                  ))}
+                </select>
+                <FieldError msg={errors.branch_id} />
+              </div>
+            </div>
           </div>
         )}
 
@@ -1826,12 +1862,12 @@ export default function MembershipApplicationForm({ prefill = {} }) {
         {form.location_type === 'other_states' && (
           <div className="mt-5 p-5 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100 space-y-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-blue-800">Select State & Branch</p>
+              <p className="text-sm font-semibold text-blue-800">Select State, City & Branch</p>
               <span className="text-xs font-bold text-blue-700 bg-blue-100 border border-blue-200 px-2.5 py-0.5 rounded-full">
                 {getCurrencySymbol('INR')} INR
               </span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="label flex items-center gap-2 text-blue-800">
                   <MapPin size={14} /> State *
@@ -1842,11 +1878,37 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                   placeholder={states.length ? 'Search state' : 'Loading states…'}
                   onChange={nextValue => {
                     set('state_id', nextValue)
+                    set('city_id', '')
                     set('branch_id', '')
                   }}
                   inputClassName="bg-white border-blue-200 focus:border-blue-400 focus:ring-blue-200"
                 />
                 <FieldError msg={errors.state_id} />
+              </div>
+              <div>
+                <label className="label flex items-center gap-2 text-blue-800">
+                  <MapPin size={14} /> City *
+                </label>
+                <SearchableSelect
+                  options={cityOptions}
+                  value={form.city_id || form.city_other}
+                  placeholder={cities.length ? 'Search city...' : 'Loading cities…'}
+                  allowCustom={true}
+                  inputName="city_id"
+                  dataField="city_id"
+                  onChange={(val, opt) => {
+                    if (!opt) {
+                      set('city_id', '')
+                      set('city_other', val)
+                    } else {
+                      set('city_id', val)
+                      set('city_other', '')
+                    }
+                  }}
+                  disabled={!form.state_id}
+                  inputClassName={`bg-white border-blue-200 focus:border-blue-400 focus:ring-blue-200 ${!form.state_id ? 'bg-gray-50' : ''}`}
+                />
+                <FieldError msg={errors.city_id} />
               </div>
               <div>
                 <label className="label flex items-center gap-2 text-blue-800">

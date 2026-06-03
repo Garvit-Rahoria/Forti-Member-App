@@ -3,6 +3,7 @@ import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import api from '../../api/client'
 import PublicHeader from '../../components/public/PublicHeader'
 import PublicFooter from '../../components/public/PublicFooter'
+import { toast } from 'react-hot-toast'
 
 function fmt(dateStr) {
   if (!dateStr) return null
@@ -82,11 +83,26 @@ export default function TrackApplication() {
     if (!membershipId) return
     setInput(membershipId)
     setError('')
-    setResult(null)
+    
+    // Only clear result if searching for a different ID to prevent UI flickering
+    setResult(prev => (prev && prev.membership_id === membershipId) ? prev : null)
+    
     setLoading(true)
     try {
       const res = await api.get(`/member/track?membership_id=${encodeURIComponent(membershipId)}`)
-      setResult(res.data.data)
+      const data = res.data.data
+      setResult(data)
+      
+      const statusLabel = STATUS_LABELS[data.status] || data.status
+      toast.success(`Application Status: ${statusLabel}`, {
+        duration: 4000,
+        position: 'top-center',
+        style: {
+          background: '#1e1b4b', // deep primary color
+          color: '#fff',
+          fontWeight: '500',
+        },
+      })
     } catch (err) {
       setError(err.response?.data?.message || 'Application not found. Please check your Application ID.')
     } finally {
@@ -113,7 +129,7 @@ export default function TrackApplication() {
     <div className="page-shell bg-gradient-to-br from-primary-50 to-white">
       <PublicHeader />
 
-      <div className="flex items-center justify-center p-4 py-12">
+      <div className="flex items-center justify-center p-4 sm:p-6 lg:p-12 min-h-[70vh]">
       <div className="w-full max-w-lg space-y-6">
 
         {/* Header */}
@@ -140,7 +156,7 @@ export default function TrackApplication() {
             </button>
           </form>
 
-          {loading && (
+          {loading && !result && (
             <div className="flex justify-center py-4">
               <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"/>
             </div>

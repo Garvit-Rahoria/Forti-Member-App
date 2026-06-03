@@ -896,7 +896,7 @@ function PaymentsTab({ apiClient }) {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[700px]">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   {['Date', 'Method', 'Membership ID', 'Transaction ID', 'Amount', 'Status', 'Invoice'].map(h => (
@@ -1502,7 +1502,7 @@ function RenewalTab({ member, apiClient }) {
             <h3 className="font-semibold text-gray-900 flex items-center gap-2"><BarChart2 size={17}/>Renewal Payment History</h3>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[700px]">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   {['Date', 'Package', 'Amount', 'Method', 'Transaction ID', 'Status'].map(h => (
@@ -1635,36 +1635,54 @@ export default function MemberDashboard() {
   return (
     <div className="min-h-screen bg-gray-50 flex relative">
 
-      {/* Desktop Sidebar */}
-      <div className="hidden lg:block">
+      {/* Desktop Sidebar — only visible on lg+ */}
+      <div className="hidden lg:block shrink-0">
         <Sidebar activeTab={activeTab} onTab={setActiveTab} member={member} onLogout={handleLogout}/>
       </div>
 
-      {/* Mobile sidebar overlay */}
+      {/* Mobile Sidebar — slides in from left on small screens */}
       {mobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div className="bg-black/50 flex-1" onClick={() => setMobileMenuOpen(false)}/>
-          <div className="w-64">
-            <Sidebar activeTab={activeTab} onTab={t => { setActiveTab(t); setMobileMenuOpen(false) }} member={member} onLogout={handleLogout}/>
+          <div
+            className="bg-black/50 backdrop-blur-sm absolute inset-0"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-hidden="true"
+          />
+          <div className="relative z-10 w-72 max-w-[85vw] h-full shadow-2xl">
+            <Sidebar
+              activeTab={activeTab}
+              onTab={t => { setActiveTab(t); setMobileMenuOpen(false) }}
+              member={member}
+              onLogout={handleLogout}
+            />
           </div>
         </div>
       )}
 
       {/* Main content */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 flex flex-col">
         {/* Mobile top bar */}
-        <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
+        <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-30 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center text-white font-black text-sm">F</div>
-            <span className="font-bold text-gray-900">Member Dashboard</span>
+            <span className="font-bold text-gray-900 text-sm">FORTI Member</span>
           </div>
-          <button onClick={() => setMobileMenuOpen(true)} className="p-1 text-gray-600">
-            <Activity size={20}/>
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => navigate('/')} className="p-2 text-gray-500 hover:text-primary-600 transition" aria-label="Homepage">
+              <Home size={18}/>
+            </button>
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="p-2 text-gray-600 hover:text-primary-600 transition"
+              aria-label="Open sidebar menu"
+            >
+              <Activity size={20}/>
+            </button>
+          </div>
         </div>
 
-        {/* Page header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+        {/* Desktop Page header */}
+        <div className="hidden lg:block bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-bold text-gray-900">
@@ -1679,21 +1697,47 @@ export default function MemberDashboard() {
             </div>
             <div className="flex items-center gap-3">
               <button onClick={() => navigate('/')} className="btn-outline btn-sm flex items-center gap-1.5">
-                <Home size={14}/> <span className="hidden sm:inline">Homepage</span>
+                <Home size={14}/> Homepage
               </button>
             </div>
           </div>
         </div>
 
-        {/* Tab content */}
-        <div className="p-6 w-full max-w-[1400px] mx-auto">
-          {tabContent[activeTab]}
+        {/* Tab content — extra bottom padding on mobile for the bottom nav */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-4 sm:p-6 w-full max-w-[1400px] mx-auto pb-24 lg:pb-6">
+            {tabContent[activeTab]}
+          </div>
         </div>
       </div>
 
+      {/* Mobile Bottom Navigation Bar */}
+      <nav className="bottom-nav" aria-label="Member navigation">
+        {[
+          { id: 'overview',  label: 'Overview',  icon: Home },
+          { id: 'profile',   label: 'Profile',   icon: User },
+          { id: 'documents', label: 'Documents', icon: Award },
+          { id: 'payments',  label: 'Payments',  icon: CreditCard },
+          { id: 'renewal',   label: 'Renew',     icon: RefreshCw },
+        ].map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => setActiveTab(id)}
+            className={`bottom-nav-item ${activeTab === id ? 'active' : ''}`}
+            aria-current={activeTab === id ? 'page' : undefined}
+          >
+            <Icon size={activeTab === id ? 22 : 20} strokeWidth={activeTab === id ? 2.5 : 1.5} />
+            <span>{label}</span>
+            {activeTab === id && (
+              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary-600 rounded-full" />
+            )}
+          </button>
+        ))}
+      </nav>
+
       {/* Expiry Warning Popup */}
       {daysLeft !== null && daysLeft <= 90 && getMembershipStatus(member) === 'active' && showExpiryPopup && (
-        <div className="fixed bottom-6 right-6 z-50 shadow-2xl">
+        <div className="fixed bottom-20 lg:bottom-6 right-4 sm:right-6 z-50 shadow-2xl max-w-[calc(100vw-2rem)]">
           <div className="bg-white rounded-2xl shadow-2xl border border-amber-200 p-4 max-w-sm flex items-start gap-3 w-80">
             <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0 text-amber-600 mt-0.5">
               <Bell size={20} />

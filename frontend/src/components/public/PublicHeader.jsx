@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { createPortal } from 'react-dom'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { Menu, X, Mail, Phone, Facebook, Instagram, Twitter, Linkedin } from 'lucide-react'
@@ -49,6 +50,19 @@ export default function PublicHeader({ variant = 'default', onApply }) {
     return () => window.removeEventListener('scroll', fn)
   }, [])
 
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (menuOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => { document.body.style.overflow = '' }
+  }, [menuOpen])
+
+  // Close menu on route change
+  useEffect(() => { setMenuOpen(false) }, [location.pathname])
+
   const { data: blogNav = [] } = useQuery({
     queryKey: ['blog-nav'],
     queryFn: () => http.get('/blog/nav').then(r => r.data.data),
@@ -64,7 +78,7 @@ export default function PublicHeader({ variant = 'default', onApply }) {
       ? 'bg-white/85 backdrop-blur-xl shadow-glass border-b border-primary-100/40'
       : 'bg-white/70 backdrop-blur-lg border-b border-white/50'
       }`}>
-      {/* Top info bar — landing & default */}
+      {/* Top info bar — desktop only */}
       <div className="hidden lg:block bg-gradient-to-r from-primary-950 via-primary-800 to-primary-700 text-white text-xs py-2">
         <div className="container-page flex items-center justify-between">
           <div className="flex items-center gap-6 text-primary-100/90">
@@ -80,10 +94,9 @@ export default function PublicHeader({ variant = 'default', onApply }) {
         </div>
       </div>
 
-      <div className=" pl-1 py-3 flex items-center gap-6">
-        <Link to="/" className="flex items-center gap-3 shrink-0 group">
-          <img src={SITE_LOGO} alt="FORTI" className="h-10 w-auto object-contain transition group-hover:opacity-90" onError={e => { e.target.style.display = 'none' }} />
-
+      <div className="px-4 lg:px-8 py-3 flex items-center justify-between gap-2 sm:gap-6">
+        <Link to="/" className="flex items-center min-w-0 shrink group">
+          <img src={SITE_LOGO} alt="FORTI" className="h-8 sm:h-10 w-auto max-w-full object-contain transition group-hover:opacity-90" onError={e => { e.target.style.display = 'none' }} />
         </Link>
 
         <nav className="hidden xl:flex items-center gap-1.5">
@@ -114,29 +127,125 @@ export default function PublicHeader({ variant = 'default', onApply }) {
           )}
         </div>
 
-        <button type="button" className="xl:hidden ml-auto p-2.5 rounded-xl text-ink-muted hover:bg-primary-50 transition" onClick={() => setMenuOpen(v => !v)}>
+        {/* Hamburger */}
+        <button
+          type="button"
+          className="xl:hidden ml-auto p-2.5 rounded-xl text-ink-muted hover:bg-primary-50 transition min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
+          onClick={() => setMenuOpen(v => !v)}
+          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={menuOpen}
+        >
           {menuOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
       </div>
 
-      {menuOpen && (
-        <div className="xl:hidden border-t border-primary-100/50 px-4 py-4 space-y-1 bg-white/95 backdrop-blur-xl">
-          {[...STATIC_BEFORE, ...STATIC_AFTER].map(l => (
-            <Link key={l.to} to={l.to} className="block py-2.5 px-3 text-ink-muted font-medium rounded-xl hover:bg-primary-50" onClick={() => setMenuOpen(false)}>{l.label}</Link>
-          ))}
-          {blogNav.map(item => (
-            <div key={item.id} className="pt-2 border-t border-primary-100/50">
-              <Link to={item.path} className="block py-2 px-3 font-semibold text-primary-700" onClick={() => setMenuOpen(false)}>{item.label}</Link>
-              {item.dropdown?.map(cat => (
-                <Link key={cat.id} to={cat.path} className="block py-1.5 pl-6 text-sm text-ink-muted" onClick={() => setMenuOpen(false)}>{cat.name}</Link>
-              ))}
+      {/* Mobile Backdrop and Drawer (Rendered via Portal to avoid backdrop-filter issues) */}
+      {createPortal(
+        <div className="xl:hidden">
+          {/* Mobile Backdrop */}
+          {menuOpen && (
+            <div
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9998]"
+              onClick={() => setMenuOpen(false)}
+              aria-hidden="true"
+            />
+          )}
+
+          {/* Mobile Slide-in Drawer */}
+          <div
+            className={`fixed top-0 right-0 h-full w-72 max-w-[85vw] bg-white z-[9999] shadow-2xl flex flex-col
+              transform transition-transform duration-300 ease-in-out overflow-y-auto
+              ${menuOpen ? 'translate-x-0' : 'translate-x-full'}`}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Navigation menu"
+          >
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-primary-700 to-primary-900 shrink-0">
+              <img src={SITE_LOGO} alt="FORTI" className="h-8 w-auto object-contain brightness-0 invert" onError={e => { e.target.style.display = 'none' }} />
+              <button
+                type="button"
+                onClick={() => setMenuOpen(false)}
+                className="p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition"
+                aria-label="Close menu"
+              >
+                <X size={20} />
+              </button>
             </div>
-          ))}
-          <div className="pt-3 space-y-2 border-t border-primary-100/50">
-            <button type="button" onClick={() => { handleMemberNav(); setMenuOpen(false) }} className="w-full btn-outline btn-sm">{memberToken ? 'Dashboard' : 'Member Login'}</button>
-            {onApply && <button type="button" onClick={() => { onApply(); setMenuOpen(false) }} className="w-full btn-primary btn-sm">Apply Now</button>}
+
+            {/* Nav Links */}
+            <nav className="flex-1 px-4 py-4 space-y-0.5" aria-label="Mobile navigation">
+              {[...STATIC_BEFORE].map(l => (
+                <Link
+                  key={l.to}
+                  to={l.to}
+                  className={`flex items-center py-3 px-3 text-sm font-medium rounded-xl transition-colors
+                    ${location.pathname === l.to ? 'bg-primary-50 text-primary-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {l.label}
+                </Link>
+              ))}
+
+              {blogNav.map(item => (
+                <div key={item.id}>
+                  <Link
+                    to={item.path}
+                    className="flex items-center py-3 px-3 font-semibold text-sm text-primary-700 rounded-xl hover:bg-primary-50 transition-colors"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    {item.label}
+                  </Link>
+                  {item.dropdown?.map(cat => (
+                    <Link
+                      key={cat.id}
+                      to={cat.path}
+                      className="flex items-center py-2 pl-7 pr-3 text-sm text-gray-500 hover:text-primary-600 transition-colors rounded-lg"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      {cat.name}
+                    </Link>
+                  ))}
+                </div>
+              ))}
+
+              {[...STATIC_AFTER].map(l => (
+                <Link
+                  key={l.to}
+                  to={l.to}
+                  className={`flex items-center py-3 px-3 text-sm font-medium rounded-xl transition-colors
+                    ${location.pathname === l.to ? 'bg-primary-50 text-primary-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {l.label}
+                </Link>
+              ))}
+            </nav>
+
+            {/* CTA Buttons */}
+            <div className="px-4 py-4 space-y-2 border-t border-gray-100 bg-gray-50/50 shrink-0">
+              {isLanding && (
+                <>
+                  <button type="button" onClick={() => { navigate('/track'); setMenuOpen(false) }} className="w-full btn-outline btn-sm">
+                    Track Application
+                  </button>
+                  <button type="button" onClick={() => { navigate('/admin/login'); setMenuOpen(false) }} className="w-full btn-outline btn-sm">
+                    Admin Login
+                  </button>
+                </>
+              )}
+              <button type="button" onClick={() => { handleMemberNav(); setMenuOpen(false) }} className="w-full btn-outline btn-sm">
+                {memberToken ? 'My Dashboard' : 'Member Login'}
+              </button>
+              {onApply && (
+                <button type="button" onClick={() => { onApply(); setMenuOpen(false) }} className="w-full btn-gold btn-sm">
+                  Apply for Membership
+                </button>
+              )}
+            </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </header>
   )

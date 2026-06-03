@@ -77,7 +77,7 @@ export default function Dashboard() {
       </div>
 
       {/* Info Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-orange-100 flex items-center justify-center">
             <AlertTriangle size={16} className="text-orange-600" />

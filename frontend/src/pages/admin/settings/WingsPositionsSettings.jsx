@@ -111,7 +111,8 @@ export default function WingsPositionsSettings() {
             </button>
           </div>
           <div className="card overflow-hidden">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[400px]">
               <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
                 <tr><th className="px-3 py-2">Name</th><th className="px-3 py-2">Slug</th><th className="px-3 py-2">Sort</th><th className="px-3 py-2">Active</th><th className="px-3 py-2" /></tr>
               </thead>
@@ -133,7 +134,8 @@ export default function WingsPositionsSettings() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -151,7 +153,8 @@ export default function WingsPositionsSettings() {
             </button>
           </div>
           <div className="card overflow-hidden">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[480px]">
               <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
                 <tr><th className="px-3 py-2">Title</th><th className="px-3 py-2">Slug</th><th className="px-3 py-2">Level</th><th className="px-3 py-2">Sort</th><th className="px-3 py-2">Active</th><th className="px-3 py-2" /></tr>
               </thead>
@@ -174,7 +177,8 @@ export default function WingsPositionsSettings() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
           </div>
         </div>
       )}

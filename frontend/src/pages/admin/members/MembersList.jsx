@@ -413,7 +413,7 @@ export default function MembersList() {
 
       {/* ── Filters ── */}
       <div className="card p-4 flex flex-wrap gap-3">
-        <div className="flex-1 min-w-48 relative">
+        <div className="flex-1 min-w-[180px] relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             className="input pl-9"
@@ -447,7 +447,7 @@ export default function MembersList() {
       {/* ── Table ── */}
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm min-w-[900px]">
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Member ID</th>

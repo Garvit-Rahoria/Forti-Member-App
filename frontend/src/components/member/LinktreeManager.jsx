@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, GripVertical, Image, Star, Calendar, Lock, BarChart2, Share, Edit2, CheckCircle, Loader2, Youtube, AlignLeft, Link as LinkIcon, Upload, ImageIcon } from 'lucide-react'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import toast from 'react-hot-toast'
+import { assetUrl } from '../../utils/assetUrl'
 
 export default function LinktreeManager({ links = [], apiClient, refetch }) {
   const qc = useQueryClient()
@@ -173,7 +174,7 @@ export default function LinktreeManager({ links = [], apiClient, refetch }) {
                               ) : link.link_type === 'photo' ? (
                                 <div className="mt-3 relative rounded-xl overflow-hidden bg-gray-50 border border-gray-200 p-4 flex flex-col items-center justify-center min-h-[120px]">
                                   {link.media_path ? (
-                                    <img src={link.media_path.startsWith('http') ? link.media_path : `http://localhost:5000${link.media_path}`} alt="" className="w-full h-auto rounded-lg object-cover" />
+                                    <img src={assetUrl(link.media_path)} alt="" className="w-full h-auto rounded-lg object-cover" />
                                   ) : (
                                     <div className="text-gray-400 text-sm mb-2">No photo uploaded</div>
                                   )}

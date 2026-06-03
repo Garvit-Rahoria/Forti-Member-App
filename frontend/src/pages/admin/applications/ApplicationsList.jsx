@@ -333,15 +333,15 @@ export default function ApplicationsList() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Applications</h2>
           <p className="text-gray-500 text-sm">Review, approve and manage all membership applications</p>
         </div>
         <form onSubmit={handleSearch} className="flex gap-2">
-          <input className="input w-56" placeholder="Search name, email, ID…"
+          <input className="input flex-1 sm:w-56" placeholder="Search name, email, ID…"
             value={qInput} onChange={e => setQInput(e.target.value)} />
-          <button type="submit" className="btn-outline"><Search size={14} /></button>
+          <button type="submit" className="btn-outline shrink-0"><Search size={14} /></button>
         </form>
       </div>
 
@@ -368,7 +368,7 @@ export default function ApplicationsList() {
       {/* Table */}
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm min-w-[700px]">
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Applicant</th>

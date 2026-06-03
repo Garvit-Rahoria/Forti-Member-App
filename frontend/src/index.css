@@ -9,9 +9,11 @@
   body {
     background-color: theme('colors.surface.base');
     color: theme('colors.ink.DEFAULT');
-    @apply antialiased font-sans;
+    @apply antialiased font-sans overflow-x-hidden;
   }
   * { box-sizing: border-box; }
+  /* Prevent iOS text size inflation on rotate */
+  html { -webkit-text-size-adjust: 100%; }
   ::selection {
     @apply bg-primary-200 text-primary-900;
   }
@@ -137,10 +139,38 @@
     background-color: theme('colors.surface.base');
   }
   .section-padding {
-    @apply py-20 lg:py-28;
+    @apply py-12 sm:py-16 lg:py-20 xl:py-28;
   }
   .container-page {
-    @apply max-w-7xl mx-auto px-4 sm:px-6;
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* ── Responsive Table Wrapper ── */
+  .table-responsive {
+    @apply w-full overflow-x-auto -mx-0;
+  }
+
+  /* ── Touch Targets ── */
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+
+  /* ── Mobile Body Scroll Lock ── */
+  .scroll-locked {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+  }
+
+  /* ── Bottom Nav (Member Dashboard Mobile) ── */
+  .bottom-nav {
+    @apply fixed bottom-0 left-0 right-0 z-50 flex lg:hidden items-stretch bg-white border-t border-gray-200 shadow-[0_-4px_16px_rgba(0,0,0,0.08)];
+  }
+  .bottom-nav-item {
+    @apply flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-[10px] font-medium text-gray-400 hover:text-primary-600 transition-colors min-h-[56px] relative cursor-pointer;
+  }
+  .bottom-nav-item.active {
+    @apply text-primary-600;
   }
 
   /* ── Mesh backgrounds ── */
@@ -172,11 +202,7 @@
   }
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #F4F2F8; }
-::-webkit-scrollbar-thumb { background: #c4aaff; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #8655ff; }
+/* Custom scrollbars removed to allow native OS behavior (invisible on mobile/mac) */
 
 .drag-handle { cursor: grab; }
 .drag-handle:active { cursor: grabbing; }

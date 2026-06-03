@@ -10,7 +10,7 @@ export default function PublicFooter() {
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent-gold/10 rounded-full blur-3xl" />
       </div>
       <div className="relative container-page py-16">
-        <div className="grid md:grid-cols-4 gap-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 lg:gap-10">
           <div className="md:col-span-2">
             <Link to="/" className="inline-block mb-4 bg-white p-2.5 rounded-xl">
               <img src={SITE_LOGO} alt="FORTI" className="h-10 object-contain" onError={e => { e.target.style.display = 'none' }} />

@@ -38,12 +38,12 @@ function OTPInput({ value, onChange, disabled }) {
   }
 
   return (
-    <div className="flex gap-2 justify-center" onPaste={handlePaste}>
+    <div className="flex gap-1.5 sm:gap-2 justify-center" onPaste={handlePaste}>
       {digits.map((d, i) => (
         <input key={i} ref={refs[i]} type="text" inputMode="numeric" maxLength={1}
           disabled={disabled} value={d}
           onChange={e => handleChange(i, e)} onKeyDown={e => handleKey(i, e)}
-          className={`w-11 h-12 text-center text-xl font-bold rounded-lg border-2 focus:outline-none focus:ring-2 focus:ring-primary-500 transition
+          className={`w-9 h-10 sm:w-11 sm:h-12 text-center text-lg sm:text-xl font-bold rounded-lg border-2 focus:outline-none focus:ring-2 focus:ring-primary-500 transition
             ${d ? 'border-primary-400 bg-primary-50' : 'border-gray-300 bg-white'}
             disabled:opacity-50`}
         />

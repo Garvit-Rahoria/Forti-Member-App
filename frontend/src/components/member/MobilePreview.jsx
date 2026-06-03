@@ -94,7 +94,7 @@ export default function MobilePreview({ profile, links, photo }) {
                 <div key={link.id} className="w-full mb-2">
                   {link.title && <h3 className="font-bold text-center text-sm mb-2" style={{ color: textColor }}>{link.title}</h3>}
                   {link.media_path && (
-                    <img src={link.media_path.startsWith('http') ? link.media_path : `http://localhost:5000${link.media_path}`} alt={link.title} className="w-full h-auto rounded-[24px] shadow-sm border-[4px] border-white/50" />
+                    <img src={assetUrl(link.media_path)} alt={link.title} className="w-full h-auto rounded-[24px] shadow-sm border-[4px] border-white/50" />
                   )}
                 </div>
               )

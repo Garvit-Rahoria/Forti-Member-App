@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Save, Loader2, Settings2 } from 'lucide-react'
 import api from '../../../api/client'
@@ -64,7 +64,7 @@ export default function Settings() {
         </div>
       ) : (
         <SectionCard icon={Settings2} title="System Settings">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">OTP Expiry Time (minutes)</label>
               <input className="input" type="number" min={1} max={60}
@@ -81,7 +81,7 @@ export default function Settings() {
                 placeholder="5" />
               <p className="text-xs text-gray-400 mt-1">Maximum size for uploaded documents and screenshots.</p>
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <label className="label">Allowed File Types</label>
               <input className="input" value={form.allowed_file_types}
                 onChange={e => set('allowed_file_types', e.target.value)}
