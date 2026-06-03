@@ -456,11 +456,18 @@ export default function MembershipApplicationForm({ prefill = {} }) {
   const topRef = useRef()
 
   // Helper to load saved form draft
-  const loadSavedForm = () => {
+  const loadSavedForm = (currentEmail) => {
     try {
       const saved = localStorage.getItem('forti_application_form')
       if (saved) {
         const parsed = JSON.parse(saved)
+        // If the draft belongs to a different email than the one just verified, discard it.
+        if (parsed.email && currentEmail && parsed.email.toLowerCase() !== currentEmail.toLowerCase()) {
+          localStorage.removeItem('forti_application_form')
+          localStorage.removeItem('forti_application_step')
+          localStorage.removeItem('forti_application_social')
+          return null
+        }
         return {
           ...parsed,
           profile_photo: null,
@@ -474,24 +481,8 @@ export default function MembershipApplicationForm({ prefill = {} }) {
     return null
   }
 
-  const [step, setStep] = useState(() => {
-    const savedStep = localStorage.getItem('forti_application_step')
-    return savedStep ? Number(savedStep) : 0
-  })
-
-  const [orgTypes, setOrgTypes] = useState(ORG_TYPE_DEFAULTS)
-  const [orgTypesLoading, setOrgTypesLoading] = useState(true)
-  useEffect(() => {
-    let active = true
-    setOrgTypesLoading(true)
-    fetchOrgTypes()
-      .then(items => { if (active) setOrgTypes(items) })
-      .finally(() => { if (active) setOrgTypesLoading(false) })
-    return () => { active = false }
-  }, [])
-
   const [form, setForm] = useState(() => {
-    return loadSavedForm() || {
+    return loadSavedForm(prefill?.email) || {
       full_name: prefill?.full_name || '',
       email: prefill?.email || '',
       phone: prefill?.phone || '',
@@ -525,6 +516,22 @@ export default function MembershipApplicationForm({ prefill = {} }) {
       payment_screenshot: null,
     }
   })
+
+  const [step, setStep] = useState(() => {
+    const savedStep = localStorage.getItem('forti_application_step')
+    return savedStep ? Number(savedStep) : 0
+  })
+  
+  const [orgTypes, setOrgTypes] = useState(ORG_TYPE_DEFAULTS)
+  const [orgTypesLoading, setOrgTypesLoading] = useState(true)
+  useEffect(() => {
+    let active = true
+    setOrgTypesLoading(true)
+    fetchOrgTypes()
+      .then(items => { if (active) setOrgTypes(items) })
+      .finally(() => { if (active) setOrgTypesLoading(false) })
+    return () => { active = false }
+  }, [])
   
   const [errors, setErrors] = useState({})
   const [touched, setTouched] = useState({})
