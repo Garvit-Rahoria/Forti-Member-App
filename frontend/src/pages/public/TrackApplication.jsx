@@ -18,36 +18,54 @@ function buildSteps(result) {
   // Step 1 – always shown when we have data
   steps.push({ key: 'submitted', label: 'Submitted', desc: 'Application received', date: submitted_at })
 
-  // Step 2 – under review
-  const pastSubmitted = ['under_review', 'approved', 'payment_pending', 'payment_submitted', 'payment_verified', 'active']
+  // Determine actual payment states
+  const isPmtSubmitted = ['submitted', 'verified', 'approved'].includes(payment_status) || 
+                         ['payment_submitted', 'payment_verified', 'approved', 'active'].includes(status);
+  const isPmtVerified = ['verified', 'approved'].includes(payment_status) || 
+                        ['payment_verified', 'approved', 'active'].includes(status);
+
+  // Step 2 – payment submitted
+  if (isPmtSubmitted) {
+    steps.push({ key: 'payment_submitted', label: 'Payment Submitted', desc: 'Awaiting payment verification', date: payment_date })
+  }
+
+  // Step 3 – payment verified
+  if (isPmtVerified) {
+    steps.push({ key: 'payment_verified', label: 'Payment Verified', desc: 'Payment has been confirmed' })
+  }
+
+  // Step 4 – under review
+  const pastSubmitted = ['under_review', 'approved', 'active']
   if (pastSubmitted.includes(status)) {
     steps.push({ key: 'under_review', label: 'Under Review', desc: 'Being reviewed by our team' })
   }
 
-  // Step 3 – approved
-  if (['approved', 'payment_pending', 'payment_submitted', 'payment_verified', 'active'].includes(status)) {
+  // Step 5 – approved
+  if (['approved', 'active'].includes(status)) {
     steps.push({ key: 'approved', label: 'Approved', desc: 'Application approved', date: approved_at })
-  }
-
-  // Step 4 – payment submitted by applicant
-  const pmtSubmitted = ['submitted', 'verified', 'approved']
-  if (pmtSubmitted.includes(payment_status) || ['payment_submitted', 'payment_verified'].includes(status)) {
-    steps.push({ key: 'payment_submitted', label: 'Payment Submitted', desc: 'Awaiting payment verification', date: payment_date })
-  }
-
-  // Step 5 – payment verified by admin
-  if (['verified', 'approved'].includes(payment_status) || status === 'payment_verified') {
-    steps.push({ key: 'payment_verified', label: 'Payment Verified', desc: 'Payment has been confirmed' })
   }
 
   // Step 6 – membership active ONLY when app approved AND payment verified
   const appApproved = ['approved', 'active'].includes(status)
-  const pmtVerified = ['verified', 'approved'].includes(payment_status)
-  if (member_status === 'active' && appApproved && pmtVerified) {
+  if (member_status === 'active' && appApproved && isPmtVerified) {
     steps.push({ key: 'active', label: 'Membership Activated', desc: 'Membership is active' })
   }
 
   return steps
+}
+
+const STATUS_LABELS = {
+  draft: 'Draft',
+  submitted: 'Submitted',
+  under_review: 'Under Review',
+  payment_pending: 'Payment Pending',
+  payment_submitted: 'Payment Submitted',
+  payment_verified: 'Payment Verified',
+  approved: 'Approved',
+  active: 'Active',
+  rejected: 'Rejected',
+  returned: 'Returned for Edit',
+  pending_info: 'Information Requested'
 }
 
 export default function TrackApplication() {
@@ -146,11 +164,13 @@ export default function TrackApplication() {
                 <span className={`text-xs font-semibold px-3 py-1 rounded-full capitalize ${
                   result.status === 'rejected'
                     ? 'bg-red-100 text-red-600'
-                    : ['payment_verified', 'approved', 'active'].includes(steps[lastIdx]?.key)
+                    : ['payment_verified', 'approved', 'active'].includes(result.status)
                     ? 'bg-emerald-100 text-emerald-700'
+                    : result.status === 'under_review'
+                    ? 'bg-blue-100 text-blue-700'
                     : 'bg-amber-100 text-amber-700'
                 }`}>
-                  {result.status === 'rejected' ? 'Rejected' : (steps[lastIdx]?.label || 'Submitted')}
+                  {STATUS_LABELS[result.status] || result.status}
                 </span>
               </div>
 

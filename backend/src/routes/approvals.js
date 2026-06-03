@@ -388,7 +388,8 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
       await pool.query(
         `UPDATE fb_submissions
          SET status='active', member_status='active',
-             activated_at=NOW(), activated_by=?, reviewed_by=?,
+             activated_at=NOW(), approved_at=COALESCE(approved_at, NOW()), 
+             activated_by=?, reviewed_by=?,
              membership_id=?, expiry_date=COALESCE(expiry_date,?)
          WHERE id=?`,
         [req.user.id, req.user.id, finalMembershipId, expiryDate, req.params.id]
