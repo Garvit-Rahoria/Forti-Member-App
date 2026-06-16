@@ -106,6 +106,10 @@ router.post('/actions', async (req, res) => {
   const validActions = ['approved', 'rejected', 'returned', 'under_review'];
   if (!validActions.includes(action)) return fail(res, 'Invalid action', 422);
 
+  if (action === 'rejected' && (!notes || !notes.trim())) {
+    return fail(res, 'A reason (notes) is required when rejecting an application.', 422);
+  }
+
   try {
     // Resolve a real stage_id — look up the first approval stage for this submission's form
     let resolvedStageId = Number(stage_id) || null;
@@ -214,6 +218,10 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
     return fail(res, 'Insufficient permission for this status change', 403);
   if (role === 'branch_manager' && !BM_VALID.includes(status))
     return fail(res, 'Insufficient permission for this status change', 403);
+
+  if (status === 'rejected' && (!notes || !notes.trim())) {
+    return fail(res, 'A reason (notes) is required when rejecting an application.', 422);
+  }
 
   try {
     const [[sub]] = await pool.query('SELECT * FROM fb_submissions WHERE id=?', [req.params.id]);

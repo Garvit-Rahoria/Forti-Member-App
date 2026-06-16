@@ -218,7 +218,13 @@ export default function TrackApplication() {
 
               {result.status === 'rejected' && (
                 <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 font-medium">
-                  Your application has been rejected. Please contact support for more information.
+                  <p>Your application has been rejected.</p>
+                  {result.review_notes && (
+                    <div className="mt-2 text-sm bg-white/50 p-2 rounded border border-red-100">
+                      <strong>Reason: </strong> {result.review_notes}
+                    </div>
+                  )}
+                  <p className="mt-2 text-xs opacity-80">Please contact support for more information.</p>
                 </div>
               )}
 

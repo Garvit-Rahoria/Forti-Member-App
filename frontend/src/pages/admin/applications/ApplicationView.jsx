@@ -440,7 +440,7 @@ export default function ApplicationView() {
           {canReview && ['submitted', 'under_review', 'payment_pending', 'payment_submitted', 'payment_verified'].includes(sub.status) && (
             <div className="card p-4 space-y-3">
               <h4 className="font-semibold text-gray-900 text-sm">Review Application</h4>
-              <textarea className="input text-sm" rows={3} placeholder="Add review notes (optional)…"
+              <textarea className="input text-sm" rows={3} placeholder="Add review notes (Required for rejection)…"
                 value={notes} onChange={e => setNotes(e.target.value)} />
               <div className="flex flex-col gap-2">
                 {/* Approve — admin + branch_manager only */}
@@ -451,8 +451,8 @@ export default function ApplicationView() {
                 )}
                 {/* Reject — admin + branch_manager only */}
                 {canApprove && (
-                  <button className="w-full text-sm bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
-                    onClick={() => openConfirm('rejected', 'Reject Application', 'This will permanently reject this application and send a rejection email. Continue?', 'Reject Application', 'bg-red-600 hover:bg-red-700')} disabled={statusMut.isPending}>
+                  <button className="w-full text-sm bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={() => openConfirm('rejected', 'Reject Application', 'This will permanently reject this application and send a rejection email. Continue?', 'Reject Application', 'bg-red-600 hover:bg-red-700')} disabled={statusMut.isPending || !notes.trim()}>
                     <XCircle size={14}/> Reject Application
                   </button>
                 )}

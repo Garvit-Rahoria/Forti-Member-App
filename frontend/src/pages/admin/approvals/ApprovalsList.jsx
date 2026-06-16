@@ -1,4 +1,4 @@
-﻿import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import {
   Eye, CheckCircle, XCircle, RotateCcw, Search, Clock,
@@ -209,7 +209,7 @@ function ActionModal({ row, action, onClose, onConfirm, pending }) {
           </div>
 
           <div className="flex gap-3 pt-1 border-t border-gray-100">
-            <button type="button" className={cfg.btn} disabled={pending} onClick={() => onConfirm(action, notes)}>
+            <button type="button" className={cfg.btn} disabled={pending || (action === "rejected" && !notes.trim())} onClick={() => onConfirm(action, notes)}>
               {pending && <Loader2 size={14} className="animate-spin" />}
               {cfg.label}
             </button>

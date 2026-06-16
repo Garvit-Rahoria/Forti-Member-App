@@ -102,6 +102,7 @@ async function getApplicationByIdentifier(identifier) {
             s.submitted_at,
             s.approved_at,
             s.expiry_date,
+            s.review_notes,
             pp.status AS payment_status,
             pp.created_at AS payment_date
      FROM fb_submissions s
