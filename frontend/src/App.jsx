@@ -18,7 +18,7 @@ import ApplicationView from './pages/admin/applications/ApplicationView'
 import MembersList from './pages/admin/members/MembersList'
 import AdminMemberFullProfile from './pages/admin/members/AdminMemberFullProfile'
 import PackagesList from './pages/admin/packages/PackagesList'
-import PaymentsHub from './pages/admin/payments/PaymentsHub'
+import { TransactionsPage, PaymentMethodsPage } from './pages/admin/payments/PaymentsList'
 import Reports from './pages/admin/reports/Reports'
 import Settings from './pages/admin/settings/Settings'
 import UsersList from './pages/admin/users/UsersList'
@@ -162,13 +162,12 @@ export default function App() {
                   {/* Plans */}
                   <Route path="packages" element={<RoleRoute roles={['super_admin', 'admin']}><PackagesList /></RoleRoute>} />
 
-                  {/* Payments Hub — Transactions + Payment Methods tabs */}
-                  <Route path="payments" element={<RoleRoute roles={['super_admin', 'admin', 'office_staff']}><PaymentsHub /></RoleRoute>} />
-                  {/* Old payment-methods route redirects to Payments Hub */}
-                  <Route path="payment-methods" element={<Navigate to="/payments?tab=methods" replace />} />
+                  {/* Separate Payments Pages */}
+                  <Route path="payments" element={<RoleRoute roles={['super_admin', 'admin', 'office_staff']}><TransactionsPage /></RoleRoute>} />
+                  <Route path="payment-methods" element={<RoleRoute roles={['super_admin', 'admin']}><PaymentMethodsPage /></RoleRoute>} />
 
                   <Route path="renewals" element={<RoleRoute roles={['super_admin', 'admin', 'branch_manager']}><RenewalsPage /></RoleRoute>} />
-                  <Route path="messages" element={<RoleRoute roles={['office_staff']}><MessagesPage /></RoleRoute>} />
+                  <Route path="messages" element={<RoleRoute roles={['super_admin', 'admin', 'branch_manager', 'office_staff']}><MessagesPage /></RoleRoute>} />
                   <Route path="invoices" element={<InvoicesPage />} />
                   <Route path="email-templates" element={<RoleRoute roles={['super_admin', 'admin']}><EmailTemplatesPage /></RoleRoute>} />
                   <Route path="smtp-settings" element={<RoleRoute roles={['super_admin']}><SmtpSettingsPage /></RoleRoute>} />
@@ -177,8 +176,6 @@ export default function App() {
                   <Route path="audit" element={<RoleRoute roles={['super_admin']}><AuditLog /></RoleRoute>} />
                   <Route path="blog" element={<RoleRoute roles={['super_admin', 'admin']}><BlogManagerPage /></RoleRoute>} />
                   <Route path="settings" element={<RoleRoute roles={['super_admin', 'admin']}><Settings /></RoleRoute>} />
-                  <Route path="users" element={<RoleRoute roles={['super_admin']}><UsersList /></RoleRoute>} />
-                  <Route path="branches" element={<RoleRoute roles={['super_admin']}><BranchesPage /></RoleRoute>} />
                   <Route path="currency-settings" element={<RoleRoute roles={['super_admin', 'admin']}><CurrencySettings /></RoleRoute>} />
                 </Route>
               </Route>

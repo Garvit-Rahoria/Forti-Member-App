@@ -238,5 +238,93 @@ router.patch('/:id/position', requireRole('super_admin', 'admin'), async (req, r
   }
 });
 
+// PUT /api/members/:id
+router.put('/:id', requireRole('super_admin', 'admin'), async (req, res) => {
+  const id = req.params.id;
+  const {
+    applicant_name,
+    applicant_email,
+    applicant_phone,
+    membership_id,
+    organisation_name,
+    wing_id,
+    package_id,
+    plan_type,
+    membership_type,
+    member_status,
+    expiry_date
+  } = req.body;
+
+  try {
+    const [[member]] = await pool.query('SELECT * FROM fb_submissions WHERE id=?', [id]);
+    if (!member) return fail(res, 'Member not found', 404);
+
+    let parsedData = {};
+    try {
+      parsedData = typeof member.data === 'string' ? JSON.parse(member.data) : (member.data || {});
+    } catch (e) {
+      parsedData = {};
+    }
+
+    if (organisation_name !== undefined) {
+      if ('organisation_name' in parsedData) {
+        parsedData.organisation_name = organisation_name;
+      } else if ('organization_name' in parsedData) {
+        parsedData.organization_name = organisation_name;
+      } else if ('company_name' in parsedData) {
+        parsedData.company_name = organisation_name;
+      } else {
+        parsedData.organisation_name = organisation_name;
+      }
+      
+      // Also update fb_submission_data directly for easy reporting
+      await pool.query(
+        "UPDATE fb_submission_data SET value = ? WHERE submission_id = ? AND field_key IN ('organisation_name', 'organization_name', 'company_name')",
+        [organisation_name, id]
+      );
+    }
+
+    await pool.query(
+      `UPDATE fb_submissions 
+       SET applicant_name=?, applicant_email=?, applicant_phone=?, 
+           membership_id=?, wing_id=?, package_id=?, plan_type=?, 
+           membership_type=?, member_status=?, expiry_date=?,
+           data=?, updated_at=NOW()
+       WHERE id=?`,
+      [
+        applicant_name || member.applicant_name,
+        applicant_email || member.applicant_email,
+        applicant_phone || member.applicant_phone,
+        membership_id || member.membership_id,
+        wing_id || member.wing_id,
+        package_id || member.package_id,
+        plan_type || member.plan_type,
+        membership_type || member.membership_type,
+        member_status || member.member_status,
+        expiry_date || member.expiry_date,
+        JSON.stringify(parsedData),
+        id
+      ]
+    );
+
+    await pool.query(
+      `UPDATE member_accounts 
+       SET full_name=?, email=?, phone=?
+       WHERE submission_id=?`,
+      [
+        applicant_name || member.applicant_name,
+        applicant_email || member.applicant_email,
+        applicant_phone || member.applicant_phone,
+        id
+      ]
+    );
+
+    return ok(res, null, 'Member updated successfully');
+  } catch (err) {
+    console.error(err);
+    return fail(res, 'Server error', 500);
+  }
+});
+
 module.exports = router;
 

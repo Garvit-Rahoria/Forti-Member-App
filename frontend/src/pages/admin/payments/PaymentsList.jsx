@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   CheckCircle, XCircle, Search, Plus, Edit, Trash2, CreditCard, Banknote,
   Globe, Smartphone, ToggleLeft, ToggleRight, Eye, FileText, Download,
-  Receipt, ShieldCheck, X, Loader2, ExternalLink, MoreVertical, ArrowRightLeft,
+  Receipt, ShieldCheck, X, Loader2, ExternalLink, MoreVertical, ArrowRightLeft, QrCode,
 } from 'lucide-react'
 import api from '../../../api/client'
 import AdminModalPortal from '../../../components/admin/AdminModalPortal'
@@ -248,6 +248,15 @@ function MethodModal({ method, onClose, onSave }) {
     name: '', type: 'upi', instructions: '', sort_order: 0, is_active: 1, location: '',
   })
   const [qrFile, setQrFile] = useState(null)
+  const [qrPreview, setQrPrev] = useState(method?.qr_image ? resolveAssetUrl(method.qr_image) : null)
+  const qrRef = useRef()
+
+  function handleQr(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    setQrFile(file)
+    setQrPrev(URL.createObjectURL(file))
+  }
 
   const handleSubmit = e => {
     e.preventDefault()
@@ -309,15 +318,32 @@ function MethodModal({ method, onClose, onSave }) {
           </div>
 
           <div>
-            <label className="label">QR Code Image (optional)</label>
-            <input type="file" accept="image/*" className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
-              onChange={e => setQrFile(e.target.files[0])} />
-            {method?.qr_image && !qrFile && (
-              <div className="mt-2">
-                <p className="text-xs text-gray-400 mb-1">Current QR:</p>
-                <img src={`/${method.qr_image}`} alt="QR Code" className="w-20 h-20 object-contain border border-gray-200 rounded" />
+            <label className="label">QR Code Image <span className="text-gray-400 font-normal">(optional)</span></label>
+            <div className="flex items-center gap-4">
+              {qrPreview ? (
+                <div className="relative w-24 h-24 shrink-0">
+                  <img src={qrPreview} alt="QR" className="w-24 h-24 object-contain rounded-lg border border-gray-200 bg-gray-50 p-1" />
+                  <button type="button"
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5"
+                    onClick={() => { setQrFile(null); setQrPrev(null); setData(d => ({ ...d, qr_image: null })) }}>
+                    <X size={11} />
+                  </button>
+                </div>
+              ) : (
+                <div className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 cursor-pointer hover:border-primary-400 hover:bg-primary-50 transition-colors"
+                  onClick={() => qrRef.current?.click()}>
+                  <QrCode size={22} />
+                  <span className="text-xs mt-1">Upload</span>
+                </div>
+              )}
+              <div>
+                <button type="button" className="btn-outline btn-sm" onClick={() => qrRef.current?.click()}>
+                  {qrPreview ? 'Replace QR Code' : 'Upload QR Code'}
+                </button>
+                <p className="text-xs text-gray-400 mt-1">PNG or JPG — shown to members for scanning</p>
               </div>
-            )}
+            </div>
+            <input ref={qrRef} type="file" accept="image/*" className="hidden" onChange={handleQr} />
           </div>
 
           <div className="flex items-center gap-3">
@@ -340,7 +366,7 @@ function MethodModal({ method, onClose, onSave }) {
 }
 
 // ── Payment Methods Tab ───────────────────────────────────────────────────────
-function PaymentMethodsTab() {
+export function PaymentMethodsPage() {
   const qc = useQueryClient()
   const [modal, setModal] = useState(null)
 
@@ -375,6 +401,12 @@ function PaymentMethodsTab() {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Payment Methods</h2>
+          <p className="text-gray-500 text-sm">Manage payment methods for checkout</p>
+        </div>
+      </div>
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-500">{methods.length} payment method{methods.length !== 1 ? 's' : ''} configured. Active methods appear to applicants during checkout.</p>
         <button className="btn-primary btn-sm" onClick={() => setModal('new')}>
@@ -714,7 +746,7 @@ function daysAgoStr(n) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 }
 
-function TransactionsTab() {
+export function TransactionsPage() {
   const qc = useQueryClient()
   const [q, setQ]                     = useState('')
   const [status, setStatus]           = useState('')
@@ -811,6 +843,12 @@ function TransactionsTab() {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Transactions</h2>
+          <p className="text-gray-500 text-sm">Manage payment transactions</p>
+        </div>
+      </div>
       {/* Filters */}
       <div className="card p-4 flex flex-wrap gap-3">
         <div className="flex-1 min-w-48 relative">
@@ -941,45 +979,4 @@ function TransactionsTab() {
   )
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
-export default function PaymentsList({ initialTab = 'transactions' }) {
-  const [activeTab, setActiveTab] = useState(initialTab)
-
-  const tabs = [
-    { key: 'transactions', label: 'Transactions' },
-    { key: 'methods',      label: 'Payment Methods' },
-  ]
-
-  return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Payments</h2>
-          <p className="text-gray-500 text-sm">Manage payment transactions and payment methods</p>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="flex gap-1 -mb-px">
-          {tabs.map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab.key
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}>
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      </div>
-
-      {activeTab === 'transactions' && <TransactionsTab />}
-      {activeTab === 'methods'      && <PaymentMethodsTab />}
-    </div>
-  )
-}
 

@@ -7,7 +7,7 @@ const router = express.Router();
 
 // ── 1. POST /api/contact (Public Submit) ───────────────────────────────────
 router.post('/', async (req, res) => {
-  const { name, email, phone, subject, message, state_id, state_name, branch_id, branch_name } = req.body;
+  const { name, email, phone, subject, message, state_id, state_name } = req.body;
 
   if (!name?.trim() || !email?.trim() || !message?.trim()) {
     return fail(res, 'Name, email, and message are required', 422);
@@ -23,20 +23,11 @@ router.post('/', async (req, res) => {
     } catch (e) { /* non-fatal */ }
   }
 
-  let resolvedBranchName = branch_name?.trim() || null;
-  const resolvedBranchId = branch_id ? Number(branch_id) : null;
-  if (resolvedBranchId && !resolvedBranchName) {
-    try {
-      const [[branchRow]] = await pool.query('SELECT name FROM portal_branches WHERE id = ? LIMIT 1', [resolvedBranchId]);
-      if (branchRow) resolvedBranchName = branchRow.name;
-    } catch (e) { /* non-fatal */ }
-  }
-
   try {
     await pool.query(
-      `INSERT INTO portal_contact_messages (name, email, phone, subject, message, state_id, state_name, branch_id, branch_name, is_read, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE, NOW())`,
-      [name.trim(), email.trim(), phone?.trim() || null, subject?.trim() || null, message.trim(), resolvedStateId, resolvedStateName, resolvedBranchId, resolvedBranchName]
+      `INSERT INTO portal_contact_messages (name, email, phone, subject, message, state_id, state_name, is_read, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, FALSE, NOW())`,
+      [name.trim(), email.trim(), phone?.trim() || null, subject?.trim() || null, message.trim(), resolvedStateId, resolvedStateName]
     );
     return ok(res, null, 'Message sent successfully');
   } catch (err) {
@@ -49,17 +40,13 @@ router.post('/', async (req, res) => {
 router.use(authMiddleware);
 
 // ── 2. GET /api/contact/unread-count (Unread count — state-scoped for office_staff) ──
-router.get('/unread-count', requireRole('office_staff'), async (req, res) => {
+router.get('/unread-count', requireRole('super_admin', 'admin', 'branch_manager', 'office_staff'), async (req, res) => {
   try {
     const user = req.user;
     let sql = 'SELECT COUNT(*) AS cnt FROM portal_contact_messages WHERE is_read = FALSE';
     const params = [];
 
-    // Branch scoping: office_staff only see their assigned branch's messages
-    if (user.assigned_branch_id) {
-      sql += ' AND branch_id = ?';
-      params.push(user.assigned_branch_id);
-    }
+    // Removed branch scoping as branch system is deleted from messages
 
     const [[row]] = await pool.query(sql, params);
     return ok(res, { count: Number(row?.cnt || 0) });
@@ -76,12 +63,7 @@ router.get('/messages', requireRole('super_admin', 'admin', 'branch_manager', 'o
     let sql = 'SELECT * FROM portal_contact_messages';
     const params = [];
 
-    // Branch scoping: branch_manager and office_staff only see their branch's messages
-    // Super admin and admin see all messages
-    if ((user.role === 'office_staff' || user.role === 'branch_manager') && user.assigned_branch_id) {
-      sql += ' WHERE branch_id = ?';
-      params.push(user.assigned_branch_id);
-    }
+    // Removed branch scoping as branch system is deleted from messages
 
     sql += ' ORDER BY created_at DESC';
 

@@ -2,9 +2,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import {
   Eye, CheckCircle, XCircle, RotateCcw, Search,
-  CreditCard, Shield, X, Loader2, FileText, MessageSquare,
+  CreditCard, Shield, X, Loader2, FileText, MessageSquare, MoreVertical
 } from "lucide-react"
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import api from "../../../api/client"
 import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from "react-hot-toast"
@@ -102,22 +102,44 @@ function getPaymentLabel(row) {
 
 // ── Action Modal ──────────────────────────────────────────────────────────────
 function InlineActions({ row, actions, nav }) {
-  const viewBtn = actions.find(a => a.label === "View")
-  const rest    = actions.filter(a => a.label !== "View")
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (ref.current && !ref.current.contains(event.target)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
   return (
-    <div className="flex items-center gap-1.5 flex-wrap">
-      <button
-        onClick={() => nav(`/applications/${row.id}`)}
-        className="rounded-lg px-2.5 py-1 text-xs font-medium flex items-center gap-1 bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-        title="View Details"
+    <div className="relative" ref={ref}>
+      <button 
+        onClick={() => setOpen(!open)} 
+        className="p-1 rounded-md hover:bg-gray-100 text-gray-500 transition-colors"
       >
-        <Eye size={12} /> View
+        <MoreVertical size={16} />
       </button>
-      {rest.map((a, i) => (
-        <button key={i} onClick={a.onClick} className={a.cls} title={a.label}>
-          {a.icon} {a.label}
-        </button>
-      ))}
+      
+      {open && (
+        <div className="absolute right-0 mt-1 w-36 bg-white border border-gray-100 rounded-lg shadow-lg z-50 py-1 flex flex-col">
+          {actions.map((a, i) => {
+            const isRed = a.label === 'Reject'
+            return (
+              <button 
+                key={i} 
+                onClick={() => { setOpen(false); a.onClick(); }} 
+                className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-left hover:bg-gray-50 transition-colors ${isRed ? 'text-red-600' : 'text-gray-700'}`}
+              >
+                {a.icon} {a.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -418,7 +440,7 @@ export default function ApplicationsList() {
                       ) : <span className="text-gray-400">—</span>}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_COLORS[row.status] || "bg-gray-100 text-gray-600"}`}>
+                      <span className={`whitespace-nowrap text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_COLORS[row.status] || "bg-gray-100 text-gray-600"}`}>
                         {STATUS_LABELS[row.status] || row.status}
                       </span>
                     </td>

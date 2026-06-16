@@ -2,7 +2,7 @@ const express = require('express');
 const { pool } = require('../config/database');
 const { authMiddleware, requireRole } = require('../middleware/auth');
 const { ok, fail } = require('../utils/helpers');
-const { sendApplicationApproved, sendApplicationRejected, sendMembershipConfirmed, sendApplicationUnderReview } = require('../utils/email');
+const { sendApplicationApproved, sendApplicationRejected, sendMembershipConfirmed, sendApplicationUnderReview, sendPaymentConfirmed } = require('../utils/email');
 const { createAuditLog } = require('../utils/auditLog');
 
 const router = express.Router();
@@ -478,6 +478,25 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
     if (status === 'rejected') {
       sendApplicationRejected({ to: sub.applicant_email, name: sub.applicant_name, membershipId: sub.membership_id, reason: notes })
         .catch(e => console.error('[rejection email]', e.message));
+    }
+    if (status === 'payment_verified') {
+      const [[pmtDetails]] = await pool.query('SELECT amount, currency, transaction_id FROM portal_payments WHERE submission_id=? ORDER BY id DESC LIMIT 1', [req.params.id]).catch(() => [[null]]);
+      const amount = pmtDetails?.amount || 0;
+      const currency = pmtDetails?.currency || 'INR';
+      const txnId = pmtDetails?.transaction_id || '';
+      sendPaymentConfirmed({ 
+        to: sub.applicant_email, 
+        name: sub.applicant_name, 
+        membershipId: sub.membership_id || sub.uuid,
+        amount, currency, transactionId: txnId
+      }).catch(e => console.error('[payment verified email]', e.message));
+    }
+    if (status === 'approved') {
+      sendApplicationApproved({ 
+        to: sub.applicant_email, 
+        name: sub.applicant_name, 
+        membershipId: finalMembershipId || sub.membership_id || sub.uuid 
+      }).catch(e => console.error('[approval email]', e.message));
     }
 
     return ok(res, { id: Number(req.params.id), status }, 'Status updated');

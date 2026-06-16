@@ -383,12 +383,15 @@ async function sendOTP({ to, name, otp, purpose = 'apply' }) {
     ? 'Your FORTI Member Portal Login OTP'
     : 'Your FORTI Membership Application — OTP Verification';
 
+  const [[setting]] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'otp_expiry_time'");
+  const expiryTime = setting?.setting_value || '10';
+
   const html = await baseTemplate(`
     <p class="greeting">Hello${name ? `, <strong>${name}</strong>` : ''},</p>
     <p>${isLogin ? 'Use this OTP to securely log in to your FORTI Member Dashboard.' : 'Please use the OTP below to verify your identity and proceed with your membership application.'}</p>
     <div class="otp-box">
       <div class="otp">${otp}</div>
-      <p class="otp-hint">Valid for <strong>10 minutes</strong> &bull; Single use only</p>
+      <p class="otp-hint">Valid for <strong>${expiryTime} minutes</strong> &bull; Single use only</p>
     </div>
     <div class="warning-box">
       &#9888;&#65039; Never share this OTP with anyone. FORTI staff will <strong>never</strong> ask for your OTP.

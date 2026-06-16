@@ -5,7 +5,7 @@ import {
   ArrowLeft, User, Shield, Phone, Mail, MapPin, Building2,
   Calendar, Award, CreditCard, Activity, Link2, Globe, Image,
   Clock, FileText, CheckCircle, XCircle, AlertCircle, RefreshCw,
-  Download
+  Download, Edit3, Save, X, Loader2
 } from 'lucide-react'
 import api from '../../../api/client'
 import { assetUrl } from '../../../utils/assetUrl'
@@ -83,11 +83,138 @@ function formatDate(d) {
   return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+function MemberEditForm({ member, parsedData, onCancel, onSuccess }) {
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    applicant_name: member.applicant_name || '',
+    applicant_email: member.applicant_email || '',
+    applicant_phone: member.applicant_phone || '',
+    organisation_name: parsedData.organisation_name || parsedData.organization_name || parsedData.company_name || '',
+    membership_id: member.membership_id || '',
+    wing_id: member.wing_id || '',
+    package_id: member.package_id || '',
+    membership_type: member.membership_type || '',
+    plan_type: member.plan_type || '',
+    member_status: member.member_status || 'active',
+    expiry_date: member.expiry_date ? member.expiry_date.split('T')[0] : '',
+  });
+
+  const { data: wings = [] } = useQuery({
+    queryKey: ['wings'],
+    queryFn: () => api.get('/wings').then(r => r.data.data),
+  });
+
+  const { data: packages = [] } = useQuery({
+    queryKey: ['packages'],
+    queryFn: () => api.get('/packages').then(r => r.data.data),
+  });
+
+  const handleChange = (e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await api.put(`/members/${member.id}`, formData);
+      onSuccess();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Update failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <SectionCard title="Edit Member Information" icon={Edit3} className="shadow-md border-primary-200 ring-1 ring-primary-100">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Full Name</label>
+            <input name="applicant_name" value={formData.applicant_name} onChange={handleChange} className="input w-full" required />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Email</label>
+            <input name="applicant_email" type="email" value={formData.applicant_email} onChange={handleChange} className="input w-full" required />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Phone</label>
+            <input name="applicant_phone" value={formData.applicant_phone} onChange={handleChange} className="input w-full" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Organization Name</label>
+            <input name="organisation_name" value={formData.organisation_name} onChange={handleChange} className="input w-full" />
+          </div>
+        </div>
+
+        <div className="border-t border-gray-100 pt-4 grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Membership ID</label>
+            <input name="membership_id" value={formData.membership_id} onChange={handleChange} className="input w-full" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Wing</label>
+            <select name="wing_id" value={formData.wing_id} onChange={handleChange} className="input w-full">
+              <option value="">Select Wing</option>
+              {wings.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Package</label>
+            <select name="package_id" value={formData.package_id} onChange={handleChange} className="input w-full">
+              <option value="">Select Package</option>
+              {packages.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Membership Type</label>
+            <select name="membership_type" value={formData.membership_type} onChange={handleChange} className="input w-full">
+              <option value="">Select Type</option>
+              <option value="corporate">Corporate</option>
+              <option value="individual">Individual</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="border-t border-gray-100 pt-4 grid md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Plan Type / Duration</label>
+            <input name="plan_type" value={formData.plan_type} onChange={handleChange} className="input w-full" placeholder="e.g. lifetime, 3years" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Expiry Date</label>
+            <input name="expiry_date" type="date" value={formData.expiry_date} onChange={handleChange} className="input w-full" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Status</label>
+            <select name="member_status" value={formData.member_status} onChange={handleChange} className="input w-full">
+              <option value="active">Active</option>
+              <option value="suspended">Suspended</option>
+              <option value="expired">Expired</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-2">
+          <button type="button" onClick={onCancel} className="btn-outline px-4 py-2 flex items-center gap-2">
+            <X size={16} /> Cancel
+          </button>
+          <button type="submit" disabled={loading} className="btn-primary px-5 py-2 flex items-center gap-2">
+            {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            Save Changes
+          </button>
+        </div>
+      </form>
+    </SectionCard>
+  )
+}
+
 export default function AdminMemberFullProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [isEditing, setIsEditing] = useState(false)
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['admin', 'members', 'full', id],
     queryFn: () => api.get(`/members/${id}/full`).then(r => r.data.data),
   })
@@ -139,20 +266,34 @@ export default function AdminMemberFullProfile() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-8">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-2">
-        <button onClick={() => navigate('/members')} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors">
-          <ArrowLeft size={20} />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Full 360° Profile View</h1>
-          <p className="text-sm text-gray-500 mt-1">Comprehensive data for {displayName}</p>
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate('/members')} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors">
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Full 360° Profile View</h1>
+            <p className="text-sm text-gray-500 mt-1">Comprehensive data for {displayName}</p>
+          </div>
         </div>
+        {!isEditing && (
+          <button onClick={() => setIsEditing(true)} className="btn-outline flex items-center gap-2 px-4 py-2">
+            <Edit3 size={16} /> Edit Member
+          </button>
+        )}
       </div>
 
       <div className="space-y-8">
         
-        {/* SECTION 1: Profile Identity */}
-        <SectionCard title="Member Identity" icon={User} className="shadow-md">
+        {isEditing ? (
+          <MemberEditForm 
+            member={member} 
+            parsedData={parsedData} 
+            onCancel={() => setIsEditing(false)} 
+            onSuccess={() => { setIsEditing(false); refetch(); }} 
+          />
+        ) : (
+          <SectionCard title="Member Identity" icon={User} className="shadow-md">
           <div className="flex flex-col md:flex-row gap-6 items-start">
             {profile?.profile_photo_path ? (
               <img src={assetUrl(profile.profile_photo_path)} className="w-32 h-32 rounded-2xl object-cover border-4 border-gray-50 shadow-sm shrink-0" alt="Profile" />
@@ -189,6 +330,7 @@ export default function AdminMemberFullProfile() {
             </div>
           </div>
         </SectionCard>
+        )}
 
         {/* SECTION 2: Public Profile Information */}
         <SectionCard title="Public Profile Summary" icon={Globe}>

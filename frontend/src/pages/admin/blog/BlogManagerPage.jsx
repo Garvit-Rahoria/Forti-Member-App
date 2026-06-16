@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { BookOpen, FolderTree, Tag, FileText, Plus, Loader2, Pencil, Trash2, Save, X, Eye, ArrowUp, ArrowDown } from 'lucide-react'
+import { BookOpen, FolderTree, Tag, FileText, Plus, Loader2, Pencil, Trash2, Save, X, Eye, ArrowUp, ArrowDown, Image as ImageIcon } from 'lucide-react'
 import api from '../../../api/client'
 import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from 'react-hot-toast'
+import { assetUrl as resolveAssetUrl } from '../../../utils/assetUrl'
 
 const NAV_VISIBILITY = [
   { value: 'main_dropdown', label: 'Show in main menu dropdown' },
@@ -87,6 +88,12 @@ function MenusTab() {
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
 
+  const delMut = useMutation({
+    mutationFn: id => api.delete(`/blog/admin/menus/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['blog-menus-admin'] }); qc.invalidateQueries({ queryKey: ['blog-nav'] }); toast.success('Menu deleted') },
+    onError: e => toast.error(e.response?.data?.message || 'Failed'),
+  })
+
   return (
     <div className="space-y-4">
       <div className="card p-4 grid sm:grid-cols-3 gap-3">
@@ -100,10 +107,13 @@ function MenusTab() {
       </div>
       <div className="card overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50"><tr><th className="px-3 py-2 text-left">Label</th><th className="px-3 py-2">Slug</th><th className="px-3 py-2">Path</th><th className="px-3 py-2">Header</th></tr></thead>
+          <thead className="bg-gray-50"><tr><th className="px-3 py-2 text-left">Label</th><th className="px-3 py-2 text-left">Slug</th><th className="px-3 py-2 text-left">Path</th><th className="px-3 py-2 text-left">Header</th><th className="px-3 py-2 text-right">Actions</th></tr></thead>
           <tbody className="divide-y">
             {menus.map(m => (
-              <tr key={m.id}><td className="px-3 py-2 font-medium">{m.label}</td><td className="px-3 py-2 text-gray-500">{m.slug}</td><td className="px-3 py-2">{m.nav_path}</td><td className="px-3 py-2">{m.show_in_header ? 'Yes' : 'No'}</td></tr>
+              <tr key={m.id}><td className="px-3 py-2 font-medium text-left">{m.label}</td><td className="px-3 py-2 text-gray-500 text-left">{m.slug}</td><td className="px-3 py-2 text-left">{m.nav_path}</td><td className="px-3 py-2 text-left">{m.show_in_header ? 'Yes' : 'No'}</td>
+              <td className="px-3 py-2 text-right">
+                <button type="button" className="text-red-500 hover:text-red-700" onClick={() => { if(window.confirm('Delete this menu?')) delMut.mutate(m.id) }}><Trash2 size={16} /></button>
+              </td></tr>
             ))}
           </tbody>
         </table>
@@ -120,7 +130,7 @@ function CategoriesTab() {
 
   const createMut = useMutation({
     mutationFn: body => api.post('/blog/admin/categories', body),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['blog-categories-admin', 'blog-nav'] }); toast.success('Category created') },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['blog-categories-admin'] }); qc.invalidateQueries({ queryKey: ['blog-nav'] }); toast.success('Category created') },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
 
@@ -159,14 +169,24 @@ function CategoriesTab() {
 }
 
 function CategoryTree({ nodes, depth, menuSlug }) {
+  const qc = useQueryClient()
+  const delMut = useMutation({
+    mutationFn: id => api.delete(`/blog/admin/categories/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['blog-categories-admin'] }); qc.invalidateQueries({ queryKey: ['blog-nav'] }); toast.success('Deleted') },
+    onError: e => toast.error(e.response?.data?.message || 'Failed'),
+  })
+
   if (!nodes?.length) return <p className="text-sm text-gray-400">No categories</p>
   return (
     <ul className={depth ? 'pl-4 border-l border-gray-200 ml-2' : ''}>
       {nodes.map(n => (
         <li key={n.id} className="py-1.5">
-          <span className="font-medium">{n.name}</span>
-          <span className="text-xs text-gray-400 ml-2">/{menuSlug}/{n.slug}</span>
-          <span className="text-xs ml-2 px-1.5 py-0.5 rounded bg-gray-100">{n.nav_visibility}</span>
+          <div className="flex items-center gap-2">
+            <span className="font-medium">{n.name}</span>
+            <span className="text-xs text-gray-400 ml-1">/{menuSlug}/{n.slug}</span>
+            <span className="text-xs ml-1 px-1.5 py-0.5 rounded bg-gray-100">{n.nav_visibility}</span>
+            <button type="button" className="text-red-400 hover:text-red-600 ml-2" title="Delete category" onClick={() => { if(window.confirm('Delete category?')) delMut.mutate(n.id) }}><Trash2 size={13}/></button>
+          </div>
           {n.children?.length > 0 && <CategoryTree nodes={n.children} depth={depth + 1} menuSlug={menuSlug} />}
         </li>
       ))}
@@ -182,6 +202,11 @@ function TagsTab() {
     mutationFn: body => api.post('/blog/admin/tags', body),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['blog-tags'] }); setName(''); toast.success('Tag created') },
   })
+  const delMut = useMutation({
+    mutationFn: id => api.delete(`/blog/admin/tags/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['blog-tags'] }); toast.success('Tag deleted') },
+  })
+
   return (
     <div className="card p-4 space-y-4">
       <div className="flex gap-2">
@@ -189,7 +214,12 @@ function TagsTab() {
         <button type="button" className="btn-primary" disabled={!name.trim()} onClick={() => createMut.mutate({ name })}>Add</button>
       </div>
       <div className="flex flex-wrap gap-2">
-        {tags.map(t => <span key={t.id} className="px-3 py-1 rounded-full bg-gray-100 text-sm">{t.name}</span>)}
+        {tags.map(t => (
+          <span key={t.id} className="px-3 py-1 rounded-full bg-gray-100 text-sm flex items-center gap-1">
+            {t.name}
+            <button type="button" className="text-gray-400 hover:text-red-500" onClick={() => { if(window.confirm('Delete tag?')) delMut.mutate(t.id) }}><X size={12}/></button>
+          </span>
+        ))}
       </div>
     </div>
   )
@@ -388,9 +418,38 @@ function PostEditorModal({ postId, onClose, onSaved }) {
               <input type="checkbox" checked={form.is_featured} onChange={e => setForm(f => ({ ...f, is_featured: e.target.checked }))} /> Featured
             </label>
             <div>
-              <label className="label">Featured image</label>
-              <input type="file" accept="image/*" onChange={e => e.target.files?.[0] && uploadImage(e.target.files[0], 'featured_image_path')} />
-              {form.featured_image_path && <p className="text-xs text-gray-500 mt-1">{form.featured_image_path}</p>}
+              <label className="label">Featured image <span className="text-gray-400 font-normal">(optional)</span></label>
+              <div className="flex items-center gap-4">
+                {form.featured_image_path ? (
+                  <div className="relative w-32 h-20 shrink-0">
+                    <img src={resolveAssetUrl(form.featured_image_path)} alt="Featured" className="w-32 h-20 object-cover rounded-lg border border-gray-200 bg-gray-50 p-0.5" />
+                    <button type="button"
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5"
+                      onClick={() => setForm(f => ({ ...f, featured_image_path: '' }))}>
+                      <X size={11} />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="w-32 h-20 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 cursor-pointer hover:border-primary-400 hover:bg-primary-50 transition-colors">
+                    <ImageIcon size={20} />
+                    <span className="text-xs mt-1">Upload</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={e => {
+                      if (e.target.files?.[0]) uploadImage(e.target.files[0], 'featured_image_path')
+                      e.target.value = ''
+                    }} />
+                  </label>
+                )}
+                <div>
+                  <label className="btn-outline btn-sm cursor-pointer inline-flex items-center justify-center">
+                    {form.featured_image_path ? 'Replace Image' : 'Upload Image'}
+                    <input type="file" accept="image/*" className="hidden" onChange={e => {
+                      if (e.target.files?.[0]) uploadImage(e.target.files[0], 'featured_image_path')
+                      e.target.value = ''
+                    }} />
+                  </label>
+                  <p className="text-xs text-gray-400 mt-1">Recommended size: 1200x630px</p>
+                </div>
+              </div>
             </div>
             <div>
               <label className="label">Tags</label>

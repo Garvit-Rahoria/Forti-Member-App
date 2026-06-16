@@ -437,6 +437,16 @@ admin.put('/menus/:id', async (req, res) => {
   }
 });
 
+admin.delete('/menus/:id', async (req, res) => {
+  const [[{ cnt }]] = await pool.query(
+    'SELECT COUNT(*) AS cnt FROM portal_blog_categories WHERE menu_id = ?',
+    [req.params.id]
+  );
+  if (Number(cnt) > 0) return fail(res, 'Remove categories first', 422);
+  await pool.query('DELETE FROM portal_blog_menus WHERE id = ?', [req.params.id]);
+  return ok(res, null, 'Deleted');
+});
+
 admin.get('/categories', async (req, res) => {
   const menuId = req.query.menu_id;
   let sql = 'SELECT c.*, m.slug AS menu_slug, m.label AS menu_label FROM portal_blog_categories c JOIN portal_blog_menus m ON m.id = c.menu_id';
@@ -528,6 +538,12 @@ admin.post('/tags', async (req, res) => {
     if (err.code === '23505') return fail(res, 'Slug exists', 409);
     return fail(res, 'Server error', 500);
   }
+});
+
+admin.delete('/tags/:id', async (req, res) => {
+  await pool.query('DELETE FROM portal_blog_post_tags WHERE tag_id = ?', [req.params.id]);
+  await pool.query('DELETE FROM portal_blog_tags WHERE id = ?', [req.params.id]);
+  return ok(res, null, 'Deleted');
 });
 
 admin.get('/posts', async (req, res) => {

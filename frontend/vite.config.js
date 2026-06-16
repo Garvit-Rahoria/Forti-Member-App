@@ -5,18 +5,19 @@ import path from 'path'
 export default defineConfig({
   plugins: [react()],
   server: {
+    host: true,
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:7000',
+        target: 'http://backend:7000',
         changeOrigin: true,
       },
       '/uploads': {
-        target: 'http://localhost:7000',
+        target: 'http://backend:7000',
         changeOrigin: true,
       },
       '/storage': {
-        target: 'http://localhost:7000',
+        target: 'http://backend:7000',
         changeOrigin: true,
       },
     },

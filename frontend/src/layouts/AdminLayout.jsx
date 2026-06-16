@@ -7,7 +7,7 @@ import {
   LayoutDashboard, FileText, Users, CreditCard, Package,
   BarChart2, Settings, LogOut, ChevronDown, Menu, X,
   UserCog, ClipboardList, RefreshCw, Mail, BookOpen,
-  MailOpen, MapPin
+  MailOpen, MapPin, Banknote
 } from 'lucide-react'
 
 // Role-specific navigation trees
@@ -19,29 +19,34 @@ const NAV_BY_ROLE = {
     { label: 'Dashboard',       icon: LayoutDashboard, to: '/dashboard' },
     { label: 'Applications',    icon: FileText,        to: '/applications' },
     { label: 'Members',         icon: Users,           to: '/members' },
+    { label: 'Messages',        icon: Mail,            to: '/messages' },
     { label: 'Plans',           icon: Package,         to: '/packages' },
-    { label: 'Payments',        icon: CreditCard,      to: '/payments' },
+    { label: 'Transactions',    icon: CreditCard,      to: '/payments' },
+    { label: 'Payment Methods', icon: Banknote,        to: '/payment-methods' },
     { label: 'Renewals',        icon: RefreshCw,       to: '/renewals' },
     { label: 'Reports',         icon: BarChart2,       to: '/reports' },
     { label: 'Blog & Content',  icon: BookOpen,        to: '/blog' },
     { label: 'Email Templates', icon: Mail,            to: '/email-templates' },
     { label: 'SMTP Delivery',   icon: MailOpen,        to: '/smtp-settings' },
     { label: 'Audit Log',       icon: ClipboardList,   to: '/audit' },
-    { label: 'Branches',        icon: MapPin,          to: '/branches' },
-    { label: 'Users',           icon: UserCog,         to: '/users' },
+    // { label: 'Branches',        icon: MapPin,          to: '/branches' },
+    // { label: 'Users',           icon: UserCog,         to: '/users' },
     { label: 'Settings',        icon: Settings,        to: '/settings' },
   ],
   admin: [
     { label: 'Dashboard',    icon: LayoutDashboard, to: '/dashboard' },
     { label: 'Applications', icon: FileText,        to: '/applications' },
     { label: 'Members',      icon: Users,           to: '/members' },
+    { label: 'Messages',     icon: Mail,            to: '/messages' },
     { label: 'Plans',        icon: Package,         to: '/packages' },
-    { label: 'Payments',     icon: CreditCard,      to: '/payments' },
+    { label: 'Transactions', icon: CreditCard,      to: '/payments' },
+    { label: 'Payment Methods', icon: Banknote,        to: '/payment-methods' },
     { label: 'Renewals',     icon: RefreshCw,       to: '/renewals' },
     { label: 'Reports',      icon: BarChart2,       to: '/reports' },
     { label: 'Blog & Content', icon: BookOpen,      to: '/blog' },
     { label: 'Settings',     icon: Settings,        to: '/settings' },
   ],
+  /*
   branch_manager: [
     { label: 'Dashboard',    icon: LayoutDashboard, to: '/dashboard' },
     { label: 'Applications', icon: FileText,        to: '/applications' },
@@ -56,20 +61,21 @@ const NAV_BY_ROLE = {
     { label: 'Members',      icon: Users,           to: '/members' },
     { label: 'Messages',     icon: Mail,            to: '/messages' },
   ],
+  */
 }
 
 const PANEL_LABEL = {
   super_admin:     'Super Admin Panel',
   admin:           'Admin Panel',
-  branch_manager:  'Branch Manager Panel',
-  office_staff:    'Office Staff Panel',
+  // branch_manager:  'Branch Manager Panel',
+  // office_staff:    'Office Staff Panel',
 }
 
 const ROLE_BADGE = {
   super_admin:     { label: 'Super Admin', cls: 'bg-purple-100 text-purple-700' },
   admin:           { label: 'Admin',       cls: 'bg-blue-100 text-blue-700' },
-  branch_manager:  { label: 'Branch Mgr', cls: 'bg-green-100 text-green-700' },
-  office_staff:    { label: 'Staff',      cls: 'bg-orange-100 text-orange-700' },
+  // branch_manager:  { label: 'Branch Mgr', cls: 'bg-green-100 text-green-700' },
+  // office_staff:    { label: 'Staff',      cls: 'bg-orange-100 text-orange-700' },
 }
 
 function NavItem({ item, unreadCount }) {
@@ -158,27 +164,26 @@ export default function AdminLayout() {
   const { data: unreadData } = useQuery({
     queryKey: ['unread-messages-count'],
     queryFn: () => api.get('/contact/unread-count').then(r => r.data.data),
-    enabled: role === 'office_staff',
     refetchInterval: 15000,
   })
 
   useEffect(() => {
-    if (role === 'office_staff' && unreadData?.count > 0 && !alertShown) {
+    if (unreadData?.count > 0 && !alertShown) {
       setShowPopup(true)
       setAlertShown(true)
       sessionStorage.setItem('contact_alert_shown', 'true')
     }
-  }, [unreadData?.count, alertShown, role])
+  }, [unreadData?.count, alertShown])
 
   useEffect(() => {
-    if (role === 'office_staff' && unreadData) {
+    if (unreadData) {
       const currentCount = unreadData.count
       if (prevCount !== null && currentCount > prevCount) {
         setToastMessage('New message received')
       }
       setPrevCount(currentCount)
     }
-  }, [unreadData?.count, role, prevCount])
+  }, [unreadData?.count, prevCount])
 
   useEffect(() => {
     if (toastMessage) {
@@ -269,7 +274,7 @@ export default function AdminLayout() {
             <Menu size={20} />
           </button>
           <h1 className="text-sm text-ink-muted font-semibold font-display">{panelLabel}</h1>
-          {role === 'branch_manager' && regionData?.region_name && (
+          {/* {role === 'branch_manager' && regionData?.region_name && (
             <span className="inline-flex items-center gap-1 text-xs font-medium bg-green-100 text-green-700 px-2.5 py-1 rounded-full">
               <span className="w-1.5 h-1.5 bg-green-500 rounded-full"/>
               {regionData.region_name}
@@ -280,7 +285,7 @@ export default function AdminLayout() {
               <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"/>
               {staffRegionData.region_name}
             </span>
-          )}
+          )} */}
           <div className="ml-auto flex items-center gap-3 text-xs text-gray-400">
             <button onClick={handleLogout} title="Logout" className="ml-1 flex items-center gap-1 text-gray-400 hover:text-red-500 transition-colors">
               <LogOut size={15} />

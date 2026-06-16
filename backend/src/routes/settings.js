@@ -92,7 +92,10 @@ router.put('/', requireRole('super_admin'), async (req, res) => {
     }
     createAuditLog(req.user.id, 'UPDATE_SETTINGS', 'settings', null, req.ip);
     return ok(res, null, 'Settings saved');
-  } catch (err) { return fail(res, 'Server error', 500); }
+  } catch (err) { 
+    console.error('Settings PUT error:', err);
+    return fail(res, 'Server error', 500); 
+  }
 });
 
 

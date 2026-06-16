@@ -7,6 +7,7 @@ import {
 import api from '../../../api/client'
 import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from 'react-hot-toast'
+import { useNavigate } from 'react-router-dom'
 
 const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
 
@@ -65,184 +66,6 @@ function StatusBadge({ status }) {
   )
 }
 
-// ── 3-dot action dropdown ─────────────────────────────────────────────────────
-function ActionMenu({ row, onView, onCert, certLoading, onInvoice, invoiceLoading, onSuspend, onReactivate, statusPending, onAssignPosition }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-
-  useEffect(() => {
-    function handler(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition"
-      >
-        <MoreVertical size={15} />
-      </button>
-      {open && (
-        <div className="absolute right-0 z-30 mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-xl py-1">
-          <button
-            onClick={() => { setOpen(false); onView() }}
-            className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
-          >
-            <Eye size={13} /> Quick Details
-          </button>
-          <button
-            onClick={() => { setOpen(false); window.open(`/members/${row.id}/full`, '_blank') }}
-            className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs text-primary-700 font-medium hover:bg-primary-50"
-          >
-            <UserCheck size={13} /> Full 360° Profile
-          </button>
-          <button
-            onClick={() => { setOpen(false); onCert() }}
-            disabled={certLoading}
-            className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-          >
-            {certLoading ? <Loader2 size={13} className="animate-spin" /> : <Award size={13} />}
-            Certificate PDF
-          </button>
-          <button
-            onClick={() => { setOpen(false); onInvoice() }}
-            disabled={invoiceLoading}
-            className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-          >
-            {invoiceLoading ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />}
-            Invoice PDF
-          </button>
-          <button
-            onClick={() => { setOpen(false); onAssignPosition() }}
-            className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs text-blue-700 font-medium hover:bg-blue-50"
-          >
-            <Shield size={13} /> Select Position
-          </button>
-          <div className="border-t border-gray-100 my-1" />
-          {row.member_status === 'active' ? (
-            <button
-              onClick={() => { setOpen(false); onSuspend() }}
-              disabled={statusPending}
-              className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
-            >
-              <UserX size={13} /> Suspend Member
-            </button>
-          ) : row.member_status === 'suspended' ? (
-            <button
-              onClick={() => { setOpen(false); onReactivate() }}
-              disabled={statusPending}
-              className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs text-green-700 hover:bg-green-50 disabled:opacity-50"
-            >
-              <UserCheck size={13} /> Reactivate Member
-            </button>
-          ) : null}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Suspend Confirm Modal ─────────────────────────────────────────────────────
-function SuspendModal({ member, onClose, onConfirm, pending }) {
-  const [reason, setReason] = useState('')
-  return (
-    <AdminModalPortal>
-      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={onClose}>
-        <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
-          <div className="flex items-center gap-2">
-            <UserX size={18} className="text-red-500" />
-            <h3 className="font-bold text-gray-900">Suspend Member</h3>
-          </div>
-          <p className="text-sm text-gray-600">
-            Are you sure you want to suspend <strong>{member.applicant_name}</strong>?{' '}
-            They will lose portal access until reactivated.
-          </p>
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">Reason for suspension <span className="text-red-500">*</span></label>
-            <textarea
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-300"
-              rows={3}
-              placeholder="Enter reason for suspension…"
-              value={reason}
-              onChange={e => setReason(e.target.value)}
-            />
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => onConfirm(reason)}
-              disabled={pending || !reason.trim()}
-              className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-lg px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {pending && <Loader2 size={13} className="animate-spin" />}
-              Suspend
-            </button>
-            <button className="btn-outline flex-1" onClick={onClose}>Cancel</button>
-          </div>
-        </div>
-      </div>
-    </AdminModalPortal>
-  )
-}
-
-// ── Position Modal ─────────────────────────────────────────────────────────────
-function PositionModal({ member, onClose, onSave, pending }) {
-  const [position, setPosition] = useState(member.position || '')
-  
-  const POSITIONS = [
-    'President',
-    'Vice President',
-    'General Secretary',
-    'Joint Secretary',
-    'Treasurer',
-    'Executive Member',
-    'State President',
-    'District President',
-    'Regular Member',
-  ]
-
-  return (
-    <AdminModalPortal>
-      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={onClose}>
-        <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
-          <div className="flex items-center gap-2">
-            <Shield size={18} className="text-blue-600" />
-            <h3 className="font-bold text-gray-900">Select Position</h3>
-          </div>
-          <p className="text-sm text-gray-600">
-            Assign a position to <strong>{member.applicant_name}</strong>.
-          </p>
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">Rank / Position <span className="text-red-500">*</span></label>
-            <select
-              className="input w-full"
-              value={position}
-              onChange={e => setPosition(e.target.value)}
-            >
-              <option value="" disabled>Select a position</option>
-              {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => onSave(position)}
-              disabled={pending || !position}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {pending && <Loader2 size={13} className="animate-spin" />}
-              Save Position
-            </button>
-            <button className="btn-outline flex-1" onClick={onClose}>Cancel</button>
-          </div>
-        </div>
-      </div>
-    </AdminModalPortal>
-  )
-}
-
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function MembersList() {
   const qc = useQueryClient()
@@ -252,13 +75,10 @@ export default function MembersList() {
   const [pkgFilter, setPkgFilter]           = useState('')
   const [wingFilter, setWingFilter]         = useState('')
   const [page, setPage]                     = useState(1)
-  const [viewMember, setViewMember]         = useState(null)
-  const [suspendTarget, setSuspendTarget]   = useState(null)
-  const [assignPositionTarget, setAssignPositionTarget] = useState(null)
-  const [certLoading, setCertLoading]       = useState(null)
-  const [invoiceLoading, setInvoiceLoading] = useState(null)
   const [sortBy, setSortBy]                 = useState(null)   // 'name' | 'expiry'
   const [sortDir, setSortDir]               = useState('asc')
+  
+  const navigate = useNavigate()
 
   const { data: wings = [] } = useQuery({
     queryKey: ['wings'],
@@ -278,61 +98,9 @@ export default function MembersList() {
     }).then(r => r.data.data),
   })
 
-  const statusMut = useMutation({
-    mutationFn: ({ id, status, reason }) => api.patch(`/members/${id}/status`, { status, reason }),
-    onSuccess: (_, vars) => {
-      qc.getQueriesData({ queryKey: ['members'] }).forEach(([queryKey, old]) => {
-        if (!old?.data || !Array.isArray(old.data)) return
-        const filters = queryKey?.[1] || {}
-        const nextData = old.data
-          .map(row => row.id === vars.id ? { ...row, member_status: vars.status } : row)
-          .filter(row => !filters.memberStatus || row.member_status === filters.memberStatus)
-        qc.setQueryData(queryKey, { ...old, data: nextData, total: old.total })
-      })
-      qc.invalidateQueries({ queryKey: ['members'] })
-      toast.success(vars.status === 'suspended' ? 'Member suspended' : 'Member reactivated')
-      setSuspendTarget(null)
-      setViewMember(current => current?.id === vars.id ? { ...current, member_status: vars.status } : current)
-    },
-    onError: err => toast.error(err.response?.data?.message || 'Error'),
-  })
 
-  const positionMut = useMutation({
-    mutationFn: ({ id, position }) => api.patch(`/members/${id}/position`, { position }),
-    onSuccess: (_, vars) => {
-      qc.invalidateQueries({ queryKey: ['members'] })
-      toast.success('Position updated successfully')
-      setAssignPositionTarget(null)
-    },
-    onError: err => toast.error(err.response?.data?.message || 'Error updating position'),
-  })
 
-  async function handleCertificate(row) {
-    setCertLoading(row.id)
-    try {
-      await downloadWithAuth(
-        `/certificates/${row.id}`,
-        `certificate_${row.membership_id || row.id}.pdf`,
-      )
-      toast.success('Certificate downloaded')
-    } catch (err) { toast.error(err.message || 'Certificate generation failed') }
-    finally { setCertLoading(null) }
-  }
 
-  async function handleInvoice(row) {
-    setInvoiceLoading(row.id)
-    try {
-      const res = await api.post(`/invoices/member/${row.id}/generate`)
-      const invId = res.data.data?.id
-      if (!invId) throw new Error('Invoice ID not returned')
-      await downloadWithAuth(
-        `/invoices/${invId}/download`,
-        `invoice_${row.membership_id || row.id}.pdf`,
-      )
-      toast.success('Invoice downloaded')
-    } catch (err) { toast.error(err.response?.data?.message || err.message || 'Invoice failed') }
-    finally { setInvoiceLoading(null) }
-  }
 
   async function handleExportCsv() {
     try {
@@ -470,7 +238,6 @@ export default function MembersList() {
                   <span className="flex items-center gap-1">Expiry <SortIcon col="expiry" /></span>
                 </th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
-                <th className="px-4 py-3 text-center font-medium text-gray-600">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -489,7 +256,11 @@ export default function MembersList() {
                 const isExpiringSoon = row.days_to_expiry != null && row.days_to_expiry >= 0 && row.days_to_expiry <= 30
                 const isExpired      = row.days_to_expiry != null && row.days_to_expiry < 0
                 return (
-                  <tr key={row.id} className="hover:bg-gray-50 transition-colors">
+                  <tr 
+                    key={row.id} 
+                    className="hover:bg-gray-50 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/members/${row.id}/full`)}
+                  >
 
                     {/* Member ID */}
                     <td className="px-4 py-3 font-mono text-xs font-bold text-primary-700">
@@ -556,22 +327,6 @@ export default function MembersList() {
 
                     {/* Status */}
                     <td className="px-4 py-3"><StatusBadge status={row.member_status} /></td>
-
-                    {/* Actions */}
-                    <td className="px-4 py-3 text-center">
-                      <ActionMenu
-                        row={row}
-                        certLoading={certLoading === row.id}
-                        invoiceLoading={invoiceLoading === row.id}
-                        statusPending={statusMut.isPending}
-                        onView={() => setViewMember(row)}
-                        onCert={() => handleCertificate(row)}
-                        onInvoice={() => handleInvoice(row)}
-                        onSuspend={() => setSuspendTarget(row)}
-                        onReactivate={() => statusMut.mutate({ id: row.id, status: 'active' })}
-                        onAssignPosition={() => setAssignPositionTarget(row)}
-                      />
-                    </td>
                   </tr>
                 )
               })}
@@ -602,86 +357,6 @@ export default function MembersList() {
           </div>
         )}
       </div>
-
-      {/* ── View Detail Modal ── */}
-      {viewMember && (
-        <AdminModalPortal>
-          <div
-            className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]"
-            onClick={() => setViewMember(null)}
-          >
-            <div
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden"
-              onClick={e => e.stopPropagation()}
-            >
-            <div className="flex items-center justify-between px-6 py-4 border-b bg-gray-50">
-              <div>
-                <h3 className="font-bold text-gray-900">{viewMember.applicant_name}</h3>
-                <p className="text-xs text-gray-500 font-mono">{viewMember.membership_id}</p>
-              </div>
-              <button onClick={() => setViewMember(null)} className="text-gray-400 hover:text-gray-600">
-                <X size={18} />
-              </button>
-            </div>
-            <div className="p-6 space-y-2 overflow-y-auto max-h-[70vh]">
-              {[
-                ['Member ID',       viewMember.membership_id],
-                ['Full Name',       viewMember.applicant_name],
-                ['Email',           viewMember.applicant_email],
-                ['Phone',           viewMember.applicant_phone],
-                ['Organization',    viewMember.organisation_name || viewMember.organization_name],
-                ['Membership Type', viewMember.membership_type?.toUpperCase()],
-                ['Package',         viewMember.package_name || viewMember.form_name],
-                ['Duration',        durationLabel(viewMember)],
-                ['Status',          viewMember.member_status?.toUpperCase()],
-                ['Start Date',      viewMember.submitted_at ? new Date(viewMember.submitted_at).toLocaleDateString('en-IN') : null],
-                ['Expiry Date',     viewMember.expiry_date ? new Date(viewMember.expiry_date).toLocaleDateString('en-IN') : expiryDisplay(viewMember)],
-                ['Days to Expiry',  viewMember.days_to_expiry != null ? `${viewMember.days_to_expiry} days` : null],
-              ].filter(([, v]) => v != null && v !== '').map(([label, val]) => (
-                <div key={label} className="flex justify-between text-sm py-1.5 border-b border-gray-50 last:border-0">
-                  <span className="text-gray-500 font-medium">{label}</span>
-                  <span className="text-gray-900 text-right">{val}</span>
-                </div>
-              ))}
-              <div className="pt-3 flex gap-2">
-                <button
-                  onClick={() => { setViewMember(null); handleCertificate(viewMember) }}
-                  className="flex-1 btn-outline btn-sm flex items-center justify-center gap-1"
-                >
-                  <Award size={13} /> Download Certificate
-                </button>
-                <button
-                  onClick={() => { setViewMember(null); handleInvoice(viewMember) }}
-                  className="flex-1 btn-outline btn-sm flex items-center justify-center gap-1"
-                >
-                  <FileText size={13} /> Download Invoice
-                </button>
-              </div>
-            </div>
-            </div>
-          </div>
-        </AdminModalPortal>
-      )}
-
-      {/* ── Suspend Confirm Modal ── */}
-      {suspendTarget && (
-        <SuspendModal
-          member={suspendTarget}
-          onClose={() => setSuspendTarget(null)}
-          onConfirm={(reason) => statusMut.mutate({ id: suspendTarget.id, status: 'suspended', reason })}
-          pending={statusMut.isPending}
-        />
-      )}
-
-      {/* ── Assign Position Modal ── */}
-      {assignPositionTarget && (
-        <PositionModal
-          member={assignPositionTarget}
-          pending={positionMut.isPending}
-          onClose={() => setAssignPositionTarget(null)}
-          onSave={(position) => positionMut.mutate({ id: assignPositionTarget.id, position })}
-        />
-      )}
     </div>
   )
 }
