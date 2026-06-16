@@ -820,11 +820,18 @@ export function TransactionsPage() {
   const allRows = data?.data || []
   const total   = data?.total || 0
 
+  const { data: allMethods = [] } = useQuery({
+    queryKey: ['payment-methods-admin'],
+    queryFn: () => api.get('/payments/methods').then(r => r.data.data || []),
+  })
+
   // Unique payment methods for filter dropdown
-  const methodNames = useMemo(
-    () => [...new Set(allRows.map(r => r.method_name).filter(Boolean))].sort(),
-    [allRows],
-  )
+  const methodNames = useMemo(() => {
+    // Include all active configured methods and any existing ones from rows
+    const configuredNames = allMethods.map(m => m.name).filter(Boolean);
+    const rowNames = allRows.map(r => r.method_name).filter(Boolean);
+    return [...new Set([...configuredNames, ...rowNames])].sort();
+  }, [allRows, allMethods]);
 
   // Client-side method + date filters
   const rows = useMemo(() => {
@@ -858,8 +865,7 @@ export function TransactionsPage() {
         </div>
         <select className="input w-44" value={status} onChange={e => { setStatus(e.target.value); setPage(1) }}>
           <option value="">All Status</option>
-          <option value="pending">Under Review</option>
-          <option value="approved">Approved</option>
+          <option value="pending">Pending / Under Review</option>
           <option value="verified">Verified</option>
           <option value="rejected">Rejected</option>
         </select>
