@@ -834,7 +834,8 @@ router.post('/profile/photo', memberAuth, upload.single('photo'), async (req, re
       
       await pool.query(
         `INSERT INTO member_public_profiles (submission_id, profile_photo_path) VALUES (?, ?)
-         ON CONFLICT (submission_id) DO UPDATE SET profile_photo_path=EXCLUDED.profile_photo_path, updated_at=NOW()`,
+         ON CONFLICT (submission_id) DO UPDATE SET profile_photo_path=EXCLUDED.profile_photo_path, updated_at=NOW()
+         RETURNING submission_id`,
         [ma.submission_id, photoPath]
       );
     }
