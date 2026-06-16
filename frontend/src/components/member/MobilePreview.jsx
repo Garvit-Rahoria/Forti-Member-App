@@ -1,5 +1,6 @@
 import { assetUrl } from '../../utils/assetUrl'
 import { Share, Youtube } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 export default function MobilePreview({ profile, links, photo }) {
   const themeColor = profile?.theme_color || '#6C3EAB'
@@ -11,6 +12,23 @@ export default function MobilePreview({ profile, links, photo }) {
     if (!url) return null;
     const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|shorts\/|live\/|watch\?v=|watch\?.+&v=))([\w-]{11})/i);
     return match ? match[1] : null;
+  }
+
+  const handleShare = () => {
+    if (!profile?.public_slug) {
+      toast.error("Please set a custom slug first");
+      return;
+    }
+    const url = `${window.location.origin}/m/${profile.public_slug}`;
+    if (navigator.share) {
+      navigator.share({
+        title: `@${profile.public_slug}`,
+        url: url,
+      }).catch(() => {})
+    } else {
+      navigator.clipboard.writeText(url)
+      toast.success("Link copied to clipboard!")
+    }
   }
 
   const getButtonClass = (isFeatured) => {
@@ -50,9 +68,12 @@ export default function MobilePreview({ profile, links, photo }) {
       <div className="relative z-10 flex-1 overflow-y-auto hide-scrollbar flex flex-col items-center px-6 pt-12 pb-10">
         
         {/* Share Button top right */}
-        <div className="absolute top-6 right-6 w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white">
+        <button 
+          onClick={handleShare}
+          className="absolute top-6 right-6 w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white/30 hover:scale-105 transition z-20"
+        >
           <Share size={18} />
-        </div>
+        </button>
 
         {/* Avatar */}
         {photo ? (
