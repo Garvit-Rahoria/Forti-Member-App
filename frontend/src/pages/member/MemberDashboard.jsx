@@ -577,16 +577,15 @@ function ProfileTab({ member, apiClient, refetch }) {
   const [form, setForm] = useState({
     full_name:         member.full_name || '',
     phone:             member.phone || data.phone || '',
-    organisation_name: data.organisation_name || '',
-    address:           data.address || '',
+    email:             member.email || '',
   })
+  const fileInputRef = useRef(null)
 
   function handleCancel() {
     setForm({
       full_name:         member.full_name || '',
       phone:             member.phone || data.phone || '',
-      organisation_name: data.organisation_name || '',
-      address:           data.address || '',
+      email:             member.email || '',
     })
     setEditing(false)
     setSaveError(null)
@@ -594,6 +593,7 @@ function ProfileTab({ member, apiClient, refetch }) {
 
   async function handleSave() {
     if (!form.full_name.trim()) { setSaveError('Full name is required.'); return }
+    if (!form.email.trim()) { setSaveError('Email is required.'); return }
     setSaving(true); setSaveError(null)
     try {
       await apiClient().put('/member/profile', form)
@@ -605,6 +605,27 @@ function ProfileTab({ member, apiClient, refetch }) {
       setSaveError(err.response?.data?.message || 'Failed to save. Please try again.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handlePhotoUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('photo', file);
+    setSaving(true); setSaveError(null);
+    try {
+      await apiClient().post('/member/profile/photo', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setSaveOk(true);
+      await refetch();
+      setTimeout(() => setSaveOk(false), 4000);
+    } catch (err) {
+      setSaveError(err.response?.data?.message || 'Failed to upload photo. Please try again.');
+    } finally {
+      setSaving(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }
 
@@ -636,13 +657,19 @@ function ProfileTab({ member, apiClient, refetch }) {
         <div className="card-body space-y-5">
           {/* Avatar */}
           <div className="flex items-center gap-4">
-            {data.profile_photo ? (
-              <img src={assetUrl(data.profile_photo)} alt="Profile" className="w-20 h-20 rounded-full object-cover border-2 border-primary-200"/>
-            ) : (
-              <div className="w-20 h-20 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-black text-3xl">
-                {(member.full_name || '?').charAt(0)}
+            <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+              {data.profile_photo ? (
+                <img src={assetUrl(data.profile_photo)} alt="Profile" className="w-20 h-20 rounded-full object-cover border-2 border-primary-200 group-hover:opacity-75 transition-opacity"/>
+              ) : (
+                <div className="w-20 h-20 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-black text-3xl group-hover:opacity-75 transition-opacity">
+                  {(member.full_name || '?').charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
+                <Upload size={20} />
               </div>
-            )}
+              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handlePhotoUpload} />
+            </div>
             <div>
               <h4 className="text-xl font-bold text-gray-900">{member.full_name}</h4>
               <p className="text-gray-500 text-sm">{member.email}</p>
@@ -672,22 +699,16 @@ function ProfileTab({ member, apiClient, refetch }) {
                     placeholder="Your full name"/>
                 </div>
                 <div>
+                  <label className="label">Email *</label>
+                  <input className="input" type="email" value={form.email}
+                    onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                    placeholder="Your email address"/>
+                </div>
+                <div>
                   <label className="label">Phone</label>
                   <input className="input" value={form.phone}
                     onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
                     placeholder="+91 98765 43210"/>
-                </div>
-                <div>
-                  <label className="label">Organisation</label>
-                  <input className="input" value={form.organisation_name}
-                    onChange={e => setForm(f => ({ ...f, organisation_name: e.target.value }))}
-                    placeholder="Your organisation name"/>
-                </div>
-                <div>
-                  <label className="label">Address</label>
-                  <input className="input" value={form.address}
-                    onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
-                    placeholder="City, State"/>
                 </div>
               </div>
               <div className="flex gap-3 pt-2">
