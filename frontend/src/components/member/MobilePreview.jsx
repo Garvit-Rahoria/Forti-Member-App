@@ -14,20 +14,31 @@ export default function MobilePreview({ profile, links, photo }) {
     return match ? match[1] : null;
   }
 
-  const handleShare = () => {
+  const handleShare = async () => {
     if (!profile?.public_slug) {
       toast.error("Please set a custom slug first");
       return;
     }
     const url = `${window.location.origin}/m/${profile.public_slug}`;
-    if (navigator.share) {
-      navigator.share({
-        title: `@${profile.public_slug}`,
-        url: url,
-      }).catch(() => {})
-    } else {
-      navigator.clipboard.writeText(url)
-      toast.success("Link copied to clipboard!")
+    
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `@${profile.public_slug}`,
+          url: url,
+        });
+      } else {
+        throw new Error("Share not supported");
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        try {
+          await navigator.clipboard.writeText(url);
+          toast.success("Link copied to clipboard!");
+        } catch (clipErr) {
+          toast.error("Failed to copy link");
+        }
+      }
     }
   }
 

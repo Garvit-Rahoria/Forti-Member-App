@@ -51,15 +51,26 @@ export default function PublicProfilePage() {
     )
   }
 
-  const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: data.name,
-        url: window.location.href,
-      }).catch(() => {})
-    } else {
-      navigator.clipboard.writeText(window.location.href)
-      alert("Link copied to clipboard!")
+  const handleShare = async () => {
+    const url = window.location.href;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: data?.name || "FORTI Member",
+          url: url,
+        });
+      } else {
+        throw new Error("Share not supported");
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        try {
+          await navigator.clipboard.writeText(url);
+          toast.success("Link copied to clipboard!");
+        } catch (clipErr) {
+          toast.error("Failed to copy link");
+        }
+      }
     }
   }
 
