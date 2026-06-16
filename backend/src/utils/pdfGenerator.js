@@ -13,6 +13,7 @@ async function getBrowser() {
   _browser = await puppeteer.launch({
     headless: 'new',
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
   });
   _browser.on('disconnected', () => { _browser = null; });
   return _browser;

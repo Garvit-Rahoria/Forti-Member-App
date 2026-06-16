@@ -193,7 +193,7 @@ const SOCIAL_PLATFORMS = [
 
 const STEP_VALIDATION_FIELDS = {
   0: ['full_name', 'email', 'phone', 'gender', 'id_type', 'aadhaar_number', 'passport_number', 'national_id_number', 'pin_code', 'organisation_name', 'organisation_type', 'organisation_type_other'],
-  1: ['location_type', 'state_id', 'city_id', 'branch_id', 'country_id'],
+  1: ['location_type', 'state_id', 'city_id', 'country_id'],
   2: ['wing_id', 'membership_type'],
   3: ['plan_type', 'package_id'],
   4: ['payment_method', 'payment_confirmed', 'payment_screenshot'],
@@ -504,9 +504,6 @@ export default function MembershipApplicationForm({ prefill = {} }) {
       location_type: '',
       state_id: '',
       city_id: '',
-      branch_id: '',
-      country_id: '',
-      state_other: '',
       city_other: '',
       overseas_city: '',
       wing_id: '',
@@ -642,7 +639,6 @@ export default function MembershipApplicationForm({ prefill = {} }) {
   const streamRef = useRef(null)
 
   const [states, setStates] = useState([])
-  const [branches, setBranches] = useState([])
   const [cities, setCities] = useState([])
   const [citiesLoading, setCitiesLoading] = useState(false)
   const [countries, setCountries] = useState([])
@@ -791,10 +787,6 @@ export default function MembershipApplicationForm({ prefill = {} }) {
         case 'city_id':
           if (currentForm.location_type === 'rajasthan' && !currentForm.city_id && !currentForm.city_other) return REQUIRED_FIELD_MESSAGE
           if (currentForm.location_type === 'other_states' && !currentForm.city_id && !currentForm.city_other) return REQUIRED_FIELD_MESSAGE
-          return ''
-        case 'branch_id':
-          if (currentForm.location_type === 'rajasthan' && !currentForm.branch_id) return REQUIRED_FIELD_MESSAGE
-          if (currentForm.location_type === 'other_states' && !currentForm.branch_id) return REQUIRED_FIELD_MESSAGE
           return ''
         case 'country_id':
           return currentForm.location_type === 'overseas' && !currentForm.country_id && !currentForm.country_name?.trim()
@@ -1008,9 +1000,6 @@ export default function MembershipApplicationForm({ prefill = {} }) {
     http.get('/locations/states?country_id=1')
       .then(r => setStates(r.data.data || []))
       .catch(() => { })
-    http.get('/branches')
-      .then(r => setBranches(r.data.data || []))
-      .catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -1289,7 +1278,7 @@ export default function MembershipApplicationForm({ prefill = {} }) {
       fd.append('location_type', form.location_type)
       if (form.state_id) fd.append('state_id', form.state_id)
       if (form.city_id) fd.append('city_id', form.city_id)
-      if (form.branch_id) fd.append('branch_id', form.branch_id)
+      if (form.city_other) fd.append('city_other', form.city_other)
       if (form.country_id) fd.append('country_id', form.country_id)
       if (form.overseas_city) fd.append('overseas_city', form.overseas_city)
       fd.append('wing_id', form.wing_id)
@@ -1798,16 +1787,16 @@ export default function MembershipApplicationForm({ prefill = {} }) {
         </div>
         <FieldError msg={errors.location_type} />
 
-        {/* ── Rajasthan: city dropdown → branch dropdown ── */}
+        {/* ── Rajasthan: city dropdown ── */}
         {form.location_type === 'rajasthan' && (
           <div className="mt-5 p-5 bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl border border-orange-100 space-y-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-orange-800">Select City & Branch</p>
+              <p className="text-sm font-semibold text-orange-800">Select City</p>
               <span className="text-xs font-bold text-orange-700 bg-orange-100 border border-orange-200 px-2.5 py-0.5 rounded-full">
                 {getCurrencySymbol('INR')} INR
               </span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-1 gap-4">
               <div>
                 <label className="label flex items-center gap-2 text-orange-800">
                   <MapPin size={14} /> City *
@@ -1832,42 +1821,20 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                 />
                 <FieldError msg={errors.city_id} />
               </div>
-              <div>
-                <label className="label flex items-center gap-2 text-orange-800">
-                  <Building2 size={14} /> Select Branch *
-                </label>
-                <select
-                  value={form.branch_id}
-                  data-field="branch_id"
-                  onChange={(e) => {
-                    set('branch_id', e.target.value)
-                  }}
-                  className={`${getInputClassName('branch_id', 'input w-full bg-white border-orange-200 focus:border-orange-400 focus:ring-orange-200')} ${!form.branch_id ? 'text-gray-500' : 'text-gray-900'}`}
-                >
-                  <option value="" disabled>Select preferred branch...</option>
-                  {branches.filter(b => {
-                    const rajState = states.find(s => s.name.toLowerCase() === 'rajasthan');
-                    return String(b.state_id) === String(rajState ? rajState.id : '21');
-                  }).map(b => (
-                    <option key={b.id} value={b.id} className="text-gray-900">{b.name}</option>
-                  ))}
-                </select>
-                <FieldError msg={errors.branch_id} />
-              </div>
             </div>
           </div>
         )}
 
-        {/* ── Other States: State dropdown → Branch dropdown (both required) ── */}
+        {/* ── Other States: State dropdown ── */}
         {form.location_type === 'other_states' && (
           <div className="mt-5 p-5 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100 space-y-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-blue-800">Select State, City & Branch</p>
+              <p className="text-sm font-semibold text-blue-800">Select State & City</p>
               <span className="text-xs font-bold text-blue-700 bg-blue-100 border border-blue-200 px-2.5 py-0.5 rounded-full">
                 {getCurrencySymbol('INR')} INR
               </span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="label flex items-center gap-2 text-blue-800">
                   <MapPin size={14} /> State *
@@ -1879,7 +1846,6 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                   onChange={nextValue => {
                     set('state_id', nextValue)
                     set('city_id', '')
-                    set('branch_id', '')
                   }}
                   inputClassName="bg-white border-blue-200 focus:border-blue-400 focus:ring-blue-200"
                 />
@@ -1909,28 +1875,6 @@ export default function MembershipApplicationForm({ prefill = {} }) {
                   inputClassName={`bg-white border-blue-200 focus:border-blue-400 focus:ring-blue-200 ${!form.state_id ? 'bg-gray-50' : ''}`}
                 />
                 <FieldError msg={errors.city_id} />
-              </div>
-              <div>
-                <label className="label flex items-center gap-2 text-blue-800">
-                  <Building2 size={14} /> Select Branch *
-                </label>
-                <select
-                  value={form.branch_id}
-                  onChange={(e) => {
-                    set('branch_id', e.target.value)
-                  }}
-                  disabled={!form.state_id}
-                  className={`${getInputClassName('branch_id', 'input w-full bg-white border-blue-200 focus:border-blue-400 focus:ring-blue-200 disabled:bg-gray-50')} ${!form.branch_id ? 'text-gray-500' : 'text-gray-900'}`}
-                >
-                  <option value="" disabled>Select preferred branch...</option>
-                  {branches.filter(b => 
-                    String(b.state_id) === String(form.state_id) || 
-                    (b.state_name && String(b.state_name).toLowerCase() === String(form.state_id).toLowerCase())
-                  ).map(b => (
-                    <option key={b.id} value={b.id} className="text-gray-900">{b.name}</option>
-                  ))}
-                </select>
-                <FieldError msg={errors.branch_id} />
               </div>
             </div>
           </div>

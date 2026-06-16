@@ -52,26 +52,21 @@ const SUBJECTS = [
 ]
 
 export default function ContactPage() {
-  const [form, setForm] = useState({ name: '', email: '', phone: '', subject: '', message: '', state_id: '', branch_id: '' })
+  const [form, setForm] = useState({ name: '', email: '', phone: '', subject: '', message: '', state_id: '' })
   const [status, setStatus] = useState(null) // null | 'sending' | 'success' | 'error'
   const [error, setError] = useState('')
   const [states, setStates] = useState([])
-  const [branches, setBranches] = useState([])
 
-  // Load Indian states and branches for dropdown
+  // Load Indian states for dropdown
   useEffect(() => {
     api.get('/locations/states?country_id=1')
       .then(r => setStates(r.data.data || []))
-      .catch(() => {})
-    api.get('/branches')
-      .then(r => setBranches(r.data.data || []))
       .catch(() => {})
   }, [])
 
   function handle(e) {
     setForm(prev => {
       const next = { ...prev, [e.target.name]: e.target.value }
-      if (e.target.name === 'state_id') next.branch_id = ''
       return next
     })
   }
@@ -87,20 +82,17 @@ export default function ContactPage() {
     try {
       // Find the state name from selected state_id
       const selectedState = states.find(s => String(s.id) === String(form.state_id))
-      const selectedBranch = branches.find(b => String(b.id) === String(form.branch_id))
       await api.post('/contact', {
         ...form,
         state_id: form.state_id ? Number(form.state_id) : null,
         state_name: selectedState?.name || null,
-        branch_id: form.branch_id ? Number(form.branch_id) : null,
-        branch_name: selectedBranch?.name || null,
       })
       setStatus('success')
-      setForm({ name: '', email: '', phone: '', subject: '', message: '', state_id: '', branch_id: '' })
+      setForm({ name: '', email: '', phone: '', subject: '', message: '', state_id: '' })
     } catch (err) {
       if (err.response?.status === 404) {
         setStatus('success')
-        setForm({ name: '', email: '', phone: '', subject: '', message: '', state_id: '', branch_id: '' })
+        setForm({ name: '', email: '', phone: '', subject: '', message: '', state_id: '' })
       } else {
         setStatus('error')
         setError(err.response?.data?.message || 'Something went wrong. Please try again.')
@@ -187,8 +179,8 @@ export default function ContactPage() {
                   </div>
                 </div>
 
-                {/* State & Branch dropdowns — routes message to the correct office panel */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* State dropdown — routes message to the correct office panel */}
+                <div className="grid grid-cols-1 sm:grid-cols-1 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1 flex items-center gap-1">
                       <MapPin size={12} className="text-gray-400" />
@@ -206,31 +198,8 @@ export default function ContactPage() {
                       ))}
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1 flex items-center gap-1">
-                      <Building2 size={12} className="text-gray-400" />
-                      Nearest Branch <span className="text-gray-400 font-normal">(optional)</span>
-                    </label>
-                    <select
-                      name="branch_id"
-                      value={form.branch_id}
-                      onChange={handle}
-                      disabled={!form.state_id}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 transition bg-white disabled:opacity-50 disabled:bg-gray-50"
-                    >
-                      <option value="">Select nearest branch…</option>
-                      {branches.filter(b => String(b.state_id) === String(form.state_id)).map(b => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                    </select>
-                  </div>
                 </div>
-                {form.branch_id ? (
-                  <p className="text-xs text-primary-600 mt-1 flex items-center gap-1">
-                    <CheckCircle size={11} />
-                    Your message will be routed directly to the {branches.find(b => String(b.id) === String(form.branch_id))?.name}.
-                  </p>
-                ) : form.state_id ? (
+                {form.state_id ? (
                   <p className="text-xs text-primary-600 mt-1 flex items-center gap-1">
                     <CheckCircle size={11} />
                     Your message will be routed to the {states.find(s => String(s.id) === String(form.state_id))?.name} state office.

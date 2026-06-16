@@ -6,6 +6,7 @@ const morgan = require('morgan');
 const { testConnection, pool } = require('./config/database');
 const { apiLimiter, otpLimiter, uploadLimiter } = require('./middleware/rateLimiter');
 const { seedLocationsIfEmpty } = require('./utils/seedLocations');
+const { ensureAdminUser } = require('./utils/seedAdmin');
 const { startRenewalReminderCron } = require('./cron/renewalReminders');
 
 const app = express();
@@ -372,6 +373,7 @@ async function start() {
   await seedLocationsIfEmpty();
   await seedCurrencyData();
   await backfillSubmissionsLocations();
+  await ensureAdminUser();
   startRenewalReminderCron();
   app.listen(PORT, () => {
     console.log(`✅ FORTI Portal API running on http://localhost:${PORT}`);
