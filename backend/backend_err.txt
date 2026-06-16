@@ -1,0 +1,47 @@
+[SCHEMA] member_accounts schema check failed (non-fatal): cannot drop index member_accounts_email_unique because constraint member_accounts_email_unique on table member_accounts requires it
+[logout] error: column "id" does not exist
+    at /Users/manoj/Desktop/FORTI/forti-member-app/backend/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async runQuery (/Users/manoj/Desktop/FORTI/forti-member-app/backend/src/config/database.js:25:18)
+    at async /Users/manoj/Desktop/FORTI/forti-member-app/backend/src/routes/auth.js:188:7 {
+  length: 102,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '98',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3722',
+  routine: 'errorMissingColumn'
+}
+[logout] error: column "id" does not exist
+    at /Users/manoj/Desktop/FORTI/forti-member-app/backend/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async runQuery (/Users/manoj/Desktop/FORTI/forti-member-app/backend/src/config/database.js:25:18)
+    at async /Users/manoj/Desktop/FORTI/forti-member-app/backend/src/routes/auth.js:188:7 {
+  length: 102,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '98',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3722',
+  routine: 'errorMissingColumn'
+}

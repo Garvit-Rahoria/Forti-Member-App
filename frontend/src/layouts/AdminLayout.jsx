@@ -25,6 +25,7 @@ const NAV_BY_ROLE = {
     { label: 'Reports',         icon: BarChart2,       to: '/reports' },
     { label: 'Blog & Content',  icon: BookOpen,        to: '/blog' },
     { label: 'Email Templates', icon: Mail,            to: '/email-templates' },
+    { label: 'SMTP Delivery',   icon: MailOpen,        to: '/smtp-settings' },
     { label: 'Audit Log',       icon: ClipboardList,   to: '/audit' },
     { label: 'Branches',        icon: MapPin,          to: '/branches' },
     { label: 'Users',           icon: UserCog,         to: '/users' },

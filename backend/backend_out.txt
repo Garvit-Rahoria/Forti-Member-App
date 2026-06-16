@@ -1,2 +1,184 @@
-✓ MySQL connected
-✅ FORTI Portal API running on http://localhost:5000
+✓ PostgreSQL connected
+[SCHEMA] Checked/created portal_contact_messages table
+[BACKFILL] Found 34 submissions needing location backfill
+[BACKFILL] Updated submission 50: state_id=21, city_id=null, country_id=null
+[BACKFILL] Updated submission 52: state_id=26, city_id=null, country_id=null
+[BACKFILL] Updated submission 32: state_id=21, city_id=502, country_id=null
+[BACKFILL] Updated submission 10: state_id=21, city_id=null, country_id=null
+[BACKFILL] Updated submission 46: state_id=21, city_id=509, country_id=null
+[BACKFILL] Updated submission 34: state_id=21, city_id=null, country_id=null
+[BACKFILL] Updated submission 11: state_id=21, city_id=null, country_id=null
+[BACKFILL] Updated submission 13: state_id=3, city_id=null, country_id=null
+[BACKFILL] Updated submission 36: state_id=26, city_id=641, country_id=null
+[BACKFILL] Updated submission 35: state_id=21, city_id=518, country_id=null
+[BACKFILL] Updated submission 9: state_id=21, city_id=null, country_id=null
+[BACKFILL] Updated submission 48: state_id=21, city_id=null, country_id=null
+[BACKFILL] Updated submission 49: state_id=21, city_id=null, country_id=null
+[BACKFILL] Updated submission 12: state_id=21, city_id=null, country_id=null
+[BACKFILL] Updated submission 37: state_id=4, city_id=76, country_id=null
+[BACKFILL] Updated submission 38: state_id=21, city_id=509, country_id=null
+[BACKFILL] Updated submission 47: state_id=26, city_id=null, country_id=null
+[BACKFILL] Updated submission 33: state_id=21, city_id=509, country_id=null
+[BACKFILL] Location backfill complete ✓
+📅 Renewal reminder cron job scheduled (daily at 9:00 AM)
+✅ FORTI Portal API running on http://localhost:7000
+[0mGET /api/member/me [32m200[0m 39.826 ms - 1712[0m
+[0mGET /api/member/me [32m200[0m 2.795 ms - 1712[0m
+[0mPOST /api/otp/send [32m200[0m 16.706 ms - 115[0m
+[EMAIL SENT] to=b241105@gmail.com messageId=<89cf0413-d192-b91e-a230-fbd8533a319d@gmail.com>
+[0mPOST /api/otp/verify [32m200[0m 21.048 ms - 481[0m
+[0mGET /api/member/me [32m200[0m 6.856 ms - 1712[0m
+[0mGET /api/member/public-profile [36m304[0m 22.113 ms - -[0m
+[0mGET /uploads/photos/1779878420998-388707.jpeg [36m304[0m 1.079 ms - -[0m
+[0mGET /api/member/public-profile [36m304[0m 6.620 ms - -[0m
+[0mGET /api/member/public-profile [36m304[0m 13.844 ms - -[0m
+[0mGET /uploads/photos/1780490972099-18636.png [36m304[0m 0.600 ms - -[0m
+[0mGET /api/member/payment-history [36m304[0m 7.821 ms - -[0m
+[0mGET /api/member/payment-history [36m304[0m 6.128 ms - -[0m
+[0mGET /api/member/payment-methods [36m304[0m 7.563 ms - -[0m
+[0mGET /api/member/payment-methods [36m304[0m 5.829 ms - -[0m
+[0mGET /api/member/payment-settings [36m304[0m 18.549 ms - -[0m
+[0mGET /api/member/payment-settings [36m304[0m 1.282 ms - -[0m
+[0mGET /api/member/renewals [36m304[0m 22.950 ms - -[0m
+[0mGET /api/member/renewals [36m304[0m 4.188 ms - -[0m
+[0mGET /api/member/public-profile [36m304[0m 14.388 ms - -[0m
+[0mGET /api/member/public-profile [36m304[0m 6.046 ms - -[0m
+[0mGET /api/blog/nav [32m200[0m 17.166 ms - 2588[0m
+[0mGET /api/member/me [32m200[0m 17.474 ms - 1712[0m
+[0mGET /api/member/me [32m200[0m 4.601 ms - 1712[0m
+[0mGET /api/blog/menus/insights [36m304[0m 23.857 ms - -[0m
+[0mGET /api/locations/countries [36m304[0m 13.416 ms - -[0m
+[0mGET /api/locations/countries [36m304[0m 1.439 ms - -[0m
+[SMS] FAST2SMS_API_KEY not set — skipping SMS send
+[0mPOST /api/otp/send [32m200[0m 29.536 ms - 115[0m
+[0mPOST /api/otp/verify [32m200[0m 5.361 ms - 443[0m
+[EMAIL SENT] to=vaibhav@gmail.com messageId=<a043c8ff-3983-d05a-cc47-2a1e972b72c4@gmail.com>
+[0mGET /api/blog/nav [36m304[0m 8.626 ms - -[0m
+[0mPOST /api/auth/logout [31m500[0m 10.943 ms - 56[0m
+[0mGET /api/wings [36m304[0m 20.748 ms - -[0m
+[0mGET /api/locations/states?country_id=1 [36m304[0m 17.411 ms - -[0m
+[0mGET /api/settings/org-types [36m304[0m 25.962 ms - -[0m
+[0mGET /api/locations/countries [36m304[0m 1.708 ms - -[0m
+[0mGET /api/wings [36m304[0m 1.302 ms - -[0m
+[0mGET /api/member/payment-settings [36m304[0m 15.547 ms - -[0m
+[0mGET /api/branches [36m304[0m 19.071 ms - -[0m
+[0mPOST /api/auth/logout [31m500[0m 6.982 ms - 56[0m
+[0mGET /api/settings/org-types [36m304[0m 2.767 ms - -[0m
+[0mGET /api/locations/countries [36m304[0m 3.035 ms - -[0m
+[0mGET /api/branches [36m304[0m 3.215 ms - -[0m
+[0mGET /api/member/payment-settings [36m304[0m 4.224 ms - -[0m
+[0mGET /api/locations/states?country_id=1 [36m304[0m 12.234 ms - -[0m
+[0mGET /api/membership/payment-methods?location=rajasthan [36m304[0m 14.934 ms - -[0m
+[0mGET /api/locations/cities?state_id=21 [36m304[0m 11.250 ms - -[0m
+[0mGET /api/membership/payment-methods?location=other_states [36m304[0m 17.257 ms - -[0m
+[0mGET /api/locations/cities?state_id=26 [36m304[0m 15.669 ms - -[0m
+[0mGET /api/locations/cities?state_id=21 [36m304[0m 12.146 ms - -[0m
+[0mGET /api/membership/payment-methods?location=rajasthan [36m304[0m 18.160 ms - -[0m
+[0mGET /api/membership/payment-methods?location=overseas&country_code=IN [36m304[0m 7.208 ms - -[0m
+[0mGET /api/membership/payment-methods?location=overseas&country_code=AU [32m200[0m 6.849 ms - 1510[0m
+[0mGET /api/membership/payment-methods?location=overseas&country_code=CH [36m304[0m 18.753 ms - -[0m
+[PKG MATCH] incoming: location_type=overseas membership_type=corporate plan_type=3years → normalized: loc=overseas mtype=corporate dur=3years country_id=ch
+[PKG MATCH] country-specific search → found 0 rows
+[PKG MATCH] base lookup (loc=overseas mtype=corporate dur=3years) → found 1 rows id=13 price=1275.00
+[0mGET /api/membership/packages/match?membership_type=corporate&plan_type=3years&location_type=overseas&country_id=ch [32m200[0m 22.998 ms - 694[0m
+[0mGET /api/blog/menus/insights [36m304[0m 9.269 ms - -[0m
+[0mGET /api/blog/nav [36m304[0m 12.772 ms - -[0m
+[0mGET /api/locations/countries [36m304[0m 3.140 ms - -[0m
+[0mGET /api/locations/countries [36m304[0m 1.902 ms - -[0m
+[SMS] FAST2SMS_API_KEY not set — skipping SMS send
+[0mPOST /api/otp/send [32m200[0m 26.481 ms - 115[0m
+[EMAIL SENT] to=vaibhav@gmail.com messageId=<872e23db-0534-cb13-5a43-c1297f559317@gmail.com>
+[0mPOST /api/otp/verify [32m200[0m 3.982 ms - 443[0m
+[PKG MATCH] incoming: location_type=overseas membership_type=corporate plan_type=3years → normalized: loc=overseas mtype=corporate dur=3years country_id=ch
+[0mGET /api/locations/countries [36m304[0m 5.007 ms - -[0m
+[PKG MATCH] incoming: location_type=overseas membership_type=corporate plan_type=3years → normalized: loc=overseas mtype=corporate dur=3years country_id=ch
+[0mGET /api/membership/payment-methods?location=overseas [36m304[0m 5.848 ms - -[0m
+[0mGET /api/locations/countries [36m304[0m 3.262 ms - -[0m
+[0mGET /api/wings [36m304[0m 18.857 ms - -[0m
+[0mGET /api/locations/states?country_id=1 [36m304[0m 18.396 ms - -[0m
+[0mGET /api/branches [36m304[0m 17.573 ms - -[0m
+[0mGET /api/member/payment-settings [36m304[0m 16.848 ms - -[0m
+[PKG MATCH] country-specific search → found 0 rows
+[PKG MATCH] country-specific search → found 0 rows
+[0mGET /api/wings [36m304[0m 1.716 ms - -[0m
+[0mGET /api/locations/states?country_id=1 [36m304[0m 1.598 ms - -[0m
+[PKG MATCH] base lookup (loc=overseas mtype=corporate dur=3years) → found 1 rows id=13 price=1275.00
+[0mGET /api/membership/packages/match?membership_type=corporate&plan_type=3years&location_type=overseas&country_id=ch [36m304[0m 24.340 ms - -[0m
+[PKG MATCH] base lookup (loc=overseas mtype=corporate dur=3years) → found 1 rows id=13 price=1275.00
+[0mGET /api/membership/packages/match?membership_type=corporate&plan_type=3years&location_type=overseas&country_id=ch [32m200[0m 21.500 ms - 694[0m
+[0mGET /api/branches [36m304[0m 2.021 ms - -[0m
+[0mGET /api/membership/payment-methods?location=overseas&country_code=CH [36m304[0m 7.527 ms - -[0m
+[0mGET /api/membership/payment-methods?location=overseas [36m304[0m 4.638 ms - -[0m
+[0mGET /api/member/payment-settings [36m304[0m 1.524 ms - -[0m
+[0mGET /api/membership/payment-methods?location=overseas&country_code=CH [36m304[0m 2.009 ms - -[0m
+[Object: null prototype] {
+  full_name: 'Vaibhav Gupta',
+  email: 'vaibhav@gmail.com',
+  phone: '+419876543234',
+  phone_country_code: '+41',
+  phone_country_iso2: 'CH',
+  country_name: 'Switzerland',
+  gender: 'Male',
+  id_type: 'aadhaar',
+  aadhaar_number: '987654324567',
+  pin_code: '520001',
+  organisation_name: 'Kaitan software',
+  organisation_type: 'Freelancer / Self-employed',
+  location_type: 'overseas',
+  country_id: 'ch',
+  wing_id: '1',
+  membership_type: 'corporate',
+  plan_type: '3years',
+  package_id: '13',
+  payment_method: '3',
+  payment_reference: 'FR-611259',
+  currency: 'USD'
+}
+[0mPOST /api/membership/apply [32m201[0m 66.125 ms - 244[0m
+[0mGET /api/member/track?membership_id=FR-820276 [32m200[0m 8.257 ms - 501[0m
+[0mGET /api/member/track?membership_id=FR-820276 [36m304[0m 2.536 ms - -[0m
+[EMAIL SENT] to=vaibhav@gmail.com messageId=<cefa1b84-c803-e93d-e531-895097d22b1c@gmail.com>
+[EMAIL SENT] to=vaibhav@gmail.com messageId=<07fa8fbe-1505-abea-1f61-35144e107940@gmail.com>
+[EMAIL SENT] to=apimails1@gmail.com messageId=<c323008a-ab39-1574-8d1c-135f92c35d45@gmail.com>
+[EMAIL SENT] to=apimails1@gmail.com messageId=<de9e4634-05ec-23b6-da61-5f4b2f4450e5@gmail.com>
+[0mGET /api/blog/nav [36m304[0m 4.957 ms - -[0m
+[0mGET /api/blog/menus/insights [36m304[0m 7.991 ms - -[0m
+[0mPOST /api/auth/login [32m200[0m 94.243 ms - 478[0m
+[0mGET /api/reports/dashboard [32m200[0m 21.680 ms - 3422[0m
+[0mGET /api/approvals/counts [32m200[0m 9.665 ms - 142[0m
+[0mGET /api/approvals/all?status=all&page=1&per_page=20 [32m200[0m 22.096 ms - 34486[0m
+[0mGET /api/approvals/all?status=all&page=1&per_page=20&q=vaibhav [32m200[0m 30.597 ms - 2286[0m
+[0mGET /api/submissions/detail/54 [32m200[0m 20.899 ms - 4241[0m
+[0mGET /uploads/payments/1780551317349-710722.png [32m200[0m 3.652 ms - 26529[0m
+[0mGET /api/approvals/54/notes [32m200[0m 6.971 ms - 46[0m
+[0mPATCH /api/approvals/54/status [32m200[0m 23.135 ms - 88[0m
+[0mGET /api/submissions/detail/54 [32m200[0m 13.216 ms - 4287[0m
+[0mGET /api/blog/nav [36m304[0m 5.407 ms - -[0m
+[0mGET /api/member/track?membership_id=FR-820276 [32m200[0m 14.173 ms - 515[0m
+[0mGET /api/member/track?membership_id=FR-820276 [36m304[0m 2.079 ms - -[0m
+[0mPATCH /api/approvals/54/status [32m200[0m 14.362 ms - 84[0m
+[0mGET /api/submissions/detail/54 [32m200[0m 9.943 ms - 4283[0m
+[0mGET /api/member/track?membership_id=FR-820276 [32m200[0m 3.872 ms - 507[0m
+[0mGET /api/member/track?membership_id=FR-820276 [36m304[0m 2.094 ms - -[0m
+[0mGET /api/blog/nav [36m304[0m 7.109 ms - -[0m
+[EMAIL SENT] to=vaibhav@gmail.com messageId=<8e78b195-ed52-1b94-0448-ea27a5350101@gmail.com>
+[0mPATCH /api/approvals/54/status [32m200[0m 11.949 ms - 80[0m
+[0mGET /api/submissions/detail/54 [32m200[0m 17.793 ms - 4279[0m
+[0mGET /api/wings [36m304[0m 3.890 ms - -[0m
+[0mGET /api/positions [36m304[0m 11.854 ms - -[0m
+[0mGET /api/members/54/org [32m200[0m 19.699 ms - 430[0m
+[0mGET /api/blog/nav [36m304[0m 3.199 ms - -[0m
+[0mGET /api/member/track?membership_id=FR-820276 [32m200[0m 5.424 ms - 499[0m
+[0mGET /api/member/track?membership_id=FR-820276 [36m304[0m 2.019 ms - -[0m
+[0mPATCH /api/approvals/54/status [32m200[0m 21.245 ms - 97[0m
+[0mGET /api/submissions/detail/54 [32m200[0m 12.554 ms - 4338[0m
+[0mGET /api/member/track?membership_id=FR-820276 [32m200[0m 2.689 ms - 535[0m
+[0mGET /api/blog/nav [36m304[0m 4.075 ms - -[0m
+[0mGET /api/member/track?membership_id=FR-820276 [36m304[0m 1.971 ms - -[0m
+[EMAIL SENT] to=vaibhav@gmail.com messageId=<61d5dcc3-cf1f-b6fb-0f60-cdaf03564ee0@gmail.com>
+[0mGET /api/member/track?membership_id=FR-820276 [36m304[0m 5.123 ms - -[0m
+[0mGET /api/reports/advanced?period=30d [32m200[0m 35.597 ms - 13305[0m
+[0mGET /api/renewals/expiring?days=30 [36m304[0m 9.172 ms - -[0m
+[0mGET /api/renewals?q=&status=&sort=latest&duration=&start_date=&end_date=&page=1&per_page=20 [36m304[0m 25.237 ms - -[0m
+[0mGET /api/blog/nav [36m304[0m 19.556 ms - -[0m
+[0mGET /api/blog/menus/insights [36m304[0m 31.272 ms - -[0m

@@ -26,6 +26,7 @@ import AuditLog from './pages/admin/audit/AuditLog'
 import RenewalsPage from './pages/admin/renewals/RenewalsPage'
 import InvoicesPage from './pages/admin/invoices/InvoicesPage'
 import EmailTemplatesPage from './pages/admin/email-templates/EmailTemplatesPage'
+import SmtpSettingsPage from './pages/admin/settings/SmtpSettingsPage'
 import ApplyForm from './pages/public/ApplyForm'
 import MembershipPage from './pages/public/MembershipPage'
 import LandingPage from './pages/public/LandingPage'
@@ -170,6 +171,7 @@ export default function App() {
                   <Route path="messages" element={<RoleRoute roles={['office_staff']}><MessagesPage /></RoleRoute>} />
                   <Route path="invoices" element={<InvoicesPage />} />
                   <Route path="email-templates" element={<RoleRoute roles={['super_admin', 'admin']}><EmailTemplatesPage /></RoleRoute>} />
+                  <Route path="smtp-settings" element={<RoleRoute roles={['super_admin']}><SmtpSettingsPage /></RoleRoute>} />
                   <Route path="reports" element={<RoleRoute roles={['super_admin', 'admin']}><Reports /></RoleRoute>} />
                   <Route path="manager-reports" element={<RoleRoute roles={['branch_manager']}><ManagerReports /></RoleRoute>} />
                   <Route path="audit" element={<RoleRoute roles={['super_admin']}><AuditLog /></RoleRoute>} />
