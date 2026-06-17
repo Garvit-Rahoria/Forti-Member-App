@@ -16,7 +16,7 @@ function parseYMD(str) {
   return { y, m: m - 1, d }
 }
 
-export function DatePicker({ value, onChange, min, max, placeholder = 'Pick date' }) {
+export function DatePicker({ value, onChange, min, max, placeholder = 'Pick date', className, style }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
@@ -72,7 +72,7 @@ export function DatePicker({ value, onChange, min, max, placeholder = 'Pick date
     : ''
 
   return (
-    <div ref={ref} className="relative" style={{ width: '176px' }}>
+    <div ref={ref} className={`relative ${className || ''}`} style={style || { width: '176px' }}>
       {/* Trigger */}
       <button
         type="button"

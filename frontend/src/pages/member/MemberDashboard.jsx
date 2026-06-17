@@ -575,18 +575,35 @@ function ProfileTab({ member, apiClient, refetch }) {
   const [saveError, setSaveError] = useState(null)
   const [saveOk, setSaveOk]   = useState(false)
   const [form, setForm] = useState({
-    full_name:         member.full_name || '',
-    phone:             member.phone || data.phone || '',
-    email:             member.email || '',
+    full_name: member?.full_name || '',
+    email: member?.email || '',
+    phone: member?.phone || '',
+    company_name: data?.organisation_name || data?.organization_name || data?.company_name || '',
+    designation: data?.designation || '',
+    address: data?.address || '',
+    city: data?.city || '',
+    state: data?.state || '',
+    pin_code: data?.pin_code || '',
   })
   const fileInputRef = useRef(null)
 
+  useEffect(() => {
+    if (!editing) {
+      setForm({
+        full_name: member?.full_name || '',
+        email: member?.email || '',
+        phone: member?.phone || '',
+        company_name: data?.organisation_name || data?.organization_name || data?.company_name || '',
+        designation: data?.designation || '',
+        address: data?.address || '',
+        city: data?.city || '',
+        state: data?.state || '',
+        pin_code: data?.pin_code || '',
+      })
+    }
+  }, [member, data, editing])
+
   function handleCancel() {
-    setForm({
-      full_name:         member.full_name || '',
-      phone:             member.phone || data.phone || '',
-      email:             member.email || '',
-    })
     setEditing(false)
     setSaveError(null)
   }
@@ -633,7 +650,7 @@ function ProfileTab({ member, apiClient, refetch }) {
     { label: 'Full Name',       value: member.full_name,        icon: User },
     { label: 'Email',           value: member.email,             icon: Mail },
     { label: 'Phone',           value: member.phone || data.phone, icon: Phone },
-    { label: 'Organisation',    value: data.organisation_name,   icon: Building2 },
+    { label: 'Organisation',    value: data.organisation_name || data.organization_name || data.company_name,   icon: Building2 },
     { label: 'Address',         value: data.address,             icon: MapPin },
     { label: 'Membership ID',   value: member.membership_id,     icon: Shield },
     { label: 'Gender',          value: data.gender,              icon: User },
@@ -657,7 +674,7 @@ function ProfileTab({ member, apiClient, refetch }) {
         <div className="card-body space-y-5">
           {/* Avatar */}
           <div className="flex items-center gap-4">
-            <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+            <div className="relative group cursor-pointer shrink-0" onClick={() => fileInputRef.current?.click()}>
               {data.profile_photo ? (
                 <img src={assetUrl(data.profile_photo)} alt="Profile" className="w-20 h-20 rounded-full object-cover border-2 border-primary-200 group-hover:opacity-75 transition-opacity"/>
               ) : (
@@ -672,8 +689,13 @@ function ProfileTab({ member, apiClient, refetch }) {
             </div>
             <div>
               <h4 className="text-xl font-bold text-gray-900">{member.full_name}</h4>
-              <p className="text-gray-500 text-sm">{member.email}</p>
-              <div className="mt-1"><MemberStatusBadge status={getMembershipStatus(member)}/></div>
+              <p className="text-gray-500 text-sm mb-1">{member.email}</p>
+              <div className="flex items-center gap-3">
+                <MemberStatusBadge status={getMembershipStatus(member)}/>
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="text-xs text-primary-600 font-medium hover:underline flex items-center gap-1">
+                  <Upload size={12}/> Change Photo
+                </button>
+              </div>
             </div>
           </div>
 
@@ -709,6 +731,42 @@ function ProfileTab({ member, apiClient, refetch }) {
                   <input className="input" value={form.phone}
                     onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
                     placeholder="+91 98765 43210"/>
+                </div>
+                <div>
+                  <label className="label">Company Name</label>
+                  <input className="input" value={form.company_name}
+                    onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))}
+                    placeholder="Company Name"/>
+                </div>
+                <div>
+                  <label className="label">Designation</label>
+                  <input className="input" value={form.designation}
+                    onChange={e => setForm(f => ({ ...f, designation: e.target.value }))}
+                    placeholder="Designation"/>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="label">Address</label>
+                  <input className="input" value={form.address}
+                    onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+                    placeholder="Full Address"/>
+                </div>
+                <div>
+                  <label className="label">City</label>
+                  <input className="input" value={form.city}
+                    onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
+                    placeholder="City"/>
+                </div>
+                <div>
+                  <label className="label">State</label>
+                  <input className="input" value={form.state}
+                    onChange={e => setForm(f => ({ ...f, state: e.target.value }))}
+                    placeholder="State"/>
+                </div>
+                <div>
+                  <label className="label">Pin/ZIP Code</label>
+                  <input className="input" value={form.pin_code}
+                    onChange={e => setForm(f => ({ ...f, pin_code: e.target.value }))}
+                    placeholder="Pin Code"/>
                 </div>
               </div>
               <div className="flex gap-3 pt-2">

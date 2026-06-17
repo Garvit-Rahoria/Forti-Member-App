@@ -73,9 +73,9 @@ export default function LinktreeManager({ links = [], apiClient, refetch }) {
     return match ? match[1] : null;
   }
 
-  const handleUrlBlur = (link) => {
-    let updates = { url: link.url };
-    const ytId = detectYouTubeId(link.url);
+  const handleUrlBlur = (link, currentUrl) => {
+    let updates = { url: currentUrl };
+    const ytId = detectYouTubeId(currentUrl);
     if (ytId && link.link_type !== 'youtube') {
        updates.link_type = 'youtube';
        toast.success("Detected YouTube Video!");
@@ -188,7 +188,7 @@ export default function LinktreeManager({ links = [], apiClient, refetch }) {
                                   <input 
                                     value={link.url || ''}
                                     onChange={e => setLocalLinks(localLinks.map(l => l.id === link.id ? { ...l, url: e.target.value } : l))}
-                                    onBlur={() => handleUrlBlur(link)}
+                                    onBlur={e => handleUrlBlur(link, e.target.value)}
                                     className="text-sm text-gray-500 bg-transparent border-none p-0 focus:ring-0 w-full placeholder-gray-400"
                                     placeholder="URL (e.g. https://...)"
                                   />

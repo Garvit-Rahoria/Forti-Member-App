@@ -43,8 +43,8 @@ export default function PublicFooter() {
             </div>
           </div>
         </div>
-        <div className="border-t border-white/10 mt-12 pt-8 text-center text-xs text-primary-300/60">
-          © {new Date().getFullYear()} FORTI. All rights reserved.
+        <div className="border-t border-white/10 mt-12 pt-8 text-center text-xs text-primary-300/60 relative">
+          © {new Date().getFullYear()} FORTI. All rights reserved. <a href="https://kaitensoftware.com" target="_blank"  className="absolute right-10 text-primary-200/80 hover:text-white transition" rel="noopener noreferrer">Powered by Kaiten Software</a>
         </div>
       </div>
     </footer>

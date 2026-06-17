@@ -782,8 +782,9 @@ router.post('/renewal/resubmit', memberAuth, upload.single('payment_screenshot')
 
 // ── PUT /api/member/profile ───────────────────────────────────────────────
 // Update full_name, phone, email (member_accounts and fb_submissions)
+// Also update other profile fields in fb_submissions.data
 router.put('/profile', memberAuth, async (req, res) => {
-  const { full_name, phone, email } = req.body;
+  const { full_name, phone, email, company_name, designation, address, city, state, pin_code } = req.body;
   try {
     const updates = [];
     const params = [];
@@ -796,15 +797,42 @@ router.put('/profile', memberAuth, async (req, res) => {
       await pool.query(`UPDATE member_accounts SET ${updates.join(', ')} WHERE id = ?`, params);
     }
     
-    if (email?.trim() || full_name?.trim() || phone !== undefined) {
+    const [[ma]] = await pool.query('SELECT submission_id FROM member_accounts WHERE id = ? LIMIT 1', [req.member.id]);
+    if (ma) {
       const subUpdates = [];
       const subParams = [];
       if (email?.trim()) { subUpdates.push('applicant_email = ?'); subParams.push(email.trim()); }
       if (full_name?.trim()) { subUpdates.push('applicant_name = ?'); subParams.push(full_name.trim()); }
       if (phone !== undefined) { subUpdates.push('applicant_phone = ?'); subParams.push(phone?.trim() || null); }
       
-      const [[ma]] = await pool.query('SELECT submission_id FROM member_accounts WHERE id = ? LIMIT 1', [req.member.id]);
-      if (ma && subUpdates.length) {
+      // Update JSON data
+      if (company_name !== undefined || designation !== undefined || address !== undefined || city !== undefined || state !== undefined || pin_code !== undefined) {
+        const [[sub]] = await pool.query('SELECT data FROM fb_submissions WHERE id = ? LIMIT 1', [ma.submission_id]);
+        if (sub) {
+          let dataObj = typeof sub.data === 'string' ? JSON.parse(sub.data || '{}') : (sub.data || {});
+          
+          if (company_name !== undefined) {
+            // Save as organisation_name for consistency with Admin
+            dataObj.organisation_name = company_name.trim();
+            // Also update fb_submission_data to keep reports and Admin list synced
+            await pool.query(
+              "UPDATE fb_submission_data SET value = ? WHERE submission_id = ? AND field_key IN ('organisation_name', 'organization_name', 'company_name')",
+              [company_name.trim(), ma.submission_id]
+            );
+          }
+          
+          if (designation !== undefined) dataObj.designation = designation.trim();
+          if (address !== undefined) dataObj.address = address.trim();
+          if (city !== undefined) dataObj.city = city.trim();
+          if (state !== undefined) dataObj.state = state.trim();
+          if (pin_code !== undefined) dataObj.pin_code = pin_code.trim();
+          
+          subUpdates.push('data = ?::jsonb');
+          subParams.push(JSON.stringify(dataObj));
+        }
+      }
+      
+      if (subUpdates.length) {
         subParams.push(ma.submission_id);
         await pool.query(`UPDATE fb_submissions SET ${subUpdates.join(', ')} WHERE id = ?`, subParams);
       }
@@ -830,7 +858,7 @@ router.post('/profile/photo', memberAuth, upload.single('photo'), async (req, re
         let data = {};
         try { data = typeof sub.data === 'string' ? JSON.parse(sub.data) : (sub.data || {}); } catch {}
         data.profile_photo = photoPath;
-        await pool.query('UPDATE fb_submissions SET data = ? WHERE id = ?', [JSON.stringify(data), ma.submission_id]);
+        await pool.query('UPDATE fb_submissions SET data = ?::jsonb WHERE id = ?', [JSON.stringify(data), ma.submission_id]);
       }
       
       await pool.query(

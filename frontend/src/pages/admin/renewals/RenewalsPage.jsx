@@ -27,6 +27,7 @@ import api from '../../../api/client'
 import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from 'react-hot-toast'
 import { fmtAmount } from '../../../utils/currency'
+import { DatePicker } from '../../../components/DatePicker'
 
 import { assetUrl as resolveAssetUrl } from '../../../utils/assetUrl'
 const VERIFY_DEFAULT = { action: 'approve', newExpiryDate: '', notes: '' }
@@ -962,20 +963,20 @@ export default function RenewalsPage() {
         <div className="grid gap-4 lg:grid-cols-[minmax(180px,auto)_minmax(180px,auto)_1fr]">
           <label className="flex min-w-0 items-center gap-2.5 text-sm text-gray-500">
             <CalendarDays size={15} className="shrink-0 text-gray-400" />
-            <input 
-              type="date"
-              className="input h-11 min-w-0 flex-1" 
+            <DatePicker 
+              className="h-11 min-w-0 flex-1" 
+              style={{ width: 'auto' }}
               value={startDate} 
-              onChange={event => { setStartDate(event.target.value); setDurationFilter(''); setPage(1) }}
+              onChange={val => { setStartDate(val); setDurationFilter(''); setPage(1) }}
             />
           </label>
           <label className="flex min-w-0 items-center gap-2.5 text-sm text-gray-500 text-center lg:text-left">
             <span className="shrink-0 hidden lg:inline">to</span>
-            <input 
-              type="date"
-              className="input h-11 min-w-0 flex-1" 
+            <DatePicker 
+              className="h-11 min-w-0 flex-1" 
+              style={{ width: 'auto' }}
               value={endDate} 
-              onChange={event => { setEndDate(event.target.value); setDurationFilter(''); setPage(1) }}
+              onChange={val => { setEndDate(val); setDurationFilter(''); setPage(1) }}
             />
           </label>
 
@@ -1170,13 +1171,12 @@ export default function RenewalsPage() {
                             {verifyForm.action === 'approve' && (
                               <div>
                                 <label className="label">New Expiry Date</label>
-                                <input
-                                  type="date"
+                                <DatePicker
                                   min={todayIso()}
-                                  className="input"
+                                  style={{ width: '100%' }}
                                   value={verifyForm.newExpiryDate}
-                                  onChange={event => {
-                                    setVerifyForm(current => ({ ...current, newExpiryDate: event.target.value }))
+                                  onChange={val => {
+                                    setVerifyForm(current => ({ ...current, newExpiryDate: val }))
                                     setVerifyErrors(current => ({ ...current, newExpiryDate: '' }))
                                   }}
                                 />
@@ -1268,13 +1268,12 @@ export default function RenewalsPage() {
 
               <div>
                 <label className="label">New Expiry Date</label>
-                <input
-                  type="date"
+                <DatePicker
                   min={todayIso()}
-                  className="input"
+                  style={{ width: '100%' }}
                   value={newForm.new_expiry_date}
-                  onChange={event => {
-                    setNewForm(current => ({ ...current, new_expiry_date: event.target.value }))
+                  onChange={val => {
+                    setNewForm(current => ({ ...current, new_expiry_date: val }))
                     setNewErrors(current => ({ ...current, new_expiry_date: '' }))
                   }}
                 />
@@ -1288,6 +1287,9 @@ export default function RenewalsPage() {
                   min="0"
                   className="input"
                   placeholder="0.00"
+                  onKeyDown={e => {
+                    if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') e.preventDefault()
+                  }}
                   value={newForm.amount}
                   onChange={event => {
                     setNewForm(current => ({ ...current, amount: event.target.value }))

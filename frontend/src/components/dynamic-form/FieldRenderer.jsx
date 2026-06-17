@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import api from '../../api/client'
+import { assetUrl } from '../../utils/assetUrl'
 
 /**
  * FieldRenderer – renders a single form field based on its type
@@ -271,17 +272,35 @@ function CityField({ value, onChange, commonProps }) {
 
 function PaymentMethodField({ value, onChange, commonProps }) {
   const [methods, setMethods] = useState([])
+  
   useEffect(() => {
-    api.get('/payments/methods/list').then(r => setMethods(r.data.data)).catch(() => {})
+    api.get('/payments/methods/list')
+      .then(r => {
+        const data = r.data.data
+        setMethods(data)
+        // Auto-select the first payment method if none is selected
+        if (data.length > 0 && !value) {
+          onChange(data[0].id)
+        }
+      })
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
   return (
     <div className="space-y-2">
       {methods.map(m => (
-        <label key={m.id} className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:border-primary-400 transition-colors">
-          <input type="radio" name={commonProps.name} value={m.id} checked={String(value) === String(m.id)} onChange={() => onChange(m.id)} className="mt-0.5" />
-          <div>
-            <p className="font-medium text-sm">{m.name}</p>
-            {m.instructions && <p className="text-xs text-gray-400 mt-0.5">{m.instructions}</p>}
+        <label key={m.id} className={`flex items-start gap-3 p-3 border rounded-xl cursor-pointer transition-colors ${String(value) === String(m.id) ? 'border-primary-500 bg-primary-50/30' : 'border-gray-200 hover:border-primary-300'}`}>
+          <input type="radio" name={commonProps.name} value={m.id} checked={String(value) === String(m.id)} onChange={() => onChange(m.id)} className="mt-0.5 accent-primary-600" />
+          <div className="flex-1">
+            <p className="font-semibold text-sm text-gray-900">{m.name}</p>
+            {m.instructions && <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{m.instructions}</p>}
+            {m.qr_image && String(value) === String(m.id) && (
+              <div className="mt-4 rounded-xl border border-gray-200 bg-white p-3 shadow-sm inline-block">
+                <img src={assetUrl(m.qr_image)} alt="Payment QR Code" className="w-40 h-40 object-contain rounded-lg bg-white border border-gray-100" />
+                <p className="mt-2 text-center text-xs font-medium text-gray-500">Scan to pay</p>
+              </div>
+            )}
           </div>
         </label>
       ))}
