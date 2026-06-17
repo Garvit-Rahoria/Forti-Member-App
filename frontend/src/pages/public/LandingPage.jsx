@@ -48,7 +48,6 @@ function Hero({ onApply }) {
             <div className="relative rounded-2xl overflow-hidden shadow-soft-lg">
               <div className="absolute inset-0 bg-gradient-chamber" />
               <div className="relative p-6 sm:p-7 text-white">
-                <div className="absolute top-3 left-4 text-7xl text-white/10 font-serif leading-none select-none">"</div>
                 <p className="relative text-sm sm:text-base leading-relaxed text-primary-50/95 italic pt-4">
                   FORTI is one big happy family that stays united and weathers every storm it faces.
                   It is an ever-increasing family with branches in every single district in Rajasthan

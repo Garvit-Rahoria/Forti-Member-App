@@ -1494,16 +1494,17 @@ export default function MembershipApplicationForm({ prefill = {} }) {
           </div>
           <div className="space-y-1.5">
             <label className="label">Gender *</label>
-            <select
-              className={getInputClassName('gender')}
+            <SearchableSelect
+              options={GENDER_OPTIONS.map(g => ({ value: g, label: g, searchText: g }))}
               value={form.gender}
-              data-field="gender"
-              aria-invalid={!!errors.gender}
-              onChange={e => handleFieldChange('gender', e.target.value)}
-              onBlur={() => validateField('gender')}>
-              <option value="">Select gender</option>
-              {GENDER_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
-            </select>
+              onChange={v => handleFieldChange('gender', v)}
+              onBlur={() => validateField('gender')}
+              placeholder="Select gender"
+              minQueryLength={0}
+              inputAriaInvalid={!!errors.gender}
+              inputClassName={errors.gender ? 'border-red-300 focus:border-red-500 focus:ring-red-200 bg-red-50/30' : ''}
+              dataField="gender"
+            />
             <FieldError msg={errors.gender} />
           </div>
           <div className="space-y-1.5">
@@ -1543,20 +1544,17 @@ export default function MembershipApplicationForm({ prefill = {} }) {
           </div>
           <div className="space-y-1.5">
             <label className="label">ID Type *</label>
-            <select
-              className={getInputClassName('id_type')}
+            <SearchableSelect
+              options={idTypeOptions}
               value={activeIdType}
-              data-field="id_type"
-              aria-invalid={!!errors.id_type}
-              name="membership_identity_type"
-              autoComplete="off"
-              data-lpignore="true"
-              data-1p-ignore="true"
-              data-form-type="other"
-              onChange={e => handleFieldChange('id_type', e.target.value, { relatedFields: ['id_type', identityFieldConfig.field] })}
-              onBlur={() => validateField('id_type', { relatedFields: ['id_type', identityFieldConfig.field] })}>
-              {idTypeOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
+              onChange={v => handleFieldChange('id_type', v, { relatedFields: ['id_type', identityFieldConfig.field] })}
+              onBlur={() => validateField('id_type', { relatedFields: ['id_type', identityFieldConfig.field] })}
+              placeholder="Select ID Type"
+              minQueryLength={0}
+              inputAriaInvalid={!!errors.id_type}
+              inputClassName={errors.id_type ? 'border-red-300 focus:border-red-500 focus:ring-red-200 bg-red-50/30' : ''}
+              dataField="id_type"
+            />
             <FieldError msg={errors.id_type} />
           </div>
           <div className="space-y-1.5">

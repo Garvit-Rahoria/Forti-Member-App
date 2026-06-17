@@ -177,6 +177,43 @@ function getRegistrationLabelFormat(query = {}) {
   return '%Y-%m';
 }
 
+function fillTrendData(rawData, valueKey, period = '12m') {
+  const labels = [];
+  const now = new Date();
+  
+  if (period === 'today') {
+    for (let i = 0; i <= 23; i++) {
+      labels.push(`${String(i).padStart(2, '0')}:00`);
+    }
+  } else if (period === '7d' || period === '30d' || period === '90d') {
+    const days = period === '7d' ? 7 : (period === '30d' ? 30 : 90);
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const date = String(d.getDate()).padStart(2, '0');
+      labels.push(`${year}-${month}-${date}`);
+    }
+  } else {
+    // 12m or default
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      labels.push(`${yyyy}-${mm}`);
+    }
+  }
+
+  const map = new Map();
+  rawData.forEach(row => map.set(row.label, row[valueKey]));
+
+  return labels.map(label => ({
+    label,
+    [valueKey]: map.get(label) || 0
+  }));
+}
+
 // GET /api/reports/dashboard  Summary stats
 router.get('/dashboard', async (req, res) => {
   try {
@@ -609,16 +646,17 @@ router.get('/advanced', async (req, res) => {
       submissionFilters.params
     );
 
-    const [revenueTrend] = await pool.query(
-      `SELECT DATE_FORMAT(p.created_at,'%Y-%m') AS month, COALESCE(SUM(p.amount),0) AS revenue
+    const [rawRevenueTrend] = await pool.query(
+      `SELECT DATE_FORMAT(p.created_at,'${regFormat}') AS label, COALESCE(SUM(p.amount),0) AS revenue
        FROM portal_payments p
        JOIN fb_submissions s ON s.id = p.submission_id
        LEFT JOIN portal_packages pp ON pp.id = s.package_id
        WHERE p.status = 'verified'${paymentFilters.clause}
-       GROUP BY month
-       ORDER BY month`,
+       GROUP BY label
+       ORDER BY label`,
       paymentFilters.params
     );
+    const revenueTrend = fillTrendData(rawRevenueTrend, 'revenue', req.query.period);
 
     const [[{ total_members }]] = await pool.query(
       `SELECT COUNT(*) AS total_members
@@ -673,9 +711,11 @@ router.get('/advanced', async (req, res) => {
       registrations.length === 0 &&
       expiring.length === 0;
 
+    const filledRegistrations = fillTrendData(registrations, 'count', req.query.period);
+
     return ok(res, {
       summary: { total_members, active_members, total_revenue, this_month_revenue },
-      registrations,
+      registrations: filledRegistrations,
       statusSummary,
       packagePerformance,
       topPackages,

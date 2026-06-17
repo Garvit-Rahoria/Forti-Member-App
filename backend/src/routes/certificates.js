@@ -5,6 +5,7 @@ const { pool } = require('../config/database');
 const { authMiddleware } = require('../middleware/auth');
 const { ok, fail, paginate } = require('../utils/helpers');
 const { createAuditLog } = require('../utils/auditLog');
+const { sendCertificateGenerated } = require('../utils/email');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -241,7 +242,7 @@ router.get('/:submissionId([0-9]+)', async (req, res) => {
   try {
     const [[member]] = await pool.query(
       `SELECT s.id, s.membership_id, s.applicant_name AS full_name, s.applicant_email,
-              s.expiry_date, s.status, s.member_status,
+              s.expiry_date, s.status, s.member_status, s.cert_generated,
               pp.name AS package_name, pp.duration_months
        FROM fb_submissions s
        LEFT JOIN portal_packages pp ON pp.id = s.package_id
@@ -263,6 +264,16 @@ router.get('/:submissionId([0-9]+)', async (req, res) => {
       [relPath, member.id]
     ).catch(() => {});
     createAuditLog(req.user?.id, 'GENERATE_CERTIFICATE', 'certificates', String(member.id), req.ip);
+
+    if (!member.cert_generated) {
+      const frontendUrl = process.env.FRONTEND_URL || process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
+      sendCertificateGenerated({
+        to: member.applicant_email,
+        name: member.full_name,
+        membershipId: member.membership_id || member.id,
+        dashboardUrl: frontendUrl
+      }).catch(err => console.error('Failed to send certificate generated email:', err));
+    }
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="certificate_${member.membership_id || member.id}.pdf"`);

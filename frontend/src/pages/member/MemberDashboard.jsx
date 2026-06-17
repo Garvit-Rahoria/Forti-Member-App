@@ -732,42 +732,6 @@ function ProfileTab({ member, apiClient, refetch }) {
                     onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
                     placeholder="+91 98765 43210"/>
                 </div>
-                <div>
-                  <label className="label">Company Name</label>
-                  <input className="input" value={form.company_name}
-                    onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))}
-                    placeholder="Company Name"/>
-                </div>
-                <div>
-                  <label className="label">Designation</label>
-                  <input className="input" value={form.designation}
-                    onChange={e => setForm(f => ({ ...f, designation: e.target.value }))}
-                    placeholder="Designation"/>
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="label">Address</label>
-                  <input className="input" value={form.address}
-                    onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
-                    placeholder="Full Address"/>
-                </div>
-                <div>
-                  <label className="label">City</label>
-                  <input className="input" value={form.city}
-                    onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
-                    placeholder="City"/>
-                </div>
-                <div>
-                  <label className="label">State</label>
-                  <input className="input" value={form.state}
-                    onChange={e => setForm(f => ({ ...f, state: e.target.value }))}
-                    placeholder="State"/>
-                </div>
-                <div>
-                  <label className="label">Pin/ZIP Code</label>
-                  <input className="input" value={form.pin_code}
-                    onChange={e => setForm(f => ({ ...f, pin_code: e.target.value }))}
-                    placeholder="Pin Code"/>
-                </div>
               </div>
               <div className="flex gap-3 pt-2">
                 <button onClick={handleSave} disabled={saving} className="btn-primary flex items-center gap-2">

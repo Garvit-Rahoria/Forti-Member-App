@@ -99,6 +99,35 @@ router.put('/', requireRole('super_admin'), async (req, res) => {
 });
 
 
+// POST /api/settings/email-templates/seed  Load default templates
+router.post('/email-templates/seed', requireRole('super_admin'), async (req, res) => {
+  const defaultTemplates = require('../utils/defaultEmailTemplates');
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    for (const t of defaultTemplates) {
+      const [result] = await conn.query(
+        'UPDATE email_templates SET subject = ?, body = ?, is_active = 1, updated_at = NOW() WHERE event_key = ?',
+        [t.subject, t.body, t.event_key]
+      );
+      if (result.affectedRows === 0) {
+        await conn.query(
+          'INSERT INTO email_templates (event_key, subject, body, is_active, created_at, updated_at) VALUES (?, ?, ?, 1, NOW(), NOW())',
+          [t.event_key, t.subject, t.body]
+        );
+      }
+    }
+    await conn.commit();
+    return ok(res, null, 'Default templates loaded successfully');
+  } catch (err) {
+    try { await conn.rollback(); } catch {}
+    console.error('Template seed error:', err);
+    return fail(res, 'Server error', 500);
+  } finally {
+    conn.release();
+  }
+});
+
 // GET /api/settings/email-templates  List email templates
 router.get('/email-templates', async (req, res) => {
   try {

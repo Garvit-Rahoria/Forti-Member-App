@@ -751,8 +751,8 @@ export function TransactionsPage() {
   const [q, setQ]                     = useState('')
   const [status, setStatus]           = useState('')
   const [methodFilter, setMethodFilter] = useState('')
-  const [dateFrom, setDateFrom]       = useState(() => daysAgoStr(30))
-  const [dateTo, setDateTo]           = useState(() => todayStr())
+  const [dateFrom, setDateFrom]       = useState('')
+  const [dateTo, setDateTo]           = useState('')
   const [page, setPage]               = useState(1)
   const [viewPayment, setViewPayment]     = useState(null)
   const [paymentAction, setPaymentAction] = useState(null)  // { type: 'verify'|'reject', payment }
@@ -760,8 +760,8 @@ export function TransactionsPage() {
   const [invoiceLoading, setInvoiceLoading] = useState(null)
 
   function clearDateFilter() {
-    setDateFrom(daysAgoStr(30))
-    setDateTo(todayStr())
+    setDateFrom('')
+    setDateTo('')
   }
 
   const { data, isLoading } = useQuery({
@@ -875,7 +875,7 @@ export function TransactionsPage() {
         </select>
         <DatePicker value={dateFrom} onChange={v => { setDateFrom(v); setPage(1) }} max={dateTo || todayStr()} placeholder="From date" />
         <DatePicker value={dateTo}   onChange={v => { setDateTo(v);   setPage(1) }} max={todayStr()}           placeholder="To date" />
-        <button className="btn-outline btn-sm whitespace-nowrap" onClick={clearDateFilter} title="Reset to last 30 days">
+        <button className="btn-outline btn-sm whitespace-nowrap" onClick={clearDateFilter} title="Clear date filter">
           Reset Dates
         </button>
       </div>

@@ -278,7 +278,7 @@ export default function Reports() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#eef2f7" />
-                    <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
                     <YAxis
                       tick={{ fontSize: 11, fill: '#6b7280' }}
                       axisLine={false}

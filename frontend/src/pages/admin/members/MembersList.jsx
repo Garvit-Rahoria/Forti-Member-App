@@ -193,7 +193,6 @@ export default function MembersList() {
         <select className="input w-36" value={memberStatus} onChange={e => { setMemberStatus(e.target.value); setPage(1) }}>
           <option value="">All Status</option>
           <option value="active">Active</option>
-          <option value="suspended">Suspended</option>
           <option value="expired">Expired</option>
           <option value="inactive">Inactive</option>
         </select>

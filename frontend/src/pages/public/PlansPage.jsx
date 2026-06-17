@@ -22,7 +22,6 @@ function canMatchPlan({ membershipType, planType, locationType }) {
 const MEMBERSHIP_TYPES = [
   { value: 'individual',   label: 'Individual',   icon: '👤', desc: 'For individual professionals, consultants, freelancers, students' },
   { value: 'corporate',    label: 'Corporate',    icon: '🏢', desc: 'For companies, organisations, and enterprises' },
-  { value: 'overseas',     label: 'Overseas',     icon: '🌍', desc: 'For international members outside India' },
 ]
 
 const PLAN_TYPES = [
@@ -91,10 +90,7 @@ export default function PlansPage() {
   const navigate = useNavigate()
   const [membershipType, setMembershipType] = useState('individual')
   const [planType, setPlanType] = useState('1year')
-  const [indiaRegion, setIndiaRegion] = useState('rajasthan')
-  const isOverseas = membershipType === 'overseas'
-
-  const locationType = isOverseas ? 'overseas' : indiaRegion
+  const [locationType, setLocationType] = useState('rajasthan')
 
   const matchReady = canMatchPlan({ membershipType, planType, locationType })
 
@@ -164,21 +160,23 @@ export default function PlansPage() {
           </div>
 
           {/* Location Selection */}
-          {!isOverseas && (
-            <div className="mb-5">
-              <label className="label mb-2">Location</label>
-              <div className="flex flex-wrap gap-3">
-                <button onClick={() => setIndiaRegion('rajasthan')}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 font-semibold text-sm transition ${indiaRegion === 'rajasthan' ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
-                  Rajasthan
-                </button>
-                <button onClick={() => setIndiaRegion('other_states')}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 font-semibold text-sm transition ${indiaRegion === 'other_states' ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
-                  Other Indian States
-                </button>
-              </div>
+          <div className="mb-5">
+            <label className="label mb-2">Location</label>
+            <div className="flex flex-wrap gap-3">
+              <button onClick={() => setLocationType('rajasthan')}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 font-semibold text-sm transition ${locationType === 'rajasthan' ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                Rajasthan
+              </button>
+              <button onClick={() => setLocationType('other_states')}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 font-semibold text-sm transition ${locationType === 'other_states' ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                Other Indian States
+              </button>
+              <button onClick={() => setLocationType('overseas')}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 font-semibold text-sm transition ${locationType === 'overseas' ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                <Globe size={16} /> Overseas
+              </button>
             </div>
-          )}
+          </div>
 
         </div>
 

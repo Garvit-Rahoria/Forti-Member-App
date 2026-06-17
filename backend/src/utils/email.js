@@ -376,15 +376,56 @@ async function baseTemplate(content) {
   </div></body></html>`;
 }
 
+
+// ── Dynamic DB Templates ───────────────────────────────────────────────────
+async function getEmailTemplate(eventKey) {
+  const [rows] = await pool.query('SELECT * FROM email_templates WHERE event_key=? AND is_active=1 LIMIT 1', [eventKey]);
+  return rows[0] || null;
+}
+
+function renderTemplate(str, vars = {}) {
+  if (!str) return '';
+  return str.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k) => (vars[k] ?? ''));
+}
+
+function stripHtmlWrapper(body = '') {
+  let content = String(body || '').trim();
+  if (!content) return '';
+  const hasHtmlWrapper = /^<!doctype\s+html/i.test(content) || /<html[\s>]/i.test(content);
+  if (!hasHtmlWrapper) return content;
+  const bodyMatch = content.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  if (bodyMatch?.[1]) return bodyMatch[1].trim();
+  content = content
+    .replace(/<!doctype[^>]*>/gi, '')
+    .replace(/<html[^>]*>/gi, '')
+    .replace(/<\/html>/gi, '')
+    .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, '')
+    .replace(/<body[^>]*>/gi, '')
+    .replace(/<\/body>/gi, '')
+    .trim();
+  return content;
+}
+
+async function sendTemplatedEmail(eventKey, to, vars, sendEmailFn) {
+  const tpl = await getEmailTemplate(eventKey);
+  if (!tpl) return false;
+  const subject    = renderTemplate(tpl.subject, vars);
+  const rawBody    = stripHtmlWrapper(renderTemplate(tpl.body, vars));
+  const wrappedBody = await baseTemplate(rawBody);
+  await sendEmailFn(to, subject, wrappedBody);
+  return true;
+}
+
 // ── OTP email ──────────────────────────────────────────────────────────────
 async function sendOTP({ to, name, otp, purpose = 'apply' }) {
+  const [[setting]] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'otp_expiry_time'");
+  const expiryTime = setting?.setting_value || '10';
+  if (await sendTemplatedEmail('otp_verification', to, { name, otp, purpose, expiryTime }, async (t, s, b) => sendMail({ to: t, subject: s, html: b, template: 'otp_verification', refId: to }))) return;
+
   const isLogin = purpose === 'login';
   const subject = isLogin
     ? 'Your FORTI Member Portal Login OTP'
     : 'Your FORTI Membership Application — OTP Verification';
-
-  const [[setting]] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'otp_expiry_time'");
-  const expiryTime = setting?.setting_value || '10';
 
   const html = await baseTemplate(`
     <p class="greeting">Hello${name ? `, <strong>${name}</strong>` : ''},</p>
@@ -403,6 +444,8 @@ async function sendOTP({ to, name, otp, purpose = 'apply' }) {
 
 // ── Application submitted ──────────────────────────────────────────────────
 async function sendApplicationSubmitted({ to, name, membershipId, submissionUuid }) {
+  if (!(await sendTemplatedEmail('application_submitted', to, { name, membershipId, submissionUuid }, async (t, s, b) => sendMail({ to: t, subject: s, html: b, template: 'application_submitted', refId: membershipId })))) {
+
   const subject = 'Application Received — FORTI Membership';
   const html = await baseTemplate(`
     <p class="greeting">Dear <strong>${name}</strong>,</p>
@@ -419,10 +462,14 @@ async function sendApplicationSubmitted({ to, name, membershipId, submissionUuid
 
   await sendMail({ to, subject, html, template: 'application_submitted', refId: membershipId });
 
+  } // End of application_submitted fallback
+  
   // Notify admin
   const { adminEmail: adminAddr } = await getSmtpConfig();
+
   if (adminAddr) {
-    const adminHtml = await baseTemplate(`
+    if (!(await sendTemplatedEmail('admin_new_application', adminAddr, { name, email: to, membershipId }, async (t, s, b) => sendMail({ to: t, subject: s, html: b, template: 'admin_new_application', refId: membershipId })))) {
+      const adminHtml = await baseTemplate(`
       <p class="greeting">New Membership Application</p>
       <p>A new membership application has been submitted and is awaiting review.</p>
       <div class="info-box">
@@ -432,12 +479,15 @@ async function sendApplicationSubmitted({ to, name, membershipId, submissionUuid
       </div>
       <p>Please log in to the admin portal to review and process this application.</p>
     `);
-    await sendMail({ to: adminAddr, subject: `New Application: ${name} — FORTI Portal`, html: adminHtml, template: 'admin_new_application', refId: membershipId });
+      await sendMail({ to: adminAddr, subject: `New Application: ${name} — FORTI Portal`, html: adminHtml, template: 'admin_new_application', refId: membershipId });
+    }
   }
 }
 
 // ── Application under review ───────────────────────────────────────────────
 async function sendApplicationUnderReview({ to, name, membershipId }) {
+  if (await sendTemplatedEmail('application_under_review', to, { name, membershipId }, async (t, s, b) => sendMail({ to: t, subject: s, html: b, template: 'application_under_review', refId: membershipId }))) return;
+
   const subject = 'Your FORTI Membership Application is Under Review';
   const html = await baseTemplate(`
     <p class="greeting">Dear <strong>${name}</strong>,</p>
@@ -457,6 +507,8 @@ async function sendApplicationUnderReview({ to, name, membershipId }) {
 
 // ── Application approved ───────────────────────────────────────────────────
 async function sendApplicationApproved({ to, name, membershipId }) {
+  if (await sendTemplatedEmail('application_approved', to, { name, membershipId }, async (t, s, b) => sendMail({ to: t, subject: s, html: b, template: 'application_approved', refId: membershipId }))) return;
+
   const subject = 'Congratulations! Your FORTI Membership is Approved';
   const html = await baseTemplate(`
     <p class="greeting">Dear <strong>${name}</strong>,</p>
@@ -482,6 +534,8 @@ async function sendApplicationApproved({ to, name, membershipId }) {
 
 // ── Application rejected ───────────────────────────────────────────────────
 async function sendApplicationRejected({ to, name, membershipId, reason }) {
+  if (await sendTemplatedEmail('application_rejected', to, { name, membershipId, reason }, async (t, s, b) => sendMail({ to: t, subject: s, html: b, template: 'application_rejected', refId: membershipId }))) return;
+
   const subject = 'Update on Your FORTI Membership Application';
   const html = await baseTemplate(`
     <p class="greeting">Dear <strong>${name}</strong>,</p>
@@ -500,6 +554,8 @@ async function sendApplicationRejected({ to, name, membershipId, reason }) {
 
 // ── Payment confirmed ──────────────────────────────────────────────────────
 async function sendPaymentConfirmed({ to, name, membershipId, amount, currency = 'INR', transactionId }) {
+  if (await sendTemplatedEmail('payment_confirmed', to, { name, membershipId, amount, currency, transactionId }, async (t, s, b) => sendMail({ to: t, subject: s, html: b, template: 'payment_confirmed', refId: membershipId }))) return;
+
   const subject = 'Payment Verified — FORTI Membership Activation in Progress';
   const html = await baseTemplate(`
     <p class="greeting">Dear <strong>${name}</strong>,</p>
@@ -525,6 +581,8 @@ async function sendPaymentConfirmed({ to, name, membershipId, amount, currency =
 
 // ── Membership confirmed (with credentials) ───────────────────────────────
 async function sendMembershipConfirmed({ to, name, membershipId, loginUrl }) {
+  if (await sendTemplatedEmail('membership_confirmed', to, { name, membershipId, loginUrl }, async (t, s, b) => sendMail({ to: t, subject: s, html: b, template: 'membership_confirmed', refId: membershipId }))) return;
+
   const subject = `Welcome to FORTI, ${name}! Your Membership is Now Active`;
   const html = await baseTemplate(`
     <p class="greeting">Dear <strong>${name}</strong>,</p>
@@ -552,6 +610,8 @@ async function sendMembershipConfirmed({ to, name, membershipId, loginUrl }) {
 
 // ── Payment submitted (admin notification) ─────────────────────────────────
 async function sendPaymentSubmitted({ to, name, membershipId, amount, currency = 'INR', transactionId, adminEmail }) {
+  if (!(await sendTemplatedEmail('payment_submitted', to, { name, membershipId, amount, currency, transactionId }, async (t, s, b) => sendMail({ to: t, subject: s, html: b, template: 'payment_submitted', refId: membershipId })))) {
+
   const userHtml = await baseTemplate(`
     <p class="greeting">Dear <strong>${name}</strong>,</p>
     <p>Thank you! We have received your payment details and they are currently <strong>under verification</strong> by our team.</p>
@@ -567,10 +627,12 @@ async function sendPaymentSubmitted({ to, name, membershipId, amount, currency =
   `);
   await sendMail({ to, subject: 'Payment Submitted — FORTI Membership', html: userHtml, template: 'payment_submitted', refId: membershipId });
 
+  } // End of payment_submitted fallback
   const { adminEmail: adminAddr2 } = await getSmtpConfig();
   const notifyTo = adminEmail || adminAddr2;
   if (notifyTo) {
-    const adminHtml = await baseTemplate(`
+    if (!(await sendTemplatedEmail('admin_payment_submitted', notifyTo, { name, email: to, membershipId, amount, currency, transactionId }, async (t, s, b) => sendMail({ to: t, subject: s, html: b, template: 'admin_payment_submitted', refId: membershipId })))) {
+      const adminHtml = await baseTemplate(`
       <p class="greeting">Payment Pending Verification</p>
       <p>A member has submitted payment proof and is awaiting verification.</p>
       <div class="info-box">
@@ -582,12 +644,15 @@ async function sendPaymentSubmitted({ to, name, membershipId, amount, currency =
       </div>
       <p>Please log in to the admin portal to verify this payment and process the application.</p>
     `);
-    await sendMail({ to: notifyTo, subject: `Payment Pending: ${name} — FORTI Portal`, html: adminHtml, template: 'admin_payment_submitted', refId: membershipId });
+      await sendMail({ to: notifyTo, subject: `Payment Pending: ${name} — FORTI Portal`, html: adminHtml, template: 'admin_payment_submitted', refId: membershipId });
+    }
   }
 }
 
 // ── Invoice generated ──────────────────────────────────────────────────────
 async function sendInvoiceGenerated({ to, name, membershipId, invoiceNumber, amount, currency = 'INR', invoiceUrl }) {
+  if (await sendTemplatedEmail('invoice_generated', to, { name, membershipId, invoiceNumber, amount, currency, invoiceUrl }, async (t, s, b) => sendMail({ to: t, subject: s, html: b, template: 'invoice_generated', refId: membershipId }))) return;
+
   const subject = `Tax Invoice ${invoiceNumber} — FORTI Membership`;
   const html = await baseTemplate(`
     <p class="greeting">Dear <strong>${name}</strong>,</p>
@@ -608,6 +673,8 @@ async function sendInvoiceGenerated({ to, name, membershipId, invoiceNumber, amo
 
 // ── Certificate generated ──────────────────────────────────────────────────
 async function sendCertificateGenerated({ to, name, membershipId, dashboardUrl }) {
+  if (await sendTemplatedEmail('certificate_generated', to, { name, membershipId, dashboardUrl }, async (t, s, b) => sendMail({ to: t, subject: s, html: b, template: 'certificate_generated', refId: membershipId }))) return;
+
   const subject = 'Your FORTI Membership Certificate & ID Card Are Ready';
   const html = await baseTemplate(`
     <p class="greeting">Dear <strong>${name}</strong>,</p>
@@ -628,8 +695,10 @@ async function sendCertificateGenerated({ to, name, membershipId, dashboardUrl }
 
 // ── Renewal reminder ───────────────────────────────────────────────────────
 async function sendRenewalReminder({ to, name, membershipId, expiryDate, daysLeft }) {
-  const subject = `Action Required: FORTI Membership Expiring in ${daysLeft} Day${daysLeft !== 1 ? 's' : ''}`;
   const formattedDate = new Date(expiryDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+  if (await sendTemplatedEmail('renewal_reminder', to, { name, membershipId, expiryDate, daysLeft, formattedDate }, async (t, s, b) => sendMail({ to: t, subject: s, html: b, template: 'renewal_reminder', refId: membershipId }))) return;
+
+  const subject = `Action Required: FORTI Membership Expiring in ${daysLeft} Day${daysLeft !== 1 ? 's' : ''}`;
   const urgencyColor = daysLeft <= 7 ? '#fee2e2' : daysLeft <= 30 ? '#fff7ed' : '#f0fdf4';
   const urgencyBorderColor = daysLeft <= 7 ? '#fca5a5' : daysLeft <= 30 ? '#fed7aa' : '#86efac';
   const urgencyTextColor = daysLeft <= 7 ? '#991b1b' : daysLeft <= 30 ? '#9a3412' : '#166534';

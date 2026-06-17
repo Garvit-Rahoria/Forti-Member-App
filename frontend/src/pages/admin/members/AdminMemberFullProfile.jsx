@@ -188,7 +188,6 @@ function MemberEditForm({ member, parsedData, onCancel, onSuccess }) {
             <label className="block text-xs font-semibold text-gray-700 mb-1">Status</label>
             <select name="member_status" value={formData.member_status} onChange={handleChange} className="input w-full">
               <option value="active">Active</option>
-              <option value="suspended">Suspended</option>
               <option value="expired">Expired</option>
               <option value="inactive">Inactive</option>
             </select>

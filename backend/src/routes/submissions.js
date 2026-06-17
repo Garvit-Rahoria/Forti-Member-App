@@ -5,7 +5,6 @@ const { upload } = require('../middleware/upload');
 const { ok, fail, paginate } = require('../utils/helpers');
 const { createAuditLog } = require('../utils/auditLog');
 const { sendApplicationApproved, sendApplicationRejected, sendMembershipConfirmed } = require('../utils/email');
-const { sendTemplatedEmail } = require('../utils/emailTemplates');
 const { sendMail } = require('../utils/email');
 
 const router = express.Router();

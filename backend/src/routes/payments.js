@@ -12,7 +12,6 @@ const {
   sendInvoiceGenerated,
   sendCertificateGenerated,
 } = require('../utils/email');
-const { sendTemplatedEmail } = require('../utils/emailTemplates');
 const { sendMail } = require('../utils/email');
 const { extractCountryNameFromSubmissionData, getCurrencyCodeByCountry } = require('../utils/membershipCurrency');
 

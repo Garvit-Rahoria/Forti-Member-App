@@ -3,29 +3,39 @@ import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../../../api/client'
 import toast from 'react-hot-toast'
-import { Edit3, Eye, X, Save, Loader2, Trash2 } from 'lucide-react'
+import { Edit3, Eye, X, Save, Loader2, Trash2, DownloadCloud } from 'lucide-react'
 
 const EVENT_KEYS = [
+  'otp_verification',
   'application_submitted',
+  'admin_new_application',
+  'application_under_review',
   'application_approved',
   'application_rejected',
-  'under_review',
-  'approved',
-  'rejected',
-  'payment_pending',
   'payment_submitted',
-  'payment_verified',
-  'payment_verified_activation',
-  'member_activated',
-  'membership_expiry_90',
-  'membership_expiry_30',
-  'membership_expiry_7',
-  'membership_expired',
-  'renewal_confirmation',
-  'request_more_info',
-  'otp_verification',
-  'password_set',
+  'admin_payment_submitted',
+  'payment_confirmed',
+  'membership_confirmed',
+  'invoice_generated',
+  'certificate_generated',
+  'renewal_reminder',
 ]
+
+const EVENT_VARIABLES = {
+  otp_verification: ['name', 'otp', 'purpose', 'expiryTime'],
+  application_submitted: ['name', 'membershipId', 'submissionUuid'],
+  admin_new_application: ['name', 'email', 'membershipId'],
+  application_under_review: ['name', 'membershipId'],
+  application_approved: ['name', 'membershipId'],
+  application_rejected: ['name', 'membershipId', 'reason'],
+  payment_submitted: ['name', 'membershipId', 'amount', 'currency', 'transactionId'],
+  admin_payment_submitted: ['name', 'email', 'membershipId', 'amount', 'currency', 'transactionId'],
+  payment_confirmed: ['name', 'membershipId', 'amount', 'currency', 'transactionId'],
+  membership_confirmed: ['name', 'membershipId', 'loginUrl'],
+  invoice_generated: ['name', 'membershipId', 'invoiceNumber', 'amount', 'currency', 'invoiceUrl'],
+  certificate_generated: ['name', 'membershipId', 'dashboardUrl'],
+  renewal_reminder: ['name', 'membershipId', 'expiryDate', 'daysLeft', 'formattedDate'],
+}
 
 export default function EmailTemplatesPage() {
   const qc = useQueryClient()
@@ -58,6 +68,15 @@ export default function EmailTemplatesPage() {
     onError: err => toast.error(err.response?.data?.message || 'Delete failed'),
   })
 
+  const seedMut = useMutation({
+    mutationFn: () => api.post('/settings/email-templates/seed'),
+    onSuccess: () => {
+      qc.invalidateQueries(['email-templates'])
+      toast.success('Default templates loaded successfully')
+    },
+    onError: err => toast.error(err.response?.data?.message || 'Failed to load default templates'),
+  })
+
   function openEdit(tpl) {
     setEditing(tpl)
     setForm({ ...tpl })
@@ -77,8 +96,20 @@ export default function EmailTemplatesPage() {
         <h2 className="text-2xl font-bold text-gray-900">Email Templates</h2>
         <p className="text-gray-500 text-sm mt-1">Manage automated email notifications sent to members</p>
       </div>
-      <div className="mb-4">
+      <div className="mb-4 flex items-center gap-3">
         <button className="btn-primary btn-sm" onClick={() => { setEditing({}); setForm({ event_key: '', subject: '', body: '', is_active: 1 }) }}>+ New Template</button>
+        <button 
+          className="btn-secondary btn-sm flex items-center gap-1.5" 
+          onClick={() => {
+            if (window.confirm('This will overwrite existing default templates and insert missing ones. Continue?')) {
+              seedMut.mutate()
+            }
+          }}
+          disabled={seedMut.isPending}
+        >
+          {seedMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <DownloadCloud className="w-4 h-4" />}
+          Load Default Templates
+        </button>
       </div>
 
       {isLoading ? (
@@ -150,10 +181,20 @@ export default function EmailTemplatesPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Body <span className="text-gray-400 font-normal">(supports &#123;&#123;name&#125;&#125;, &#123;&#123;membership_id&#125;&#125;, &#123;&#123;reason&#125;&#125;, etc.)</span>
+                  Body
                 </label>
                 <textarea className="input w-full font-mono text-xs" rows={12} value={form.body || ''}
                   onChange={e => setForm(f => ({ ...f, body: e.target.value }))} />
+                {form.event_key && EVENT_VARIABLES[form.event_key] && (
+                  <p className="text-xs text-primary-600 mt-2 bg-primary-50 p-2 rounded border border-primary-100">
+                    <span className="font-semibold text-primary-800">Available variables: </span>
+                    {EVENT_VARIABLES[form.event_key].map(v => (
+                      <span key={v} className="inline-block mr-2 mb-1 font-mono bg-white px-1 py-0.5 rounded shadow-sm border border-primary-100">
+                        &#123;&#123;{v}&#125;&#125;
+                      </span>
+                    ))}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="inline-flex items-center gap-2">
@@ -189,10 +230,31 @@ export default function EmailTemplatesPage() {
                 <X size={20} />
               </button>
             </div>
-            <div className="p-6 overflow-y-auto flex-1">
+            <div className="p-6 overflow-y-auto flex-1 bg-gray-100">
               {preview.body ? (
-                <div className="border rounded-lg p-4 bg-gray-50 prose prose-sm max-w-none whitespace-pre-line text-sm text-gray-800">
-                  {preview.body}
+                <div className="max-w-xl mx-auto bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200">
+                  {/* Mock Email Header */}
+                  <div className="bg-gradient-to-br from-primary-700 to-primary-600 p-6 text-center text-white">
+                    <div className="font-black text-2xl tracking-widest mb-1">FORTI</div>
+                    <div className="text-[10px] font-semibold text-primary-200 tracking-widest uppercase">Federation of Rajasthan Trade & Industry</div>
+                    <div className="w-10 h-[2px] bg-white/30 mx-auto my-3"></div>
+                    <div className="text-sm font-semibold">{preview.subject}</div>
+                  </div>
+                  
+                  {/* Actual User Template Content */}
+                  <div className="p-6 prose prose-sm max-w-none whitespace-pre-line text-sm text-gray-800">
+                    {preview.body}
+                  </div>
+                  
+                  {/* Mock Email Footer */}
+                  <div className="bg-gray-50 border-t p-6 text-center text-xs text-gray-400">
+                    <div className="font-bold text-primary-700 mb-1">FORTI</div>
+                    <div>Federation of Rajasthan Trade & Industry</div>
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      © {new Date().getFullYear()} FORTI. All rights reserved.<br/>
+                      This is an automated email.
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <p className="text-gray-400 text-center py-8">No template body yet. Click Edit to add content.</p>

@@ -6,6 +6,7 @@ const { createAuditLog } = require('../utils/auditLog');
 const path = require('path');
 const fs = require('fs');
 const { extractCountryNameFromSubmissionData, getCurrencyCodeByCountry } = require('../utils/membershipCurrency');
+const { sendInvoiceGenerated } = require('../utils/email');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -217,6 +218,7 @@ router.post('/member/:submissionId([0-9]+)/generate', requireRole('super_admin',
     const [[existing]] = await pool.query(checkQuery, [checkParam]);
 
     let invoiceId;
+    let isNewInvoice = false;
     if (existing) {
       // Update existing invoice with correct amount if it was 0
       await pool.query(
@@ -238,9 +240,24 @@ router.post('/member/:submissionId([0-9]+)/generate', requireRole('super_admin',
         ]
       );
       invoiceId = r.insertId;
+      isNewInvoice = true;
     }
 
     createAuditLog(req.user.id, 'GENERATE_INVOICE', 'invoices', String(invoiceId), req.ip);
+
+    if (isNewInvoice) {
+      const frontendUrl = process.env.FRONTEND_URL || process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
+      sendInvoiceGenerated({
+        to: sub.applicant_email,
+        name: sub.applicant_name,
+        membershipId: sub.membership_id || sub.id,
+        invoiceNumber: invoiceNum,
+        amount: total,
+        currency: derivedCurrency,
+        invoiceUrl: `${frontendUrl}/member/invoices`
+      }).catch(err => console.error('Failed to send invoice generated email:', err));
+    }
+
     return ok(res, { id: invoiceId, invoice_number: invoiceNum }, 'Invoice ready');
   } catch (err) { console.error(err); return fail(res, 'Server error', 500); }
 });

@@ -31,7 +31,7 @@ export default function BlogNavDropdown({ item }) {
         <ChevronDown size={14} className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-2 min-w-[240px] glass-card py-2 z-50 animate-fade-in-up shadow-soft-lg border-primary-100/60">
+        <div className="absolute top-full left-0 mt-2 min-w-[240px] bg-white rounded-2xl py-2 z-50 animate-fade-in-up shadow-soft-lg border border-primary-100/60">
           <Link to={path} className="block px-4 py-2.5 text-sm font-semibold text-primary-700 hover:bg-primary-50/80 border-b border-primary-100/50 mx-2 mb-1 rounded-lg"
             onClick={() => setOpen(false)}>
             All {item.label}
