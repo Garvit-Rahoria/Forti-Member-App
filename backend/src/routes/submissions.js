@@ -467,7 +467,10 @@ router.get('/detail/:id', async (req, res) => {
         `SELECT pp.*, pm.name AS method_name, pm.type AS method_type, pm.instructions
          FROM portal_payments pp
          LEFT JOIN portal_payment_methods pm ON pm.id = pp.method_id
-         WHERE pp.submission_id = ? LIMIT 1`,
+         WHERE pp.submission_id = ?
+           AND pp.status NOT IN ('superseded', 'reset')
+         ORDER BY pp.id DESC
+         LIMIT 1`,
         [sub.id]
       );
       if (payment) sub.payment = payment;

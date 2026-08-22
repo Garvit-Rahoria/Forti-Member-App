@@ -17,6 +17,7 @@ const METHOD_TYPES = [
 const EMPTY = {
   name: '', type: 'upi',
   account_name: '', bank_name: '', account_number: '', ifsc_code: '', upi_id: '', swift_code: '',
+  branch_name: '', account_type: 'Current', routing_number: '', currency: 'USD',
   iban: '', bank_address: '',
   instructions: '', is_active: 1, is_default: 0, sort_order: 0, location: '', country_code: '', country_name: '',
 }
@@ -112,7 +113,7 @@ function MethodModal({ method, onClose, onSave, saving }) {
                     placeholder="HDFC Bank" />
                 </div>
                 <div>
-                  <label className="label">Account Number</label>
+                  <label className="label">Account Number <span className="text-gray-400 font-normal">(optional if IBAN set)</span></label>
                   <input className="input font-mono" value={d.account_number || ''}
                     onChange={e => set('account_number', e.target.value)}
                     placeholder="1234567890123" />
@@ -122,6 +123,21 @@ function MethodModal({ method, onClose, onSave, saving }) {
                   <input className="input font-mono" value={d.ifsc_code || ''}
                     onChange={e => set('ifsc_code', e.target.value.toUpperCase())}
                     placeholder="HDFC0001234" maxLength={11} />
+                </div>
+                <div>
+                  <label className="label">Branch</label>
+                  <input className="input" value={d.branch_name || ''}
+                    onChange={e => set('branch_name', e.target.value)}
+                    placeholder="Jaipur Main Branch" />
+                </div>
+                <div>
+                  <label className="label">Account Type</label>
+                  <select className="input" value={d.account_type || 'Current'}
+                    onChange={e => set('account_type', e.target.value)}>
+                    <option value="Current">Current</option>
+                    <option value="Savings">Savings</option>
+                    <option value="Other">Other</option>
+                  </select>
                 </div>
                 {isIntl && (
                   <div>
@@ -145,6 +161,21 @@ function MethodModal({ method, onClose, onSave, saving }) {
                     <input className="input" value={d.bank_address || ''}
                       onChange={e => set('bank_address', e.target.value)}
                       placeholder="123 Bank St, Mumbai, India" />
+                  </div>
+                  <div>
+                    <label className="label">Routing Number <span className="text-gray-400 font-normal">(if applicable)</span></label>
+                    <input className="input font-mono" value={d.routing_number || ''}
+                      onChange={e => set('routing_number', e.target.value)}
+                      placeholder="021000021" />
+                  </div>
+                  <div>
+                    <label className="label">Settlement Currency</label>
+                    <select className="input" value={d.currency || 'USD'}
+                      onChange={e => set('currency', e.target.value)}>
+                      {['USD', 'EUR', 'GBP', 'AED', 'SGD', 'AUD', 'CAD', 'INR'].map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               )}

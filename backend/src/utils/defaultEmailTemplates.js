@@ -1,17 +1,18 @@
 const templates = [
   {
     event_key: 'otp_verification',
-    subject: 'Your FORTI Member Portal Login OTP',
+    subject: 'Your FORTI Membership Portal — OTP Verification',
     body: `
 <p class="greeting">Hello {{name}},</p>
-<p>Use this OTP to securely log in to your FORTI Member Dashboard or verify your identity.</p>
+<p>Use the verification code below to verify your identity on the FORTI Membership Portal.</p>
 <div class="otp-box">
   <div class="otp">{{otp}}</div>
-  <p class="otp-hint">Valid for <strong>{{expiryTime}} minutes</strong> &bull; Single use only</p>
+  <p class="otp-hint">Valid for <strong>{{expiryTime}} minutes</strong> &bull; One-time use only</p>
 </div>
 <div class="warning-box">
-  &#9888;&#65039; Never share this OTP with anyone. FORTI staff will <strong>never</strong> ask for your OTP.
+  <strong>Security tip:</strong> Never share this OTP with anyone. FORTI staff will never ask for your OTP.
 </div>
+<p style="font-size:13px;color:#6b7280">If you did not request this OTP, you can safely ignore this email or contact support.</p>
     `.trim()
   },
   {

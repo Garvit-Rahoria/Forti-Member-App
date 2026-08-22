@@ -11,15 +11,26 @@ export function getDisplayStatus(member) {
 }
 
 export function hasMemberDashboardAccess(member) {
-  const membershipStatus = getMembershipStatus(member)
-  console.log("pass")
-  const applicationStatus = getApplicationStatus(member)
-  console.log({applicationStatus})
+  if (!member) return false
 
-  return membershipStatus === 'active' || applicationStatus === 'payment_verified'
+  // Check every possible field name the backend might return
+  const memberStatus   = member.membershipStatus ?? member.member_status ?? null
+  const appStatus      = member.applicationStatus ?? member.status ?? null
+  const role           = member.role ?? null
+
+  // Active via member_status
+  if (memberStatus === 'active') return true
+
+  // Active via application status
+  if (appStatus === 'active') return true
+
+  // Active via role field
+  if (role === 'member') return true
+
+  return false
 }
 
 export function getMemberLandingPath(member) {
-  console.log("login redreict", member)
+  if (!member) return '/member/status'
   return hasMemberDashboardAccess(member) ? '/member/dashboard' : '/member/status'
 }

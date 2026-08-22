@@ -98,6 +98,51 @@ router.put('/', requireRole('super_admin'), async (req, res) => {
   }
 });
 
+// POST /api/settings/test-email  Send a test email to verify SMTP config
+router.post('/test-email', requireRole('super_admin', 'admin'), async (req, res) => {
+  const { to } = req.body;
+  if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+    return fail(res, 'A valid recipient email address is required', 422);
+  }
+  try {
+    const { sendMail, getSmtpConfig } = require('../utils/email');
+    const cfg = await getSmtpConfig();
+
+    // Check config before attempting send
+    if (!cfg.user || !cfg.pass) {
+      return fail(res, 'SMTP credentials are not configured. Please enter your email and app password first.', 503);
+    }
+    if (!cfg.host) {
+      return fail(res, 'SMTP host is not configured.', 503);
+    }
+
+    await sendMail({
+      to,
+      subject: 'FORTI Portal — SMTP Test Email',
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#f9fafb;border-radius:12px">
+          <h2 style="color:#5b21b6;margin-bottom:8px">✅ SMTP is working correctly</h2>
+          <p style="color:#374151;line-height:1.6">
+            This is a test email from your <strong>FORTI Membership Portal</strong>.<br>
+            If you received this, your SMTP configuration is correct and OTP emails will be delivered.
+          </p>
+          <p style="color:#6b7280;font-size:13px;margin-top:24px">
+            Sent from: <strong>${cfg.from}</strong><br>
+            SMTP host: <strong>${cfg.host}:${cfg.port}</strong>
+          </p>
+        </div>`,
+      template: 'test',
+    });
+
+    createAuditLog(req.user.id, 'SMTP_TEST', 'settings', null, req.ip);
+    return ok(res, null, `Test email sent to ${to}`);
+  } catch (err) {
+    console.error('[SMTP test error]', err.message);
+    const publicMsg = err.publicMessage || err.message || 'Failed to send test email';
+    return fail(res, publicMsg, err.statusCode || 500);
+  }
+});
+
 
 // POST /api/settings/email-templates/seed  Load default templates
 router.post('/email-templates/seed', requireRole('super_admin'), async (req, res) => {

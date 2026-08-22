@@ -8,6 +8,37 @@ const { createAuditLog } = require('../utils/auditLog');
 const router = express.Router();
 router.use(authMiddleware);
 
+async function logApplicationActivity(submissionId, eventType, actedBy, notes = null) {
+  try {
+    await pool.query(
+      `INSERT INTO application_activity (submission_id, event_type, notes, acted_by)
+       VALUES (?,?,?,?)`,
+      [submissionId, eventType, notes || null, actedBy || null]
+    );
+  } catch (err) {
+    console.error('[application_activity]', err.message);
+  }
+}
+
+/** Allowed next statuses from current submission status (virtual actions included). */
+function allowedTransitions(currentStatus) {
+  const s = String(currentStatus || '').toLowerCase();
+  const map = {
+    // New applications must be marked under review before payment verification
+    submitted:         ['under_review', 'rejected'],
+    payment_submitted: ['under_review', 'rejected'],
+    pending_info:      ['under_review', 'rejected'],
+    under_review:      ['payment_verified', 'reject_payment', 'rejected'],
+    // After payment rejection, stay in review cycle (status stored as payment_pending)
+    payment_pending:   ['payment_verified', 'reject_payment', 'under_review', 'rejected'],
+    payment_verified:  ['approved', 'rejected'],
+    approved:          ['activate', 'active', 'rejected'],
+    active:            [],
+    rejected:          [],
+  };
+  return map[s] || [];
+}
+
 // GET /api/approvals/workflows
 router.get('/workflows', async (req, res) => {
   const { form_id } = req.query;
@@ -206,10 +237,10 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
   const { status, notes } = req.body;
   const role = req.user.role;
 
-  // 'activate' is a virtual action (not a DB status) that triggers full membership activation
-  const ALL_VALID = ['submitted','under_review','approved','rejected','active','payment_pending','payment_approved','payment_submitted','pending_info','activate','payment_verified'];
+  // 'activate' / 'reject_payment' are virtual actions (not always stored as DB status)
+  const ALL_VALID = ['submitted','under_review','approved','rejected','active','payment_pending','payment_approved','payment_submitted','pending_info','activate','payment_verified','reject_payment'];
   // office_staff: can verify/reject payment, mark under review — CANNOT approve/reject application
-  const STAFF_VALID = ['under_review','payment_pending','payment_submitted','payment_approved','payment_verified'];
+  const STAFF_VALID = ['under_review','payment_pending','payment_submitted','payment_approved','payment_verified','reject_payment'];
   // branch_manager: can approve/reject app (if payment approved), request info, and review steps
   const BM_VALID   = ['under_review','approved','rejected','active','pending_info','activate'];
 
@@ -219,13 +250,28 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
   if (role === 'branch_manager' && !BM_VALID.includes(status))
     return fail(res, 'Insufficient permission for this status change', 403);
 
-  if (status === 'rejected' && (!notes || !notes.trim())) {
-    return fail(res, 'A reason (notes) is required when rejecting an application.', 422);
+  if ((status === 'rejected' || status === 'reject_payment' || status === 'payment_pending') && (!notes || !notes.trim())) {
+    if (status === 'rejected' || status === 'reject_payment') {
+      return fail(res, 'A reason (notes) is required for this action.', 422);
+    }
   }
 
   try {
     const [[sub]] = await pool.query('SELECT * FROM fb_submissions WHERE id=?', [req.params.id]);
     if (!sub) return fail(res, 'Not found', 404);
+
+    // Idempotent activate: already active → success without re-running side effects
+    if (status === 'activate' || status === 'active') {
+      if (sub.status === 'active' || sub.member_status === 'active') {
+        return ok(res, { id: Number(req.params.id), status: 'active', already_active: true }, 'Membership already active');
+      }
+    }
+
+    // Enforce workflow transitions (admins still must follow sequence)
+    const allowed = allowedTransitions(sub.status);
+    if (!allowed.includes(status) && !(status === 'active' && allowed.includes('activate'))) {
+      return fail(res, `Action not allowed from status "${sub.status}". Complete previous steps first.`, 422);
+    }
 
     // Branch-level scoping: branch_manager AND office_staff can only act on their branch
     if (
@@ -249,41 +295,25 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
 
     // ── STRICT: No approval without payment verified (all roles) ──
     if (status === 'approved') {
+      if (sub.status !== 'payment_verified') {
+        return fail(res, 'Application must be Payment Verified before approval.', 422);
+      }
       const [[pmt]] = await pool.query(
-        'SELECT id, status FROM portal_payments WHERE submission_id=? ORDER BY id DESC LIMIT 1',
+        `SELECT id, status FROM portal_payments
+         WHERE submission_id=? AND status NOT IN ('superseded','reset')
+         ORDER BY id DESC LIMIT 1`,
         [req.params.id]
       );
-      
-      const isPaymentVerified = ['payment_verified'].includes(sub.status) || 
-                                sub.payment_status === 'verified' || 
-                                (pmt && pmt.status === 'verified');
 
-      if (!isPaymentVerified) {
-        return fail(res, 'Action not allowed. Complete previous steps first (Payment must be verified).', 422);
-      }
-      
-      if (!pmt) {
-        // No payment record yet — create a minimal verified stub so downstream logic works
-        const { v4: uuidv4 } = require('uuid');
-        await pool.query(
-          `INSERT INTO portal_payments (uuid, submission_id, status, approved_by, approved_at, created_at)
-           VALUES (?, ?, 'verified', ?, NOW(), NOW())`,
-          [uuidv4(), req.params.id, req.user.id]
-        ).catch(e => console.error('[auto-create payment record on approve]', e.message));
-      } else if (pmt.status !== 'verified') {
-        // Row exists but not yet marked verified — sync it now
-        await pool.query(
-          `UPDATE portal_payments SET status='verified', approved_by=?, approved_at=NOW() WHERE id=?`,
-          [req.user.id, pmt.id]
-        ).catch(e => console.error('[auto-sync payment on approve]', e.message));
+      if (!pmt || pmt.status !== 'verified') {
+        return fail(res, 'Payment must be verified before approving the application.', 422);
       }
     }
 
-    // ── STRICT: No activation without approved status (only for legacy 'active' direct status) ──
-    // 'activate' virtual action allows direct activation from payment_verified (single-click approve)
+    // ── STRICT: No activation without approved ──
     if (status === 'active') {
-      if (!['approved', 'payment_verified'].includes(sub.status)) {
-        return fail(res, 'Action not allowed. Application must be approved or payment verified before activation.', 422);
+      if (!['approved'].includes(sub.status)) {
+        return fail(res, 'Action not allowed. Application must be Approved before activation.', 422);
       }
     }
 
@@ -304,20 +334,24 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
       ).catch(e => console.error('[sync payment approved]', e.message));
     }
 
-    // ── Payment verified: sync the linked payment record (or create stub if none exists) ──
+    // ── Payment verified: only after Under Review (or payment_pending after reject) ──
     if (status === 'payment_verified') {
+      if (!['under_review', 'payment_pending'].includes(sub.status)) {
+        return fail(res, 'Mark application Under Review before verifying payment.', 422);
+      }
       const [[existingPmt]] = await pool.query(
-        'SELECT id FROM portal_payments WHERE submission_id=? ORDER BY id DESC LIMIT 1',
+        `SELECT id, status FROM portal_payments
+         WHERE submission_id=? AND status NOT IN ('superseded','reset')
+         ORDER BY id DESC LIMIT 1`,
         [req.params.id]
       ).catch(() => [[null]]);
       if (existingPmt) {
         await pool.query(
           `UPDATE portal_payments SET status='verified', approved_by=?, approved_at=NOW()
-           WHERE id=? AND status != 'verified'`,
+           WHERE id=?`,
           [req.user.id, existingPmt.id]
         ).catch(e => console.error('[sync payment verified]', e.message));
       } else {
-        // No payment row — create a stub so the Payments tab shows this entry
         const { v4: uuidv4 } = require('uuid');
         await pool.query(
           `INSERT INTO portal_payments (uuid, submission_id, status, approved_by, approved_at, created_at)
@@ -325,15 +359,49 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
           [uuidv4(), req.params.id, req.user.id]
         ).catch(e => console.error('[create payment stub on verify]', e.message));
       }
+      await pool.query(
+        `UPDATE fb_submissions SET payment_status='verified' WHERE id=?`,
+        [req.params.id]
+      ).catch(() => {});
     }
 
-    // ── Payment rejected: also mark the linked payment record as rejected ──
+    // ── Reject payment: payment → rejected; applicant must re-submit proof ──
+    if (status === 'reject_payment' || (status === 'payment_pending' && notes && String(notes).trim())) {
+      if (!notes || !String(notes).trim()) {
+        return fail(res, 'A reason is required when rejecting payment.', 422);
+      }
+      const [[p]] = await pool.query(
+        `SELECT id FROM portal_payments
+         WHERE submission_id=? AND status NOT IN ('superseded','reset')
+         ORDER BY id DESC LIMIT 1`,
+        [req.params.id]
+      );
+      if (p) {
+        await pool.query(
+          `UPDATE portal_payments SET status='rejected', notes=? WHERE id=?`,
+          [notes, p.id]
+        );
+      }
+      // After payment rejection, remain in review cycle so staff can re-verify new proof
+      await pool.query(
+        `UPDATE fb_submissions
+         SET status='payment_pending', payment_status='rejected',
+             reviewed_by=?, reviewed_at=NOW(), review_notes=?
+         WHERE id=?`,
+        [req.user.id, notes, req.params.id]
+      );
+      await logApplicationActivity(req.params.id, 'payment_rejected', req.user.id, notes);
+      createAuditLog(req.user.id, 'STATUS_CHANGE_PAYMENT_REJECTED', 'submissions', req.params.id, req.ip);
+      return ok(res, { id: Number(req.params.id), status: 'payment_pending', payment_status: 'rejected' }, 'Payment rejected — applicant must submit new proof');
+    }
+
+    // ── Legacy payment_pending without notes ──
     if (status === 'payment_pending') {
       await pool.query(
         `UPDATE portal_payments SET status='submitted'
-         WHERE submission_id=? AND status NOT IN ('verified')`,
+         WHERE submission_id=? AND status NOT IN ('verified','rejected','superseded','reset')`,
         [req.params.id]
-      ).catch(e => console.error('[sync payment rejected]', e.message));
+      ).catch(e => console.error('[sync payment pending]', e.message));
     }
 
     // ── Approve: assign membership_id but do NOT activate ──
@@ -362,9 +430,14 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
 
     // ── ACTIVATE action: explicit admin-triggered membership activation ──
     if (status === 'activate') {
+      if (sub.status !== 'approved') {
+        return fail(res, 'Application must be Approved before activation.', 422);
+      }
       // Block activation unless payment is verified
       const [[pmt]] = await pool.query(
-        'SELECT status FROM portal_payments WHERE submission_id=? ORDER BY id DESC LIMIT 1',
+        `SELECT status FROM portal_payments
+         WHERE submission_id=? AND status NOT IN ('superseded','reset')
+         ORDER BY id DESC LIMIT 1`,
         [req.params.id]
       );
       if (!pmt || pmt.status !== 'verified') {
@@ -466,6 +539,7 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
       });
 
       createAuditLog(req.user.id, 'ACTIVATE_MEMBERSHIP', 'submissions', req.params.id, req.ip);
+      await logApplicationActivity(req.params.id, 'membership_activated', req.user.id, notes || null);
       return ok(res, { id: Number(req.params.id), status: 'active' }, 'Membership activated successfully');
     }
 
@@ -475,6 +549,16 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
       'UPDATE fb_submissions SET status=?, reviewed_by=?, reviewed_at=NOW(), review_notes=? WHERE id=?',
       [status, req.user.id, notes || null, req.params.id]
     );
+
+    const eventMap = {
+      under_review: 'marked_under_review',
+      payment_verified: 'payment_verified',
+      approved: 'application_approved',
+      rejected: 'application_rejected',
+      payment_pending: 'payment_pending',
+      pending_info: 'info_requested',
+    };
+    await logApplicationActivity(req.params.id, eventMap[status] || `status_${status}`, req.user.id, notes || null);
 
     createAuditLog(req.user.id, `STATUS_CHANGE_${status.toUpperCase()}`, 'submissions', req.params.id, req.ip);
 
@@ -507,7 +591,14 @@ router.patch('/:id/status', requireRole('super_admin', 'admin', 'branch_manager'
       }).catch(e => console.error('[approval email]', e.message));
     }
 
-    return ok(res, { id: Number(req.params.id), status }, 'Status updated');
+    return ok(res, { id: Number(req.params.id), status }, (
+      {
+        under_review: 'Marked Under Review',
+        payment_verified: 'Payment verified successfully',
+        approved: 'Application approved',
+        rejected: 'Application rejected',
+      }[status] || 'Status updated'
+    ));
   } catch (err) { console.error(err); return fail(res, 'Server error', 500); }
 });
 
@@ -610,6 +701,44 @@ router.get('/counts', requireRole('super_admin', 'admin', 'branch_manager', 'off
 });
 
 // ── Notes (internal comments) — accessible to staff, manager, admin ───────────
+
+// GET /api/approvals/:id/activity — unified activity timeline
+router.get('/:id/activity', requireRole('super_admin', 'admin', 'branch_manager', 'office_staff'), async (req, res) => {
+  try {
+    const [[sub]] = await pool.query(
+      'SELECT id, status, submitted_at, created_at, applicant_name FROM fb_submissions WHERE id=?',
+      [req.params.id]
+    );
+    if (!sub) return fail(res, 'Not found', 404);
+
+    let rows = [];
+    try {
+      const [activity] = await pool.query(
+        `SELECT a.id, a.event_type, a.notes, a.acted_by, a.created_at,
+                u.full_name AS acted_by_name
+         FROM application_activity a
+         LEFT JOIN portal_admin_users u ON u.id = a.acted_by
+         WHERE a.submission_id = ?
+         ORDER BY a.created_at ASC, a.id ASC`,
+        [req.params.id]
+      );
+      rows = activity;
+    } catch (e) {
+      console.error('[activity table]', e.message);
+    }
+
+    const timeline = [{
+      event_type: 'application_submitted',
+      notes: null,
+      acted_by_name: sub.applicant_name || 'Applicant',
+      created_at: sub.submitted_at || sub.created_at,
+    }, ...rows];
+    return ok(res, timeline);
+  } catch (err) {
+    console.error('[GET /approvals/:id/activity]', err.message);
+    return fail(res, 'Server error', 500);
+  }
+});
 
 // GET /api/approvals/:id/notes
 router.get('/:id/notes', requireRole('super_admin', 'admin', 'branch_manager', 'office_staff'), async (req, res) => {

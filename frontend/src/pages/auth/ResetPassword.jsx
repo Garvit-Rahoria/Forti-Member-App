@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import api from '../../api/client'
 import toast from 'react-hot-toast'
+import { SITE_LOGO } from '../../data/siteAssets'
 
 export default function ResetPassword() {
   const navigate = useNavigate()
@@ -46,9 +47,12 @@ export default function ResetPassword() {
       <div className="w-full max-w-md">
         <div className="card p-8">
           <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-primary-500 flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4 shadow-lg">
-              F
-            </div>
+            <img
+              src={SITE_LOGO}
+              alt="FORTI"
+              className="h-auto w-auto max-h-14 max-w-[200px] object-contain mx-auto mb-4"
+              onError={e => { e.target.style.display = 'none' }}
+            />
             <h1 className="text-2xl font-bold text-gray-900">FORTI Portal</h1>
             <p className="text-sm text-gray-500 mt-1">Set New Password</p>
           </div>

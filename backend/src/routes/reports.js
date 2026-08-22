@@ -398,6 +398,42 @@ router.get('/payments', async (req, res) => {
 // GET /api/reports/export/members  CSV export
 router.get('/export/members', async (req, res) => {
   const sc = stateClause(req.user);
+  const {
+    q,
+    member_status,
+    membership_type,
+    package_id,
+    wing_id,
+  } = req.query;
+
+  let where = `s.status IN ('active','approved')${sc.clause}`;
+  const params = [...sc.params];
+
+  if (q) {
+    where += ' AND (LOWER(s.applicant_name) LIKE LOWER(?) OR LOWER(s.applicant_email) LIKE LOWER(?) OR LOWER(COALESCE(s.membership_id, \'\')) LIKE LOWER(?))';
+    params.push(`%${q}%`, `%${q}%`, `%${q}%`);
+  }
+  if (member_status) {
+    if (String(member_status).toLowerCase() === 'expired') {
+      where += ` AND (LOWER(COALESCE(s.member_status,''))='expired' OR (s.expiry_date IS NOT NULL AND s.expiry_date < CURDATE()))`;
+    } else {
+      where += ' AND LOWER(COALESCE(s.member_status,\'\'))=LOWER(?)';
+      params.push(String(member_status));
+    }
+  }
+  if (membership_type) {
+    where += ' AND LOWER(COALESCE(s.membership_type,\'\'))=LOWER(?)';
+    params.push(String(membership_type));
+  }
+  if (package_id !== undefined && package_id !== null && String(package_id).trim() !== '') {
+    where += ' AND s.package_id=?';
+    params.push(Number(package_id));
+  }
+  if (wing_id !== undefined && wing_id !== null && String(wing_id).trim() !== '') {
+    where += ' AND s.wing_id=?';
+    params.push(Number(wing_id));
+  }
+
   try {
     const [rows] = await pool.query(
       `SELECT s.membership_id, s.applicant_name AS full_name, s.applicant_email AS email,
@@ -408,9 +444,9 @@ router.get('/export/members', async (req, res) => {
        FROM fb_submissions s
        LEFT JOIN portal_packages pp ON pp.id=s.package_id
        LEFT JOIN states st ON st.id=s.state_id
-       WHERE s.status IN ('active','approved')${sc.clause}
+       WHERE ${where}
        ORDER BY s.submitted_at DESC`,
-      sc.params
+      params
     );
 
     if (!rows.length) { res.setHeader('Content-Type','text/csv'); return res.send('No data'); }
@@ -421,6 +457,7 @@ router.get('/export/members', async (req, res) => {
     const csv = [headers, ...csvRows].join('\n');
 
     res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Content-Disposition', 'attachment; filename="members.csv"');
     return res.send(csv);
   } catch (err) { console.error(err); return fail(res, 'Server error', 500); }

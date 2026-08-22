@@ -210,6 +210,16 @@ CREATE TABLE IF NOT EXISTS fb_approval_actions (
   acted_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS application_activity (
+  id            SERIAL PRIMARY KEY,
+  submission_id INTEGER NOT NULL,
+  event_type    VARCHAR(80) NOT NULL,
+  notes         TEXT,
+  acted_by      INTEGER,
+  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_application_activity_sub ON application_activity(submission_id);
+
 CREATE TABLE IF NOT EXISTS application_notes (
   id            SERIAL PRIMARY KEY,
   submission_id INTEGER NOT NULL,
@@ -288,6 +298,12 @@ CREATE TABLE IF NOT EXISTS portal_payment_methods (
   type         VARCHAR(30) NOT NULL DEFAULT 'upi',
   instructions TEXT,
   qr_image     VARCHAR(500),
+  upi_id       VARCHAR(200),
+  account_name VARCHAR(200),
+  ifsc_code    VARCHAR(20),
+  account_type VARCHAR(50),
+  routing_number VARCHAR(50),
+  currency     VARCHAR(10),
   country_id   SMALLINT,
   state_id     INTEGER,
   city_id      INTEGER,
@@ -331,7 +347,7 @@ CREATE TABLE IF NOT EXISTS portal_payments (
   upi_id              VARCHAR(200),
   screenshot_path     VARCHAR(500),
   notes               TEXT,
-  status              VARCHAR(20) NOT NULL DEFAULT 'pending',
+  status              VARCHAR(30) NOT NULL DEFAULT 'pending',
   verified_by         INTEGER,
   verified_at         TIMESTAMP NULL,
   approved_by         INTEGER,
@@ -510,12 +526,14 @@ CREATE TABLE IF NOT EXISTS states (
 CREATE INDEX IF NOT EXISTS idx_states_country ON states(country_id);
 
 CREATE TABLE IF NOT EXISTS cities (
-  id        SERIAL PRIMARY KEY,
-  state_id  INTEGER NOT NULL,
-  name      VARCHAR(120) NOT NULL,
-  is_active BOOLEAN NOT NULL DEFAULT TRUE
+  id         SERIAL PRIMARY KEY,
+  state_id   INTEGER NULL,
+  country_id INTEGER NULL,
+  name       VARCHAR(120) NOT NULL,
+  is_active  BOOLEAN NOT NULL DEFAULT TRUE
 );
 CREATE INDEX IF NOT EXISTS idx_cities_state ON cities(state_id);
+CREATE INDEX IF NOT EXISTS idx_cities_country ON cities(country_id);
 
 CREATE TABLE IF NOT EXISTS durations (
   id         SERIAL PRIMARY KEY,

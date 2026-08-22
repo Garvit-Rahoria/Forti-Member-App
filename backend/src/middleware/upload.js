@@ -14,10 +14,11 @@ const storage = multer.diskStorage({
   destination(req, file, cb) {
     const fieldName = file.fieldname;
     let sub = 'documents';
-    if (fieldName.includes('photo') || fieldName.includes('image') || fieldName.includes('media')) sub = 'photos';
+    if (fieldName.includes('photo') || fieldName.includes('image') || fieldName.includes('media') || fieldName.includes('gallery') || fieldName.includes('cover') || fieldName.includes('achievement')) sub = 'photos';
     if (fieldName.includes('payment') || fieldName.includes('screenshot')) sub = 'payments';
     if (fieldName.includes('qr')) sub = 'qr';
     if (fieldName.includes('logo')) sub = 'logos';
+    if (fieldName === 'cover_image' || fieldName.startsWith('org_')) sub = 'org';
     cb(null, path.join(UPLOAD_DIR, sub));
   },
   filename(req, file, cb) {

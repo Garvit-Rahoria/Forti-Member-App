@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../api/client'
 import toast from 'react-hot-toast'
+import { SITE_LOGO } from '../../data/siteAssets'
 
 export default function Login() {
   const { login, token, loading: authLoading } = useAuth()
@@ -58,9 +59,12 @@ export default function Login() {
         <div className="card p-8">
           {/* Logo */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-primary-500 flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4 shadow-lg">
-              F
-            </div>
+            <img
+              src={SITE_LOGO}
+              alt="FORTI"
+              className="h-auto w-auto max-h-14 max-w-[200px] object-contain mx-auto mb-4"
+              onError={e => { e.target.style.display = 'none' }}
+            />
             <h1 className="text-2xl font-bold text-gray-900">FORTI Portal</h1>
             <p className="text-sm text-gray-500 mt-1">
               {mode === 'forgot' ? 'Reset your password' : 'Super Admin Panel'}

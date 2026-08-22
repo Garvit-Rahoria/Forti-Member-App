@@ -59,7 +59,19 @@ function formatCountryDisplay(country) {
   return `${getFlagEmoji(country.iso2)} ${country.name} (${country.phone_code})`
 }
 
-// ── OTP Input (6 boxes) ────────────────────────────────────────────────────
+// Mask email: g*****a@gmail.com
+function maskEmail(email) {
+  if (!email) return ''
+  const [local, domain] = email.split('@')
+  if (!domain) return email
+  if (local.length <= 2) return `${local[0]}*@${domain}`
+  return `${local[0]}${'*'.repeat(Math.min(local.length - 2, 5))}${local[local.length - 1]}@${domain}`
+}
+function formatCountryButton(country) {
+  if (!country) return 'India (+91)'
+  return `${country.name} (${country.phone_code})`
+}
+
 function OTPInput({ value, onChange, disabled }) {
   const len = 6
   const refs = Array.from({ length: len }, () => useRef())
@@ -132,7 +144,6 @@ export default function OTPModal({ onVerified, onClose }) {
   const [loading, setLoading] = useState(false)
   const [countdown, setCountdown] = useState(0)
   const [info, setInfo] = useState('')
-  const [devOtp, setDevOtp] = useState(null) // shown on screen when email SMTP not configured
 
   const selectedCountry = countries.find(country => String(country.id) === String(selectedCountryId)) || null
 
@@ -221,9 +232,8 @@ export default function OTPModal({ onVerified, onClose }) {
         phone: formatFullPhoneNumber(selectedCountry, phone),
         purpose: 'apply',
       })
-      setDevOtp(res.data?.data?._dev_otp || null)
       setPhase('otp')
-      setCountdown(60)
+      setCountdown(30)
       setInfo(`OTP sent to ${email.trim()}`)
     } catch (err) {
       const message = err.response?.data?.message || 'Failed to send OTP. Please try again.'
@@ -246,8 +256,7 @@ export default function OTPModal({ onVerified, onClose }) {
         phone: formatFullPhoneNumber(selectedCountry, phone),
         purpose: 'apply',
       })
-      setDevOtp(res.data?.data?._dev_otp || null)
-      setCountdown(60)
+      setCountdown(30)
       setInfo('A new OTP has been sent to your email.')
     } catch (err) {
       const message = err.response?.data?.message || 'Failed to resend OTP.'
@@ -292,21 +301,21 @@ export default function OTPModal({ onVerified, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
 
         {/* Header */}
-        <div className="bg-gradient-to-r from-primary-600 to-primary-800 p-6 text-white relative">
+        <div className="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-950 p-6 text-white relative">
           <button onClick={onClose}
-            className="absolute top-4 right-4 text-white/60 hover:text-white transition">
+            className="absolute top-4 right-4 text-white/65 hover:text-white transition">
             <X size={20}/>
           </button>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+          <div className="flex items-center gap-3 pr-8">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shadow-inner">
               <ShieldCheck size={22}/>
             </div>
             <div>
-              <h2 className="text-lg font-bold">Identity Verification</h2>
-              <p className="text-primary-200 text-sm">
+              <h2 className="text-lg font-bold tracking-normal">Identity Verification</h2>
+              <p className="text-primary-100/90 text-sm">
                 {phase === 'form' ? 'Enter your details to begin' : phase === 'otp' ? 'Enter the OTP sent to your email' : 'Verified!'}
               </p>
             </div>
@@ -321,8 +330,8 @@ export default function OTPModal({ onVerified, onClose }) {
                     (phase === 'form' ? 0 : phase === 'otp' ? 1 : 2) === i ? 'bg-white text-primary-700' : 'bg-white/30 text-white'}`}>
                   {(phase === 'form' ? 0 : 1) > i ? '✓' : i + 1}
                 </div>
-                <span className="text-xs text-primary-200">{s}</span>
-                {i < 1 && <div className="w-4 h-px bg-white/30 mx-1"/>}
+                <span className={`text-xs ${i === 0 ? 'font-semibold text-white' : 'text-primary-100/80'}`}>{s}</span>
+                {i < 1 && <div className="w-4 h-px bg-white/35 mx-1"/>}
               </div>
             ))}
           </div>
@@ -350,135 +359,124 @@ export default function OTPModal({ onVerified, onClose }) {
               </p>
 
               <div>
-                <label className="label flex items-center gap-2"><User size={14}/>Full Name *</label>
+                <label className="label flex items-center gap-2"><User size={14}/>Full Name <span className="text-red-500">*</span></label>
                 <input className="input" placeholder="e.g. Rajesh Kumar Sharma"
                   value={name} onChange={e => { setName(e.target.value); setErrors(er => ({...er, name:''})) }} />
                 {errors.name && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11}/>{errors.name}</p>}
               </div>
 
               <div>
-                <label className="label flex items-center gap-2"><Phone size={14}/>Mobile Number *</label>
+                <label className="label flex items-center gap-2"><Phone size={14}/>Mobile Number <span className="text-red-500">*</span></label>
 
-                {/* Country Autocomplete */}
-                <div ref={countryContainerRef} className="relative mb-2">
-                  <input
-                    className="input pr-9"
-                    placeholder="Search country (e.g. India, IN, +91)..."
-                    value={countryQuery}
-                    autoComplete="off"
-                    autoCorrect="off"
-                    autoCapitalize="off"
-                    spellCheck={false}
-                    onFocus={() => {
-                      setCountryDropdownOpen(true)
-                      setCountryQuery('')
-                      setHighlightedIndex(-1)
-                    }}
-                    onChange={e => {
-                      setCountryQuery(e.target.value)
-                      setCountryDropdownOpen(true)
-                      setHighlightedIndex(-1)
-                    }}
-                    onKeyDown={e => {
-                      if (!countryDropdownOpen) {
-                        if (e.key === 'ArrowDown' || e.key === 'Enter') {
-                          setCountryDropdownOpen(true)
-                          setHighlightedIndex(0)
-                          e.preventDefault()
-                        }
-                        return
-                      }
-                      if (e.key === 'ArrowDown') {
-                        setHighlightedIndex(i => Math.min(i + 1, filteredCountries.length - 1))
-                        e.preventDefault()
-                      } else if (e.key === 'ArrowUp') {
-                        setHighlightedIndex(i => Math.max(i - 1, 0))
-                        e.preventDefault()
-                      } else if (e.key === 'Enter') {
-                        e.preventDefault()
-                        const matches = searchCountries(countries, e.currentTarget.value)
-                        const pick = matches[highlightedIndex] ?? matches[0]
-                        if (pick) {
-                          setSelectedCountryId(String(pick.id))
-                          setPhone('')
-                          setErrors(er => ({ ...er, country: '', phone: '' }))
-                          setCountryDropdownOpen(false)
-                          setCountryQuery(formatCountryDisplay(pick))
-                        }
-                      } else if (e.key === 'Escape' || e.key === 'Tab') {
-                        setCountryDropdownOpen(false)
-                        if (selectedCountry) {
-                          setCountryQuery(formatCountryDisplay(selectedCountry))
-                        }
-                      }
-                    }}
-                  />
-                  <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"/>
-                  {errors.country && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11}/>{errors.country}</p>}
-                  {countryDropdownOpen && (
-                    <div
-                      ref={dropdownListRef}
-                      className="absolute left-0 right-0 top-full mt-1 z-[9999] bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden"
-                      style={{maxHeight: '220px', overflowY: 'auto'}}
+                <div ref={countryContainerRef} className="relative">
+                  <div className="flex min-h-[43px] rounded-xl border border-primary-100/80 bg-white shadow-sm transition focus-within:border-primary-300 focus-within:ring-2 focus-within:ring-primary-400/40">
+                    <button
+                      type="button"
+                      className="flex w-[38%] min-w-[132px] items-center justify-between gap-2 border-r border-primary-100/80 px-3 text-left text-sm text-gray-900 transition hover:bg-gray-50"
+                      onClick={() => {
+                        setCountryDropdownOpen(open => !open)
+                        setCountryQuery('')
+                        setHighlightedIndex(-1)
+                      }}
                     >
-                      {filteredCountries.length ? filteredCountries.map((c, idx) => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          data-country-item
-                          onMouseDown={e => e.preventDefault()}
-                          onMouseEnter={() => setHighlightedIndex(idx)}
-                          onClick={() => {
-                            setSelectedCountryId(String(c.id))
-                            setPhone('')
-                            setErrors(er => ({ ...er, country: '', phone: '' }))
+                      <span className="truncate">{formatCountryButton(selectedCountry)}</span>
+                      <ChevronDown size={16} className="shrink-0 text-gray-500"/>
+                    </button>
+                    <input
+                      className="min-w-0 flex-1 rounded-r-xl px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none"
+                      placeholder={getPhonePlaceholder(selectedCountry)}
+                      type="tel"
+                      inputMode="numeric"
+                      value={phone}
+                      onChange={e => {
+                        setPhone(normalizePhoneInput(e.target.value, selectedCountry))
+                        setErrors(er => ({...er, phone:''}))
+                      }}
+                    />
+                  </div>
+
+                  {errors.country && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11}/>{errors.country}</p>}
+                  {errors.phone && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11}/>{errors.phone}</p>}
+
+                  {countryDropdownOpen && (
+                    <div className="absolute left-0 top-full mt-2 z-[9999] w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl sm:w-80">
+                      <input
+                        className="w-full border-b border-gray-200 px-4 py-3 text-sm outline-none placeholder:text-gray-400 focus:bg-primary-50/40"
+                        placeholder="Search country, IN, +91..."
+                        value={countryQuery}
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="off"
+                        spellCheck={false}
+                        onChange={e => {
+                          setCountryQuery(e.target.value)
+                          setHighlightedIndex(-1)
+                        }}
+                        onKeyDown={e => {
+                          if (e.key === 'ArrowDown') {
+                            setHighlightedIndex(i => Math.min(i + 1, filteredCountries.length - 1))
+                            e.preventDefault()
+                          } else if (e.key === 'ArrowUp') {
+                            setHighlightedIndex(i => Math.max(i - 1, 0))
+                            e.preventDefault()
+                          } else if (e.key === 'Enter') {
+                            e.preventDefault()
+                            const pick = filteredCountries[highlightedIndex] ?? filteredCountries[0]
+                            if (pick) {
+                              setSelectedCountryId(String(pick.id))
+                              setPhone('')
+                              setErrors(er => ({ ...er, country: '', phone: '' }))
+                              setCountryDropdownOpen(false)
+                              setCountryQuery(formatCountryDisplay(pick))
+                            }
+                          } else if (e.key === 'Escape' || e.key === 'Tab') {
                             setCountryDropdownOpen(false)
-                            setCountryQuery(formatCountryDisplay(c))
-                          }}
-                          className={`w-full px-3 py-2.5 text-sm text-left flex items-center gap-2.5 transition
-                            ${idx === highlightedIndex
-                              ? 'bg-primary-100 text-primary-800'
-                              : String(c.id) === String(selectedCountryId)
-                                ? 'bg-primary-50 text-primary-700 font-semibold'
-                                : 'text-gray-700 hover:bg-gray-50'}`}
-                        >
-                          <span className="text-base w-6 text-center shrink-0">{getFlagEmoji(c.iso2)}</span>
-                          <span className="flex-1 truncate">{c.name}</span>
-                          <span className="text-xs text-gray-400 font-mono shrink-0">{c.phone_code}</span>
-                        </button>
-                      )) : (
-                        <div className="px-3 py-3 text-sm text-gray-400 text-center">No countries found</div>
-                      )}
+                            if (selectedCountry) {
+                              setCountryQuery(formatCountryDisplay(selectedCountry))
+                            }
+                          }
+                        }}
+                      />
+                      <div ref={dropdownListRef} className="max-h-56 overflow-y-auto">
+                        {filteredCountries.length ? filteredCountries.map((c, idx) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            data-country-item
+                            onMouseDown={e => e.preventDefault()}
+                            onMouseEnter={() => setHighlightedIndex(idx)}
+                            onClick={() => {
+                              setSelectedCountryId(String(c.id))
+                              setPhone('')
+                              setErrors(er => ({ ...er, country: '', phone: '' }))
+                              setCountryDropdownOpen(false)
+                              setCountryQuery(formatCountryDisplay(c))
+                            }}
+                            className={`w-full px-4 py-3 text-sm text-left flex items-center gap-2.5 transition
+                              ${idx === highlightedIndex
+                                ? 'bg-primary-100 text-primary-800'
+                                : String(c.id) === String(selectedCountryId)
+                                  ? 'bg-primary-50 text-primary-700 font-semibold'
+                                  : 'text-gray-700 hover:bg-gray-50'}`}
+                          >
+                            <span className="text-base w-6 text-center shrink-0">{getFlagEmoji(c.iso2)}</span>
+                            <span className="flex-1 truncate">{c.name}</span>
+                            <span className="text-xs text-gray-400 font-mono shrink-0">{c.phone_code}</span>
+                          </button>
+                        )) : (
+                          <div className="px-3 py-3 text-sm text-gray-400 text-center">No countries found</div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
-
-                {/* Phone number with code prefix */}
-                <div className="flex rounded-lg overflow-hidden border border-gray-300 focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-100 transition">
-                  <span className="flex items-center px-3 bg-gray-50 border-r border-gray-300 text-gray-700 text-sm font-mono shrink-0 select-none">
-                    {selectedCountry?.phone_code || '+91'}
-                  </span>
-                  <input
-                    className="flex-1 px-3 py-2 text-sm focus:outline-none bg-white"
-                    placeholder={getPhonePlaceholder(selectedCountry)}
-                    type="tel"
-                    inputMode="numeric"
-                    value={phone}
-                    onChange={e => {
-                      setPhone(normalizePhoneInput(e.target.value, selectedCountry))
-                      setErrors(er => ({...er, phone:''}))
-                    }}
-                  />
-                </div>
-                {errors.phone && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11}/>{errors.phone}</p>}
               </div>
 
               <div>
-                <label className="label flex items-center gap-2"><Mail size={14}/>Email Address *</label>
+                <label className="label flex items-center gap-2"><Mail size={14}/>Email Address <span className="text-red-500">*</span></label>
                 <input className="input" placeholder="email@example.com" type="email"
                   value={email} onChange={e => { setEmail(e.target.value); setErrors(er => ({...er, email:''})) }} />
                 {errors.email && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11}/>{errors.email}</p>}
-                <p className="text-xs text-gray-400 mt-1">An OTP will be sent to this email address</p>
               </div>
 
               {errors._global && (
@@ -489,7 +487,7 @@ export default function OTPModal({ onVerified, onClose }) {
 
               <button onClick={handleSendOTP} disabled={loading}
                 className="btn-primary w-full btn-lg">
-                {loading ? <><Loader2 size={16} className="animate-spin"/>Sending OTP…</> : 'Send OTP'}
+                {loading ? <><Loader2 size={16} className="animate-spin"/>Sending OTP...</> : 'Send OTP'}
               </button>
             </div>
           )}
@@ -497,17 +495,19 @@ export default function OTPModal({ onVerified, onClose }) {
           {/* Phase 2: OTP verification */}
           {phase === 'otp' && (
             <div className="space-y-5">
+
+              {/* Sent-to confirmation */}
+              <div className="bg-primary-50 border border-primary-100 rounded-xl px-4 py-3.5 text-center space-y-1">
+                <p className="text-sm text-gray-600">We've sent a verification code to</p>
+                <p className="font-bold text-primary-700 text-base">{maskEmail(email)}</p>
+                <p className="text-xs text-gray-400">Enter the 6-digit code below to verify your identity.</p>
+              </div>
+
               {info && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-700 flex items-center gap-2">
                   <CheckCircle2 size={15}/>{info}
                 </div>
               )}
-
-              <div className="text-center space-y-1">
-                <p className="text-sm text-gray-600">We sent a 6-digit OTP to</p>
-                <p className="font-semibold text-gray-900">{email}</p>
-                <p className="text-xs text-gray-400">Check your inbox (and spam folder)</p>
-              </div>
 
               <OTPInput value={otp} onChange={v => { setOtp(v); setErrors(er => ({...er, otp:''})) }} disabled={loading} />
 
@@ -525,15 +525,23 @@ export default function OTPModal({ onVerified, onClose }) {
                 {loading ? <><Loader2 size={16} className="animate-spin"/>Verifying…</> : 'Verify OTP'}
               </button>
 
+              {/* Resend + back */}
               <div className="flex items-center justify-between text-sm">
                 <button onClick={() => { setPhase('form'); setOtp(''); setErrors({}) }}
-                  className="text-gray-400 hover:text-gray-600">← Change email</button>
+                  className="text-gray-400 hover:text-gray-600 transition-colors">← Change email</button>
                 <button onClick={handleResendOTP} disabled={countdown > 0 || loading}
-                  className={`flex items-center gap-1 ${countdown > 0 ? 'text-gray-400' : 'text-primary-600 hover:underline'}`}>
-                  <RefreshCw size={13}/>
+                  className={`flex items-center gap-1 font-medium transition-colors ${countdown > 0 ? 'text-gray-400 cursor-default' : 'text-primary-600 hover:text-primary-700'}`}>
+                  <RefreshCw size={13} className={loading && countdown === 0 ? 'animate-spin' : ''}/>
                   {countdown > 0 ? `Resend in ${countdown}s` : 'Resend OTP'}
                 </button>
               </div>
+
+              {/* Spam/junk note */}
+              <p className="text-center text-xs text-gray-400 border-t border-gray-100 pt-3">
+                Didn't receive the OTP? Please check your{' '}
+                <span className="font-medium text-gray-500">spam/junk folder</span>.
+              </p>
+
             </div>
           )}
         </div>

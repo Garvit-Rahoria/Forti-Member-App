@@ -2,6 +2,8 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
+const proxyTarget = process.env.VITE_PROXY_TARGET || 'http://localhost:7000'
+
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -9,15 +11,15 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://backend:7000',
+        target: proxyTarget,
         changeOrigin: true,
       },
       '/uploads': {
-        target: 'http://backend:7000',
+        target: proxyTarget,
         changeOrigin: true,
       },
       '/storage': {
-        target: 'http://backend:7000',
+        target: proxyTarget,
         changeOrigin: true,
       },
     },

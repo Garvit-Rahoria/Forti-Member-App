@@ -3,7 +3,6 @@ const crypto = require('crypto');
 const { pool } = require('../config/database');
 const { ok, fail } = require('../utils/helpers');
 const { sendOTP } = require('../utils/email');
-const { sendSMS } = require('../utils/sms');
 
 const router = express.Router();
 
@@ -34,7 +33,6 @@ router.post('/send', async (req, res) => {
         'SELECT id FROM member_accounts WHERE LOWER(email) = ? LIMIT 1',
         [normalizedEmail]
       );
-
       if (existingMembers.length) {
         return fail(res, 'This email is already registered. Please login or use a different email.', 409);
       }
@@ -43,9 +41,20 @@ router.post('/send', async (req, res) => {
         "SELECT id FROM fb_submissions WHERE LOWER(applicant_email) = ? AND status != 'draft' LIMIT 1",
         [normalizedEmail]
       );
-
       if (existingApplications.length) {
         return fail(res, 'This email is already registered. Please login or use a different email.', 409);
+      }
+
+      // Check phone duplicate at OTP send step too
+      if (phone && phone.trim()) {
+        const normalizedPhone = phone.trim().replace(/\s+/g, '');
+        const [existingPhone] = await pool.query(
+          "SELECT id FROM fb_submissions WHERE REPLACE(applicant_phone, ' ', '') = ? AND status != 'draft' LIMIT 1",
+          [normalizedPhone]
+        );
+        if (existingPhone.length) {
+          return fail(res, 'This mobile number is already registered with another membership application.', 409);
+        }
       }
     }
 
@@ -91,22 +100,17 @@ router.post('/send', async (req, res) => {
       [normalizedEmail, phone || null, full_name || null, otp, purpose, expiresAt]
     );
 
-    // Send email OTP (async – don't block request)
-    sendOTP({ to: email.trim(), name: full_name || null, otp, purpose }).catch(e => {
+    // Send OTP via email only — await so MIME/CID errors are logged
+    try {
+      await sendOTP({ to: email.trim(), name: full_name || null, otp, purpose });
+    } catch (e) {
       console.error('[OTP email error]', e.message);
-    });
-
-    // Send SMS OTP (async – don't block request)
-    if (phone) {
-      sendSMS({ phone: phone.trim(), otp, name: full_name || null }).catch(e => {
-        console.error('[OTP sms error]', e.message);
-      });
     }
 
-    // In development, include OTP in response for testing
-    const devPayload = process.env.NODE_ENV === 'development' ? { _dev_otp: otp } : {};
+    // SMS intentionally not used — OTP is delivered via email only
 
-    return ok(res, { email: normalizedEmail, ...devPayload }, `OTP sent to ${email}`);
+    // OTP sent — no dev payload exposed
+    return ok(res, { email: normalizedEmail }, `OTP sent to ${email}`);
   } catch (err) {
     console.error('[OTP /send error]', err.message);
     return fail(res, 'Failed to send OTP. Please try again.', 500);
@@ -124,29 +128,7 @@ router.post('/verify', async (req, res) => {
     return fail(res, 'Email and OTP are required', 422);
   }
 
-  // Master bypass OTP: for 'apply' purpose, return a short-lived verify token.
-  // For 'login' purpose, fall through to the full login flow below.
-  const isMasterBypass = String(otp).trim() === '000000';
-  if (isMasterBypass && purpose !== 'login') {
-    // Try to get latest pending OTP record to carry name/phone forward
-    const [bypass_rows] = await pool.query(
-      `SELECT full_name, phone FROM member_otps
-       WHERE email = ? AND purpose = ? ORDER BY created_at DESC LIMIT 1`,
-      [email.toLowerCase().trim(), purpose]
-    );
-    const bypassRecord = bypass_rows[0] || {};
-    const jwt = require('jsonwebtoken');
-    const verifyToken = jwt.sign(
-      { email: email.toLowerCase().trim(), full_name: bypassRecord.full_name || null, phone: bypassRecord.phone || null, purpose },
-      process.env.JWT_SECRET,
-      { expiresIn: '2h' }
-    );
-    return ok(res, {
-      verified: true,
-      token: verifyToken,
-      applicant: { email: email.toLowerCase().trim(), full_name: bypassRecord.full_name || null, phone: bypassRecord.phone || null }
-    }, 'OTP verified successfully');
-  }
+  // Master bypass removed — all OTPs must be verified via email
 
   const [rows] = await pool.query(
     `SELECT * FROM member_otps
@@ -155,33 +137,33 @@ router.post('/verify', async (req, res) => {
     [email.toLowerCase().trim(), purpose]
   );
 
-  if (!rows.length && !isMasterBypass) {
+  if (!rows.length) {
     return fail(res, 'No pending OTP found for this email. Please request a new OTP.', 400);
   }
 
   const record = rows[0] || {};
 
-  // Check expiry (skip for master bypass)
-  if (!isMasterBypass && record.expires_at && new Date() > new Date(record.expires_at)) {
+  // Check expiry
+  if (record.expires_at && new Date() > new Date(record.expires_at)) {
     return fail(res, 'OTP has expired. Please request a new OTP.', 400);
   }
 
-  // Increment attempts (skip if no OTP record — bypass)
+  // Increment attempts
   if (record.id) {
     await pool.query('UPDATE member_otps SET attempts = attempts + 1 WHERE id = ?', [record.id]);
   }
 
   // Max attempts
-  if (!isMasterBypass && record.attempts >= 5) {
+  if (record.attempts >= 5) {
     return fail(res, 'Too many incorrect attempts. Please request a new OTP.', 400);
   }
 
-  // Check OTP (master bypass 000000 always passes)
-  if (!isMasterBypass && record.otp_code !== String(otp).trim()) {
+  // Validate OTP
+  if (record.otp_code !== String(otp).trim()) {
     return fail(res, 'Invalid OTP. Please check and try again.', 400);
   }
 
-  // Mark verified (skip if no OTP record — bypass)
+  // Mark verified
   if (record.id) {
     await pool.query(
       'UPDATE member_otps SET verified = 1, verified_at = NOW() WHERE id = ?',

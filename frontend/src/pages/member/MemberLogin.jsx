@@ -125,19 +125,36 @@ export default function MemberLogin() {
       const res = await http.post('/otp/verify', { email: email.trim(), otp, purpose: 'login' })
       const tok = res.data.data.token
 
-      // Step 2: call login() — this saves to localStorage AND fetches member profile
+      if (!tok) {
+        setErrors({ otp: 'Verification failed. Please try again.' })
+        return
+      }
+
+      // Step 2: call login() — saves to localStorage AND fetches member profile
       const memberData = await login(tok)
 
-      // Step 3: compute where to send the user
-      const redirectPath = getMemberLandingPath(memberData)
-      console.log('[MemberLogin] Login success, redirecting to:', redirectPath, memberData)
+      // Step 3: determine redirect
+      if (!memberData) {
+        // Token valid but profile fetch failed — still go to status page
+        navigate('/member/status', { replace: true })
+        return
+      }
 
-      // Step 4: navigate — token is already in localStorage and state, so MemberRoute will pass
-      navigate(redirectPath, { replace: true })
+      const membershipStatus = memberData?.membershipStatus ?? memberData?.member_status ?? 'inactive'
+
+      if (membershipStatus !== 'active') {
+        // Membership not yet active — send to status page with clear message
+        navigate('/member/status', { replace: true })
+        return
+      }
+
+      // Active member — go to dashboard
+      navigate('/member/dashboard', { replace: true })
 
     } catch (err) {
       console.error('[MemberLogin] Verification failed:', err)
-      setErrors({ otp: err.response?.data?.message || 'Invalid OTP. Please try again.' })
+      const msg = err.response?.data?.message || 'Invalid OTP. Please try again.'
+      setErrors({ otp: msg })
     } finally {
       setLoading(false)
     }

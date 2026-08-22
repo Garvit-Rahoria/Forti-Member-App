@@ -11,11 +11,14 @@ import {
   ChevronRight, Loader2, Bell, Home, Activity,
   XCircle, HelpCircle, Wallet, BarChart2,
   Upload, IndianRupee, Building2, Banknote, Info, RotateCcw, Edit2,
-  Globe, Link2, ExternalLink
+  Globe, Link2, ExternalLink, Briefcase, MessageSquare, Menu, X
 } from 'lucide-react'
 import { getCurrencySymbol, fmtAmount } from '../../utils/currency'
 import { assetUrl } from '../../utils/assetUrl'
+import { SITE_LOGO } from '../../data/siteAssets'
 import MemberPublicProfileSection from '../../components/member/MemberPublicProfileSection'
+import BusinessProfileOnboarding from '../../components/member/BusinessProfileOnboarding'
+import BusinessProfileView from '../../components/member/BusinessProfileView'
 
 // ── Status helpers ─────────────────────────────────────────────────────────
 const STATUS_MAP = {
@@ -59,69 +62,100 @@ function MemberStatusBadge({ status }) {
   )
 }
 
+const TAB_META = {
+  overview:  { title: 'Dashboard Overview', short: 'Overview' },
+  profile:   { title: 'My Profile', short: 'Profile' },
+  business:  { title: 'Business Profile', short: 'Business' },
+  quotes:    { title: 'Quote Requests', short: 'Quotes' },
+  documents: { title: 'My Documents', short: 'Documents' },
+  payments:  { title: 'Payment History', short: 'Payments' },
+  renewal:   { title: 'Renew Membership', short: 'Renew' },
+}
+
 // ── Sidebar ────────────────────────────────────────────────────────────────
-function Sidebar({ activeTab, onTab, member, onLogout }) {
+function Sidebar({ activeTab, onTab, member, onLogout, onClose }) {
   const nav = [
-    { id: 'overview',    label: 'Overview',       icon: Home },
-    { id: 'profile',     label: 'My Profile',     icon: User },
-    { id: 'documents',   label: 'My Documents',   icon: Award },
-    { id: 'payments',    label: 'Payment History', icon: CreditCard },
+    { id: 'overview',    label: 'Overview',         icon: Home },
+    { id: 'profile',     label: 'My Profile',       icon: User },
+    { id: 'business',    label: 'Business Profile', icon: Briefcase },
+    { id: 'quotes',      label: 'Quote Requests',   icon: MessageSquare },
+    { id: 'documents',   label: 'My Documents',     icon: Award },
+    { id: 'payments',    label: 'Payment History',  icon: CreditCard },
     { id: 'renewal',     label: 'Renew Membership', icon: RefreshCw },
   ]
   return (
-    <div className="w-64 bg-gradient-sidebar border-r border-white/10 flex flex-col h-screen sticky top-0 shrink-0 text-white shadow-soft-lg">
-      {/* Logo */}
-      <div className="p-5 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-cta flex items-center justify-center text-white font-display font-black shadow-glow">F</div>
-          <div>
-            <p className="font-display font-bold text-sm">FORTI</p>
-            <p className="text-xs text-primary-200/70">Member Dashboard</p>
-          </div>
-        </div>
+    <div className="w-64 max-w-full bg-gradient-sidebar border-r border-white/10 flex flex-col h-full min-h-0 sticky top-0 shrink-0 text-white shadow-soft-lg">
+      <div className="p-4 sm:p-5 border-b border-white/10 flex items-center gap-3">
+        <img
+          src={SITE_LOGO}
+          alt="FORTI"
+          className="h-auto w-full max-w-[160px] max-h-11 object-contain object-left"
+          onError={e => { e.currentTarget.style.display = 'none' }}
+        />
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-auto p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition lg:hidden touch-target"
+            aria-label="Close menu"
+          >
+            <X size={18} />
+          </button>
+        )}
       </div>
 
-      {/* Member info */}
       {member && (
         <div className="p-4 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-gold flex items-center justify-center text-white font-bold text-lg">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-gold flex items-center justify-center text-white font-bold text-lg shrink-0">
               {(member.full_name || member.email || '?').charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0">
               <p className="font-semibold text-white text-sm truncate">{member.full_name || 'Member'}</p>
-              <p className="text-xs text-primary-200/70 truncate">{member.membership_id}</p>
+              <p className="text-xs text-primary-200/70 truncate font-mono">{member.membership_id}</p>
             </div>
           </div>
-          {getMembershipStatus(member) && <div className="mt-2"><MemberStatusBadge status={getMembershipStatus(member)}/></div>}
+          {getMembershipStatus(member) && (
+            <div className="mt-2.5">
+              <MemberStatusBadge status={getMembershipStatus(member)} />
+            </div>
+          )}
         </div>
       )}
 
-      <nav className="flex-1 p-3 space-y-1">
+      <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto min-h-0">
         {nav.map(({ id, label, icon: Icon }) => (
-          <button key={id} onClick={() => onTab(id)}
-            className={`w-full px-3 py-2.5 rounded-xl text-sm font-medium flex items-center gap-3 transition
+          <button
+            key={id}
+            type="button"
+            onClick={() => onTab(id)}
+            className={`w-full px-3 py-2.5 rounded-xl text-sm font-medium flex items-center gap-3 transition touch-target
               ${activeTab === id
-                ? 'bg-white/15 text-white border-l-[3px] border-accent-gold pl-[9px]'
-                : 'text-primary-100/80 hover:bg-white/10 hover:text-white'}`}>
-            <Icon size={17}/>{label}
-            {activeTab === id && <ChevronRight size={14} className="ml-auto opacity-50"/>}
+                ? 'bg-white/15 text-white shadow-sm ring-1 ring-white/10'
+                : 'text-primary-100/80 hover:bg-white/10 hover:text-white'}`}
+          >
+            <Icon size={17} className="shrink-0 opacity-90" />
+            <span className="truncate">{label}</span>
+            {activeTab === id && <ChevronRight size={14} className="ml-auto opacity-50 shrink-0" />}
           </button>
         ))}
       </nav>
 
-      <div className="p-3 border-t border-white/10">
-        <button onClick={onLogout}
-          className="w-full px-3 py-2.5 rounded-xl text-sm font-medium flex items-center gap-3 text-red-300 hover:bg-red-500/10 transition mb-2">
-          <LogOut size={17}/>Logout
+      <div className="p-3 border-t border-white/10 shrink-0">
+        <button
+          type="button"
+          onClick={onLogout}
+          className="w-full px-3 py-2.5 rounded-xl text-sm font-medium flex items-center gap-3 text-red-300 hover:bg-red-500/10 transition touch-target"
+        >
+          <LogOut size={17} />Logout
         </button>
-        <p className="text-center text-xs text-primary-300/50">
+        <p className="mt-2 text-center text-[11px] text-primary-300/50">
           Developed by{' '}
           <a
             href="https://kaitensoftware.com/"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-gray-500 hover:text-blue-600 transition-colors font-medium underline-offset-2 hover:underline"
+            className="text-primary-200/70 hover:text-white transition-colors font-medium underline-offset-2 hover:underline"
           >
             Kaiten Software
           </a>
@@ -172,17 +206,16 @@ export function MembershipBlockedScreen({ member, onLogout, refetch }) {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Top bar */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center text-white font-black text-sm">F</div>
-          <div>
-            <p className="font-bold text-gray-900 text-sm">FORTI</p>
-            <p className="text-xs text-gray-400">Member Portal</p>
-          </div>
-        </div>
-        <button onClick={onLogout}
-          className="flex items-center gap-2 text-sm text-red-500 hover:text-red-700 font-medium transition">
-          <LogOut size={15}/> Sign Out
+      <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3.5 flex items-center justify-between shrink-0 gap-3">
+        <img
+          src={SITE_LOGO}
+          alt="FORTI"
+          className="h-auto w-auto max-h-9 max-w-[min(55vw,200px)] object-contain object-left"
+          onError={e => { e.currentTarget.style.display = 'none' }}
+        />
+        <button type="button" onClick={onLogout}
+          className="flex items-center gap-2 text-sm text-red-500 hover:text-red-700 font-medium transition shrink-0 touch-target px-2">
+          <LogOut size={15}/> <span className="hidden sm:inline">Sign Out</span>
         </button>
       </div>
 
@@ -361,6 +394,7 @@ function OverviewTab({ member, onTab, apiClient }) {
   const [profileData, setProfileData] = useState(null)
   const [copyToggled, setCopyToggled] = useState(false)
   const [togglingUrl, setTogglingUrl] = useState(false)
+  const [bizProfile, setBizProfile] = useState(null)
 
   const photoUrl = member.data?.profile_photo || member.profile_photo_path || profileData?.profile?.profile_photo_path
 
@@ -368,6 +402,9 @@ function OverviewTab({ member, onTab, apiClient }) {
     apiClient().get('/member/public-profile')
       .then(res => setProfileData(res.data.data))
       .catch(console.error)
+    apiClient().get('/member/business-profile')
+      .then(res => setBizProfile(res.data.data))
+      .catch(() => {})
   }, [])
 
   async function handleToggleVisibility() {
@@ -396,92 +433,127 @@ function OverviewTab({ member, onTab, apiClient }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       {/* Welcome */}
-      <div className="bg-gradient-to-r from-primary-700 to-primary-900 rounded-[24px] p-8 text-white shadow-lg flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-        <div className="flex-1">
-          <p className="text-primary-200 text-sm mb-1">Welcome back,</p>
-          <h2 className="text-3xl font-black">{member.full_name || 'Member'}</h2>
-          <p className="text-primary-200 text-sm mt-1">Membership ID: <span className="font-mono text-white">{member.membership_id}</span></p>
-          <div className="flex flex-wrap gap-6 mt-6">
-            <div>
-              <p className="text-xs text-primary-300 mb-1">Status</p>
-              <MemberStatusBadge status={getMembershipStatus(member)}/>
-            </div>
-            {member.expiry_date && (
-              <div>
-                <p className="text-xs text-primary-300 mb-1">Expires</p>
-                <p className="text-sm font-semibold bg-white/10 px-3 py-1 rounded-lg">{new Date(member.expiry_date).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })}</p>
-              </div>
-            )}
-            {(member.package_name || member.plan_type) && (
-              <div>
-                <p className="text-xs text-primary-300 mb-1">Package</p>
-                <p className="text-sm font-semibold bg-white/10 px-3 py-1 rounded-lg">{member.package_name || (member.plan_type === 'lifetime' ? 'Lifetime' : member.plan_type === '3years' || member.plan_type === '3_years' ? '3 Year Plan' : member.plan_type === 'yearly' || member.plan_type === '1year' ? '1 Year Plan' : member.plan_type)}</p>
+      <div className="bg-gradient-to-br from-primary-800 via-primary-700 to-primary-900 rounded-2xl sm:rounded-[24px] p-5 sm:p-7 lg:p-8 text-white shadow-lg overflow-hidden relative">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.12),transparent_55%)] pointer-events-none" />
+        <div className="relative flex flex-row items-center gap-4 sm:gap-6">
+          <div className="shrink-0 order-2 sm:order-2 ml-auto sm:ml-0">
+            {photoUrl ? (
+              <img
+                src={assetUrl(photoUrl)}
+                alt="Profile"
+                className="w-20 h-20 sm:w-32 sm:h-32 lg:w-[168px] lg:h-[168px] rounded-xl sm:rounded-2xl object-cover border-2 sm:border-4 border-white/20 shadow-xl"
+              />
+            ) : (
+              <div className="w-20 h-20 sm:w-32 sm:h-32 lg:w-[168px] lg:h-[168px] rounded-xl sm:rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center text-white font-black text-2xl sm:text-4xl border-2 sm:border-4 border-white/20 shadow-xl">
+                {(member.full_name || '?').charAt(0).toUpperCase()}
               </div>
             )}
           </div>
-        </div>
-
-        {/* Profile Avatar / Photo Slot */}
-        <div className="shrink-0 flex items-center justify-center md:justify-end">
-          {photoUrl ? (
-            <img 
-              src={assetUrl(photoUrl)} 
-              alt="Profile" 
-              className="w-36 h-36 md:w-[185px] md:h-[185px] rounded-2xl object-cover border-4 border-white/20 shadow-xl hover:scale-105 transition-transform duration-300"
-            />
-          ) : (
-            <div className="w-36 h-36 md:w-[185px] md:h-[185px] rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center text-white font-black text-4xl border-4 border-white/20 shadow-xl">
-              {(member.full_name || '?').charAt(0).toUpperCase()}
+          <div className="flex-1 min-w-0 order-1">
+            <p className="text-primary-200 text-xs sm:text-sm mb-0.5 sm:mb-1">Welcome back,</p>
+            <h2 className="text-xl sm:text-3xl font-black tracking-tight truncate">{member.full_name || 'Member'}</h2>
+            <p className="text-primary-200 text-xs sm:text-sm mt-1 truncate">
+              ID: <span className="font-mono text-white">{member.membership_id}</span>
+            </p>
+            <div className="flex flex-wrap gap-2 sm:gap-4 mt-3 sm:mt-5">
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-xs text-primary-300 mb-1 uppercase tracking-wide">Status</p>
+                <MemberStatusBadge status={getMembershipStatus(member)} />
+              </div>
+              {member.expiry_date && (
+                <div>
+                  <p className="text-[10px] sm:text-xs text-primary-300 mb-1 uppercase tracking-wide">Expires</p>
+                  <p className="text-xs sm:text-sm font-semibold bg-white/10 px-2.5 sm:px-3 py-1 rounded-lg">
+                    {new Date(member.expiry_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </p>
+                </div>
+              )}
+              {(member.package_name || member.plan_type) && (
+                <div>
+                  <p className="text-[10px] sm:text-xs text-primary-300 mb-1 uppercase tracking-wide">Package</p>
+                  <p className="text-xs sm:text-sm font-semibold bg-white/10 px-2.5 sm:px-3 py-1 rounded-lg">
+                    {member.package_name || (member.plan_type === 'lifetime' ? 'Lifetime' : member.plan_type === '3years' || member.plan_type === '3_years' ? '3 Year Plan' : member.plan_type === 'yearly' || member.plan_type === '1year' ? '1 Year Plan' : member.plan_type)}
+                  </p>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6 items-start">
+      {/* Business Profile completion prompt */}
+      {(!bizProfile || !['published', 'submitted'].includes(bizProfile.status)) && (
+        <div className="rounded-2xl sm:rounded-[24px] border border-primary-200 bg-gradient-to-r from-primary-50 to-purple-50 p-4 sm:p-6 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-primary-600 text-white flex items-center justify-center shrink-0">
+                <Briefcase size={20} />
+              </div>
+              <div className="min-w-0">
+                <h3 className="font-bold text-gray-900 text-base sm:text-lg">Complete Your Business Profile</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Help other FORTI members discover your business, services, achievements and special offers.
+                </p>
+                {bizProfile?.completion_percent != null && (
+                  <p className="text-xs font-semibold text-primary-700 mt-2">
+                    Business Profile {bizProfile.completion_percent}% Complete
+                    {bizProfile.status === 'draft' || !bizProfile.status ? ' · Draft' : bizProfile.status === 'pending_review' ? ' · Pending Review' : ' · In Progress'}
+                  </p>
+                )}
+              </div>
+            </div>
+            <button type="button" className="btn-primary shrink-0 w-full sm:w-auto" onClick={() => onTab('business')}>
+              Complete Business Profile
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="grid lg:grid-cols-3 gap-5 sm:gap-6 items-start">
         {/* Main Column */}
-        <div className="lg:col-span-2 space-y-6 order-1 lg:order-2">
+        <div className="lg:col-span-2 space-y-5 sm:space-y-6 order-1 lg:order-2">
           {/* Share Profile Banner */}
           {profileData && profileData.public_url && (
-            <div className="rounded-[24px] border border-primary-100 bg-white p-6 shadow-sm">
+            <div className="rounded-2xl sm:rounded-[24px] border border-primary-100 bg-white p-4 sm:p-6 shadow-sm">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center shrink-0">
-                    <Globe size={24} className="text-primary-600" />
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-primary-50 flex items-center justify-center shrink-0">
+                    <Globe size={22} className="text-primary-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-900 text-lg">Share Your Profile</h3>
+                    <h3 className="font-bold text-gray-900 text-base sm:text-lg">Share Your Profile</h3>
                     <p className="text-sm text-gray-500 mt-0.5">Share your FORTI public profile with others.</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 w-full sm:w-auto">
-                  <label className="flex items-center gap-2 cursor-pointer text-sm font-medium whitespace-nowrap bg-gray-50 px-4 py-2 rounded-xl border border-gray-200 hover:bg-gray-100 transition-colors">
+                  <label className="flex items-center justify-between sm:justify-start gap-2 cursor-pointer text-sm font-medium w-full sm:w-auto bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-200 hover:bg-gray-100 transition-colors">
                     <span className="text-gray-700">Visible to Public</span>
-                    <input type="checkbox" className="w-4 h-4 accent-primary-600" 
-                      checked={!!profileData.profile?.is_public} 
-                      onChange={handleToggleVisibility} 
+                    <input type="checkbox" className="w-4 h-4 accent-primary-600"
+                      checked={!!profileData.profile?.is_public}
+                      onChange={handleToggleVisibility}
                       disabled={togglingUrl} />
                   </label>
                 </div>
               </div>
-              <div className="mt-5 flex flex-col sm:flex-row items-center gap-2">
-                <div className="flex-1 w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-600 font-mono truncate select-all">
+              <div className="mt-4 sm:mt-5 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <div className="flex-1 w-full bg-gray-50 border border-gray-200 rounded-xl px-3 sm:px-4 py-3 text-xs sm:text-sm text-gray-600 font-mono truncate select-all">
                   {window.location.origin}{profileData.public_url}
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
-                  <button onClick={handleCopy} disabled={!profileData.profile?.is_public} className="flex-1 sm:flex-none btn-primary py-3 px-5 flex items-center justify-center gap-2 disabled:opacity-50 rounded-xl">
+                  <button onClick={handleCopy} disabled={!profileData.profile?.is_public} className="flex-1 sm:flex-none btn-primary py-2.5 sm:py-3 px-4 sm:px-5 flex items-center justify-center gap-2 disabled:opacity-50 rounded-xl">
                     {copyToggled ? <CheckCircle size={16}/> : <Link2 size={16}/>}
                     {copyToggled ? 'Copied!' : 'Copy'}
                   </button>
-                  <a href={profileData.public_url} target="_blank" rel="noreferrer" 
-                     className={`flex-1 sm:flex-none btn-outline py-3 px-5 flex items-center justify-center gap-2 rounded-xl ${!profileData.profile?.is_public ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <a href={profileData.public_url} target="_blank" rel="noreferrer"
+                     className={`flex-1 sm:flex-none btn-outline py-2.5 sm:py-3 px-4 sm:px-5 flex items-center justify-center gap-2 rounded-xl ${!profileData.profile?.is_public ? 'opacity-50 pointer-events-none' : ''}`}>
                     <ExternalLink size={16}/> Preview
                   </a>
                 </div>
               </div>
               {!profileData.profile?.is_public && (
-                <div className="mt-4 bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3 rounded-xl flex items-start gap-3">
+                <div className="mt-4 bg-amber-50 border border-amber-200 text-amber-800 text-sm px-3 sm:px-4 py-3 rounded-xl flex items-start gap-3">
                   <AlertCircle size={16} className="shrink-0 mt-0.5" />
                   <p>Turn on <strong>Visible to Public</strong> to activate your link. People won't be able to view your profile until you do.</p>
                 </div>
@@ -491,18 +563,18 @@ function OverviewTab({ member, onTab, apiClient }) {
 
           {/* Payment & Application Details */}
           {(member.applied_at || member.payment_amount) && (
-            <div className="bg-white rounded-[24px] border border-gray-100 p-6 shadow-sm">
+            <div className="bg-white rounded-2xl sm:rounded-[24px] border border-gray-100 p-4 sm:p-6 shadow-sm">
               <div className="flex flex-col gap-4">
                 {member.applied_at && (
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-3">
                     <p className="text-sm text-gray-500 font-medium">Applied On</p>
-                    <p className="text-sm font-bold text-gray-900">
+                    <p className="text-sm font-bold text-gray-900 text-right">
                       {new Date(member.applied_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
                     </p>
                   </div>
                 )}
                 {member.payment_amount && (
-                  <div className={`flex items-center justify-between ${member.applied_at ? 'pt-4 border-t border-gray-100' : ''}`}>
+                  <div className={`flex items-center justify-between gap-3 ${member.applied_at ? 'pt-4 border-t border-gray-100' : ''}`}>
                     <p className="text-sm text-gray-500 font-medium">Amount Paid</p>
                     <p className="text-sm font-black text-primary-700">
                       ₹{Number(member.payment_amount).toLocaleString('en-IN')}
@@ -514,48 +586,48 @@ function OverviewTab({ member, onTab, apiClient }) {
           )}
 
           {/* Quick Actions */}
-          <div className="grid sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             {[
               { label: 'Download Certificate', icon: Award, tab: 'documents', color: 'text-amber-600 bg-amber-50 border border-amber-100 hover:bg-amber-100 hover:border-amber-200' },
               { label: 'Download ID Card',     icon: CreditCard, tab: 'documents', color: 'text-blue-600 bg-blue-50 border border-blue-100 hover:bg-blue-100 hover:border-blue-200' },
               { label: 'Download Invoice',     icon: FileText, tab: 'documents', color: 'text-emerald-600 bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 hover:border-emerald-200' },
             ].map(({ label, icon: Icon, tab, color }) => (
-              <button key={label} onClick={() => onTab(tab)}
-                className={`flex flex-col items-center gap-3 p-6 rounded-[20px] transition shadow-sm ${color}`}>
-                <Icon size={28}/>
-                <span className="text-sm font-bold text-center">{label}</span>
+              <button key={label} type="button" onClick={() => onTab(tab)}
+                className={`flex flex-row sm:flex-col items-center gap-3 p-4 sm:p-6 rounded-2xl sm:rounded-[20px] transition shadow-sm text-left sm:text-center ${color}`}>
+                <Icon size={24} className="shrink-0 sm:mb-0" />
+                <span className="text-sm font-bold">{label}</span>
               </button>
             ))}
           </div>
         </div>
 
         {/* Sidebar Column */}
-        <div className="lg:col-span-1 space-y-6 order-2 lg:order-1">
+        <div className="lg:col-span-1 space-y-5 sm:space-y-6 order-2 lg:order-1">
           {/* Expiry warning */}
           {daysLeft !== null && daysLeft <= 30 && getMembershipStatus(member) === 'active' && (
-            <div className={`flex items-start gap-3 p-5 rounded-[20px] border shadow-sm ${daysLeft <= 7 ? 'bg-red-50 border-red-200 text-red-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+            <div className={`flex items-start gap-3 p-4 sm:p-5 rounded-2xl sm:rounded-[20px] border shadow-sm ${daysLeft <= 7 ? 'bg-red-50 border-red-200 text-red-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
               <Bell size={20} className="shrink-0 mt-0.5"/>
               <div>
                 <p className="font-bold text-base">Membership Expiring!</p>
                 <p className="text-sm mt-1">Your membership expires in <strong>{daysLeft} day{daysLeft !== 1 ? 's' : ''}</strong>.</p>
-                <button onClick={() => onTab('renewal')} className="mt-3 text-sm font-bold underline px-3 py-1.5 bg-white rounded-lg shadow-sm w-fit border border-current/20">Renew Now →</button>
+                <button type="button" onClick={() => onTab('renewal')} className="mt-3 text-sm font-bold underline px-3 py-1.5 bg-white rounded-lg shadow-sm w-fit border border-current/20">Renew Now →</button>
               </div>
             </div>
           )}
 
           {/* Application status */}
-          <div className="bg-white rounded-[24px] border border-gray-100 shadow-sm overflow-hidden">
-            <div className="px-6 py-5 border-b border-gray-50 flex items-center gap-2 bg-gray-50/50">
+          <div className="bg-white rounded-2xl sm:rounded-[24px] border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-50 flex items-center gap-2 bg-gray-50/50">
               <Activity size={18} className="text-primary-600"/>
-              <h3 className="font-bold text-gray-900 text-lg">Application Status</h3>
+              <h3 className="font-bold text-gray-900 text-base sm:text-lg">Application Status</h3>
             </div>
-            <div className="p-6">
-              <div className="flex flex-col gap-1 mb-6">
+            <div className="p-4 sm:p-6">
+              <div className="flex flex-col gap-1 mb-5 sm:mb-6">
                 <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Current Phase</p>
                 <StatusBadge status={getDisplayStatus(member)}/>
               </div>
-              
-              <div className="bg-gray-50 rounded-xl p-5 border border-gray-100">
+
+              <div className="bg-gray-50 rounded-xl p-4 sm:p-5 border border-gray-100">
                 <StatusTimeline status={getApplicationStatus(member)} membershipStatus={getMembershipStatus(member)}/>
               </div>
             </div>
@@ -663,7 +735,7 @@ function ProfileTab({ member, apiClient, refetch }) {
   return (
     <div className="space-y-6">
       <div className="card">
-        <div className="card-header">
+        <div className="card-header flex-wrap gap-3">
           <h3 className="font-semibold text-gray-900 flex items-center gap-2"><User size={17}/>Profile Information</h3>
           {!editing && (
             <button onClick={() => setEditing(true)} className="btn-outline btn-sm flex items-center gap-1.5">
@@ -673,12 +745,12 @@ function ProfileTab({ member, apiClient, refetch }) {
         </div>
         <div className="card-body space-y-5">
           {/* Avatar */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             <div className="relative group cursor-pointer shrink-0" onClick={() => fileInputRef.current?.click()}>
               {data.profile_photo ? (
-                <img src={assetUrl(data.profile_photo)} alt="Profile" className="w-20 h-20 rounded-full object-cover border-2 border-primary-200 group-hover:opacity-75 transition-opacity"/>
+                <img src={assetUrl(data.profile_photo)} alt="Profile" className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-primary-200 group-hover:opacity-75 transition-opacity"/>
               ) : (
-                <div className="w-20 h-20 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-black text-3xl group-hover:opacity-75 transition-opacity">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-black text-2xl sm:text-3xl group-hover:opacity-75 transition-opacity">
                   {(member.full_name || '?').charAt(0).toUpperCase()}
                 </div>
               )}
@@ -687,10 +759,10 @@ function ProfileTab({ member, apiClient, refetch }) {
               </div>
               <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handlePhotoUpload} />
             </div>
-            <div>
-              <h4 className="text-xl font-bold text-gray-900">{member.full_name}</h4>
-              <p className="text-gray-500 text-sm mb-1">{member.email}</p>
-              <div className="flex items-center gap-3">
+            <div className="min-w-0">
+              <h4 className="text-lg sm:text-xl font-bold text-gray-900 truncate">{member.full_name}</h4>
+              <p className="text-gray-500 text-sm mb-1 truncate">{member.email}</p>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <MemberStatusBadge status={getMembershipStatus(member)}/>
                 <button type="button" onClick={() => fileInputRef.current?.click()} className="text-xs text-primary-600 font-medium hover:underline flex items-center gap-1">
                   <Upload size={12}/> Change Photo
@@ -843,25 +915,26 @@ function DocumentsTab({ member, apiClient }) {
           </div>
         </div>
       )}
-      <div className="grid sm:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
         {docs.map(({ type, title, desc, icon: Icon, color, bg }) => (
-          <div key={type} className={`rounded-2xl border p-5 flex flex-col gap-4 ${bg}`}>
-            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center text-white shadow-md`}>
+          <div key={type} className={`rounded-2xl border p-4 sm:p-5 flex flex-row sm:flex-col gap-4 items-center sm:items-stretch ${bg}`}>
+            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center text-white shadow-md shrink-0`}>
               <Icon size={22}/>
             </div>
-            <div>
+            <div className="flex-1 min-w-0">
               <h4 className="font-bold text-gray-900">{title}</h4>
               <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
+              <button
+                type="button"
+                onClick={() => download(type, subUuid)}
+                disabled={!isApproved || !subUuid || downloading[type]}
+                className="btn-primary btn-sm flex items-center gap-1.5 disabled:opacity-40 mt-3 w-full sm:w-auto justify-center">
+                {downloading[type]
+                  ? <><Loader2 size={13} className="animate-spin"/>Downloading…</>
+                  : <><Download size={13}/>Download PDF</>
+                }
+              </button>
             </div>
-            <button
-              onClick={() => download(type, subUuid)}
-              disabled={!isApproved || !subUuid || downloading[type]}
-              className="btn-primary btn-sm flex items-center gap-1.5 disabled:opacity-40 mt-auto">
-              {downloading[type]
-                ? <><Loader2 size={13} className="animate-spin"/>Downloading…</>
-                : <><Download size={13}/>Download PDF</>
-              }
-            </button>
           </div>
         ))}
       </div>
@@ -916,15 +989,16 @@ function PaymentsTab({ apiClient }) {
   return (
     <div className="space-y-4">
       <div className="card overflow-hidden">
-        <div className="card-header flex-wrap gap-3">
-          <h3 className="font-semibold text-gray-900 flex items-center gap-2"><BarChart2 size={17}/>Payment History</h3>
-          {/* Filter pills */}
-          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
+        <div className="card-header flex flex-col sm:flex-row sm:items-center gap-3">
+          <h3 className="font-semibold text-gray-900 flex items-center gap-2 shrink-0">
+            <BarChart2 size={17}/>Payment History
+          </h3>
+          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg overflow-x-auto max-w-full scrollbar-none">
             {PAYMENT_FILTERS.map(f => {
               const count = f.key === 'all' ? payments.length : payments.filter(p => p.status === f.key).length
               return (
-                <button key={f.key} onClick={() => setFilter(f.key)}
-                  className={`px-3 py-1 rounded-md text-xs font-semibold transition
+                <button key={f.key} type="button" onClick={() => setFilter(f.key)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition whitespace-nowrap shrink-0
                     ${filter === f.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>
                   {f.label}
                   {f.key !== 'all' && <span className="ml-1 opacity-60">({count})</span>}
@@ -934,48 +1008,95 @@ function PaymentsTab({ apiClient }) {
           </div>
         </div>
         {!filtered.length ? (
-          <div className="text-center py-12 text-gray-400 text-sm">
+          <div className="text-center py-12 text-gray-400 text-sm px-4">
             {filter === 'all' ? 'No payment records found.' : `No ${filter} payments.`}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[700px]">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  {['Date', 'Method', 'Membership ID', 'Transaction ID', 'Amount', 'Status', 'Invoice'].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filtered.map(p => (
-                  <tr key={p.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{new Date(p.payment_date).toLocaleDateString('en-IN')}</td>
-                    <td className="px-4 py-3 text-gray-900">{p.method_name || '—'}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-600">{p.membership_id}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-600">{p.transaction_id || '—'}</td>
-                    <td className="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">{fmtAmount(p.amount, p.currency)}</td>
-                    <td className="px-4 py-3"><StatusBadge status={p.status}/></td>
-                    <td className="px-4 py-3">
-                      {p.status === 'verified' && p.submission_uuid ? (
-                        <button
-                          onClick={() => downloadInvoice(p.submission_uuid, p.membership_id)}
-                          disabled={dlState[p.submission_uuid]}
-                          className="btn-outline btn-sm flex items-center gap-1 whitespace-nowrap disabled:opacity-50">
-                          {dlState[p.submission_uuid]
-                            ? <Loader2 size={11} className="animate-spin"/>
-                            : <Download size={11}/>}
-                          Invoice
-                        </button>
-                      ) : (
-                        <span className="text-gray-300 text-xs">—</span>
-                      )}
-                    </td>
+          <>
+            {/* Mobile cards */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {filtered.map(p => (
+                <div key={p.id} className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-900">{p.method_name || 'Payment'}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {new Date(p.payment_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </p>
+                    </div>
+                    <StatusBadge status={p.status}/>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-gray-50 rounded-lg p-2.5">
+                      <p className="text-gray-400 font-medium">Amount</p>
+                      <p className="font-bold text-gray-900 mt-0.5">{fmtAmount(p.amount, p.currency)}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-2.5 min-w-0">
+                      <p className="text-gray-400 font-medium">Membership ID</p>
+                      <p className="font-mono text-gray-700 mt-0.5 truncate">{p.membership_id || '—'}</p>
+                    </div>
+                  </div>
+                  {p.transaction_id && (
+                    <p className="text-[11px] text-gray-500 font-mono truncate">Txn: {p.transaction_id}</p>
+                  )}
+                  {p.status === 'verified' && p.submission_uuid && (
+                    <button
+                      type="button"
+                      onClick={() => downloadInvoice(p.submission_uuid, p.membership_id)}
+                      disabled={dlState[p.submission_uuid]}
+                      className="btn-outline btn-sm w-full flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    >
+                      {dlState[p.submission_uuid]
+                        ? <Loader2 size={12} className="animate-spin"/>
+                        : <Download size={12}/>}
+                      Download Invoice
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm min-w-[700px]">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    {['Date', 'Method', 'Membership ID', 'Transaction ID', 'Amount', 'Status', 'Invoice'].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filtered.map(p => (
+                    <tr key={p.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{new Date(p.payment_date).toLocaleDateString('en-IN')}</td>
+                      <td className="px-4 py-3 text-gray-900">{p.method_name || '—'}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-gray-600">{p.membership_id}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-gray-600">{p.transaction_id || '—'}</td>
+                      <td className="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">{fmtAmount(p.amount, p.currency)}</td>
+                      <td className="px-4 py-3"><StatusBadge status={p.status}/></td>
+                      <td className="px-4 py-3">
+                        {p.status === 'verified' && p.submission_uuid ? (
+                          <button
+                            type="button"
+                            onClick={() => downloadInvoice(p.submission_uuid, p.membership_id)}
+                            disabled={dlState[p.submission_uuid]}
+                            className="btn-outline btn-sm flex items-center gap-1 whitespace-nowrap disabled:opacity-50">
+                            {dlState[p.submission_uuid]
+                              ? <Loader2 size={11} className="animate-spin"/>
+                              : <Download size={11}/>}
+                            Invoice
+                          </button>
+                        ) : (
+                          <span className="text-gray-300 text-xs">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>
@@ -1613,6 +1734,234 @@ function fmtDate(d) {
 
 
 // ── Main Dashboard ─────────────────────────────────────────────────────────
+// ── Quote Requests (received by my published business) ─────────────────────
+function QuoteRequestsTab({ apiClient }) {
+  const [rows, setRows] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState('all')
+  const [updatingId, setUpdatingId] = useState(null)
+
+  const STATUS_OPTIONS = ['pending', 'contacted', 'accepted', 'rejected', 'completed']
+  const STATUS_LABEL = {
+    pending: 'Pending',
+    new: 'Pending',
+    contacted: 'Contacted',
+    accepted: 'Accepted',
+    rejected: 'Rejected',
+    completed: 'Completed',
+    closed: 'Completed',
+  }
+  const STATUS_STYLE = {
+    pending: 'bg-blue-100 text-blue-700',
+    new: 'bg-blue-100 text-blue-700',
+    contacted: 'bg-amber-100 text-amber-800',
+    accepted: 'bg-emerald-100 text-emerald-700',
+    rejected: 'bg-red-100 text-red-700',
+    completed: 'bg-gray-100 text-gray-600',
+    closed: 'bg-gray-100 text-gray-600',
+  }
+
+  function normalizeStatus(s) {
+    if (s === 'new') return 'pending'
+    if (s === 'closed') return 'completed'
+    return s
+  }
+
+  async function load() {
+    setLoading(true)
+    try {
+      const res = await apiClient().get('/member/business-profile/quotes/received')
+      setRows(res.data.data || [])
+    } catch {
+      setRows([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { load() }, [apiClient])
+
+  async function updateStatus(id, status) {
+    setUpdatingId(id)
+    try {
+      await apiClient().patch(`/member/business-profile/quotes/${id}/status`, { status })
+      setRows(prev => prev.map(r => r.id === id ? { ...r, status } : r))
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update status')
+    } finally {
+      setUpdatingId(null)
+    }
+  }
+
+  const filtered = rows.filter(r => {
+    if (filter === 'all') return true
+    return normalizeStatus(r.status) === filter
+  })
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-gray-900">Quote Requests</h2>
+          <p className="text-sm text-gray-500">Requests sent to your published business from other FORTI members.</p>
+        </div>
+        <div className="flex flex-wrap gap-1 bg-gray-100 rounded-xl p-1">
+          {['all', ...STATUS_OPTIONS].map(s => (
+            <button key={s} type="button" onClick={() => setFilter(s)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize ${filter === s ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-600'}`}>
+              {s === 'all' ? 'All' : STATUS_LABEL[s] || s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-16 text-gray-500 gap-2">
+          <Loader2 className="animate-spin text-primary-600" /> Loading…
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-14 text-center">
+          <MessageSquare className="mx-auto text-gray-300 mb-2" size={32} />
+          <p className="font-semibold text-gray-800">No quote requests yet</p>
+          <p className="text-sm text-gray-500 mt-1">When members contact your business from the Directory, requests will appear here.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map(r => {
+            const st = normalizeStatus(r.status)
+            return (
+            <div key={r.id} className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm space-y-3">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="font-bold text-gray-900">{r.requester_name || 'FORTI Member'}</p>
+                  <p className="text-xs text-gray-500">
+                    {r.requester_membership_id || '—'} · {r.requester_email || 'No email'}
+                    {r.requester_phone ? ` · ${r.requester_phone}` : ''}
+                  </p>
+                </div>
+                <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${STATUS_STYLE[r.status] || STATUS_STYLE[st] || 'bg-gray-100 text-gray-600'}`}>
+                  {STATUS_LABEL[r.status] || STATUS_LABEL[st] || st}
+                </span>
+              </div>
+              {r.product_service_name && (
+                <p className="text-sm"><span className="text-gray-500">Service:</span> <span className="font-semibold text-gray-800">{r.product_service_name}</span></p>
+              )}
+              <p className="text-sm text-gray-700 whitespace-pre-wrap"><span className="text-gray-500">Requirement:</span> {r.requirement}</p>
+              <div className="grid sm:grid-cols-3 gap-2 text-xs text-gray-600">
+                <p>Budget: {r.budget || '—'}</p>
+                <p>Qty: {r.quantity || '—'}</p>
+                <p>Timeline: {r.timeline || '—'}</p>
+              </div>
+              {r.message && <p className="text-sm text-gray-600 bg-gray-50 rounded-xl px-3 py-2 whitespace-pre-wrap">{r.message}</p>}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-gray-100">
+                <p className="text-[11px] text-gray-400">{r.created_at ? new Date(r.created_at).toLocaleString() : ''}</p>
+                <div className="flex flex-wrap gap-2">
+                  {r.requester_email && (
+                    <a href={`mailto:${r.requester_email}`} className="btn-outline btn-sm text-xs">Email</a>
+                  )}
+                  {r.requester_phone && (
+                    <a href={`tel:${r.requester_phone}`} className="btn-outline btn-sm text-xs">Call</a>
+                  )}
+                  {st === 'pending' && (
+                    <button type="button" className="btn-primary btn-sm text-xs" disabled={updatingId === r.id}
+                      onClick={() => updateStatus(r.id, 'contacted')}>
+                      Mark Contacted
+                    </button>
+                  )}
+                  {st === 'contacted' && (
+                    <button type="button" className="btn-primary btn-sm text-xs" disabled={updatingId === r.id}
+                      onClick={() => updateStatus(r.id, 'accepted')}>
+                      Accept
+                    </button>
+                  )}
+                  {!['rejected', 'completed'].includes(st) && (
+                    <button type="button" className="btn-outline btn-sm text-xs text-red-600" disabled={updatingId === r.id}
+                      onClick={() => updateStatus(r.id, 'rejected')}>
+                      Reject
+                    </button>
+                  )}
+                  {st !== 'completed' && st !== 'rejected' && (
+                    <button type="button" className="btn-ghost btn-sm text-xs" disabled={updatingId === r.id}
+                      onClick={() => updateStatus(r.id, 'completed')}>
+                      Complete
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Business Profile tab (view after publish, edit/onboarding otherwise) ────
+function BusinessTab({ member, apiClient }) {
+  const [mode, setMode] = useState('loading') // loading | view | edit
+  const [profile, setProfile] = useState(null)
+
+  async function refreshProfile() {
+    const res = await apiClient().get('/member/business-profile')
+    const data = res.data.data
+    setProfile(data)
+    return data
+  }
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const data = await refreshProfile()
+        if (cancelled) return
+        const published = data?.status === 'published' || data?.status === 'submitted'
+        setMode(published ? 'view' : 'edit')
+      } catch {
+        if (!cancelled) setMode('edit')
+      }
+    })()
+    return () => { cancelled = true }
+  }, [apiClient, member?.submission_id])
+
+  if (mode === 'loading') {
+    return (
+      <div className="flex items-center justify-center py-20 text-gray-500 gap-2">
+        <Loader2 className="animate-spin text-primary-600" size={22} /> Loading business profile…
+      </div>
+    )
+  }
+
+  if (mode === 'view') {
+    return (
+      <BusinessProfileView
+        profile={profile}
+        onEdit={() => setMode('edit')}
+      />
+    )
+  }
+
+  return (
+    <BusinessProfileOnboarding
+      member={member}
+      apiClient={apiClient}
+      onCancel={
+        (profile?.status === 'published' || profile?.status === 'submitted')
+          ? () => setMode('view')
+          : undefined
+      }
+      onComplete={async (data) => {
+        setProfile(data)
+        try {
+          const refreshed = await refreshProfile()
+          setProfile(refreshed)
+        } catch { /* keep submitted payload */ }
+        setMode('view')
+      }}
+    />
+  )
+}
+
 export default function MemberDashboard() {
   const navigate = useNavigate()
   const { token, member, loading, logout, apiClient, refetch } = useMember()
@@ -1623,12 +1972,18 @@ export default function MemberDashboard() {
     ? Math.ceil((new Date(member.expiry_date) - new Date()) / 86400000)
     : null
   const canRenewNow = daysLeft !== null && daysLeft <= 30
+  const pageTitle = TAB_META[activeTab]?.title || 'Dashboard'
 
-
+  useEffect(() => {
+    if (!mobileMenuOpen) return undefined
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [mobileMenuOpen])
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="text-center space-y-3">
           <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center mx-auto">
             <Loader2 size={24} className="animate-spin text-primary-600"/>
@@ -1638,7 +1993,7 @@ export default function MemberDashboard() {
       </div>
     )
   }
-  
+
   function handleLogout() {
     clearMemberApplicantSession()
     logout()
@@ -1650,121 +2005,125 @@ export default function MemberDashboard() {
       <div className="min-h-screen flex items-center justify-center flex-col space-y-4 bg-gray-50 p-6 text-center">
         <h2 className="text-xl font-semibold text-gray-800">Unable to load dashboard</h2>
         <p className="text-gray-500 max-w-md">We couldn't retrieve your member profile. The server might be experiencing issues, or your session may be invalid.</p>
-        <div className="flex gap-3">
-          <button onClick={() => window.location.reload()} className="btn-primary">Try Again</button>
-          <button onClick={handleLogout} className="btn-secondary">Log Out</button>
+        <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xs sm:max-w-none sm:w-auto">
+          <button type="button" onClick={() => window.location.reload()} className="btn-primary">Try Again</button>
+          <button type="button" onClick={handleLogout} className="btn-secondary">Log Out</button>
         </div>
       </div>
     )
   }
 
   // ── STRICT BLOCK: role = applicant OR member not yet active → show ONLY the blocking screen ──
-  // No dashboard data, no sidebar, no interaction possible
   if (!hasMemberDashboardAccess(member)) {
     return <MembershipBlockedScreen member={member} onLogout={handleLogout} refetch={refetch}/>
   }
 
-  // ── ACTIVE MEMBER: full dashboard ─────────────────────────────────────────
-  // Use member identity as key to force re-mount all tabs on user change
   const sessionKey = member.submission_id || member.email || member.id
   const tabContent = {
     overview:  <OverviewTab key={`o-${sessionKey}`} member={member} onTab={setActiveTab} apiClient={apiClient}/>,
     profile:   <ProfileTab key={`p-${sessionKey}`} member={member} apiClient={apiClient} refetch={refetch}/>,
+    business:  <BusinessTab key={`b-${sessionKey}`} member={member} apiClient={apiClient} />,
+    quotes:    <QuoteRequestsTab key={`q-${sessionKey}`} apiClient={apiClient} />,
     documents: <DocumentsTab key={`d-${sessionKey}`} member={member} apiClient={apiClient}/>,
     payments:  <PaymentsTab key={`pay-${sessionKey}`} apiClient={apiClient}/>,
     renewal:   <RenewalTab key={`r-${sessionKey}`} member={member} apiClient={apiClient}/> ,
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex relative">
-
-      {/* Desktop Sidebar — only visible on lg+ */}
-      <div className="hidden lg:block shrink-0">
+    <div className="min-h-dvh bg-gray-50 flex relative">
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:flex shrink-0 h-dvh sticky top-0">
         <Sidebar activeTab={activeTab} onTab={setActiveTab} member={member} onLogout={handleLogout}/>
-      </div>
+      </aside>
 
-      {/* Mobile Sidebar — slides in from left on small screens */}
+      {/* Mobile drawer */}
       {mobileMenuOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div
-            className="bg-black/50 backdrop-blur-sm absolute inset-0"
+        <div className="lg:hidden fixed inset-0 z-[60] flex" role="dialog" aria-modal="true" aria-label="Navigation menu">
+          <button
+            type="button"
+            className="bg-black/50 backdrop-blur-sm absolute inset-0 border-0 cursor-default"
             onClick={() => setMobileMenuOpen(false)}
-            aria-hidden="true"
+            aria-label="Close menu overlay"
           />
-          <div className="relative z-10 w-72 max-w-[85vw] h-full shadow-2xl">
+          <div className="relative z-10 w-72 max-w-[85vw] h-dvh shadow-2xl animate-[slideInLeft_0.2s_ease-out]">
             <Sidebar
               activeTab={activeTab}
               onTab={t => { setActiveTab(t); setMobileMenuOpen(false) }}
               member={member}
               onLogout={handleLogout}
+              onClose={() => setMobileMenuOpen(false)}
             />
           </div>
         </div>
       )}
 
-      {/* Main content */}
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div className="flex-1 min-w-0 flex flex-col min-h-dvh">
         {/* Mobile top bar */}
-        <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-30 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center text-white font-black text-sm">F</div>
-            <span className="font-bold text-gray-900 text-sm">FORTI Member</span>
+        <header className="lg:hidden bg-white/95 backdrop-blur border-b border-gray-200/80 px-3 sm:px-4 py-2.5 flex items-center gap-3 sticky top-0 z-30 shadow-sm">
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(true)}
+            className="p-2.5 -ml-1 rounded-xl text-gray-600 hover:text-primary-700 hover:bg-primary-50 transition touch-target"
+            aria-label="Open menu"
+          >
+            <Menu size={20} />
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-gray-900 truncate leading-tight">{pageTitle}</p>
+            {member.membership_id && (
+              <p className="text-[11px] text-gray-400 font-mono truncate">{member.membership_id}</p>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => navigate('/')} className="p-2 text-gray-500 hover:text-primary-600 transition" aria-label="Homepage">
-              <Home size={18}/>
-            </button>
-            <button
-              onClick={() => setMobileMenuOpen(true)}
-              className="p-2 text-gray-600 hover:text-primary-600 transition"
-              aria-label="Open sidebar menu"
-            >
-              <Activity size={20}/>
-            </button>
-          </div>
-        </div>
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="p-2.5 rounded-xl text-gray-500 hover:text-primary-700 hover:bg-primary-50 transition touch-target"
+            aria-label="Homepage"
+          >
+            <Home size={18} />
+          </button>
+        </header>
 
-        {/* Desktop Page header */}
-        <div className="hidden lg:block bg-white border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">
-                {activeTab === 'overview' ? 'Dashboard Overview' :
-                 activeTab === 'profile' ? 'My Profile' :
-                 activeTab === 'documents' ? 'My Documents' :
-                 activeTab === 'payments' ? 'Payment History' : 'Renew Membership'}
-              </h1>
-              <p className="text-sm text-gray-400 mt-0.5">
+        {/* Desktop page header */}
+        <div className="hidden lg:block bg-white border-b border-gray-200 px-6 xl:px-8 py-4">
+          <div className="flex items-center justify-between gap-4 max-w-[1400px]">
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold text-gray-900 tracking-tight">{pageTitle}</h1>
+              <p className="text-sm text-gray-400 mt-0.5 truncate">
                 {member.membership_id && `ID: ${member.membership_id}`}
+                {member.full_name && ` · ${member.full_name}`}
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              <button onClick={() => navigate('/')} className="btn-outline btn-sm flex items-center gap-1.5">
+            <div className="flex items-center gap-2.5 shrink-0">
+              <button type="button" onClick={() => navigate('/directory')} className="btn-outline btn-sm flex items-center gap-1.5">
+                <Briefcase size={14}/> Directory
+              </button>
+              <button type="button" onClick={() => navigate('/')} className="btn-outline btn-sm flex items-center gap-1.5">
                 <Home size={14}/> Homepage
               </button>
             </div>
           </div>
         </div>
 
-        {/* Tab content — extra bottom padding on mobile for the bottom nav */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-4 sm:p-6 w-full max-w-[1400px] mx-auto pb-24 lg:pb-6">
+        <main className="flex-1 overflow-y-auto">
+          <div className="p-3 sm:p-5 lg:p-6 xl:p-8 w-full max-w-[1400px] mx-auto pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-8">
             {tabContent[activeTab]}
           </div>
-        </div>
+        </main>
       </div>
 
-      {/* Mobile Bottom Navigation Bar */}
+      {/* Mobile Bottom Navigation */}
       <nav className="bottom-nav" aria-label="Member navigation">
         {[
-          { id: 'overview',  label: 'Overview',  icon: Home },
+          { id: 'overview',  label: 'Home',      icon: Home },
           { id: 'profile',   label: 'Profile',   icon: User },
-          { id: 'documents', label: 'Documents', icon: Award },
+          { id: 'business',  label: 'Business',  icon: Briefcase },
           { id: 'payments',  label: 'Payments',  icon: CreditCard },
           { id: 'renewal',   label: 'Renew',     icon: RefreshCw },
         ].map(({ id, label, icon: Icon }) => (
           <button
             key={id}
+            type="button"
             onClick={() => setActiveTab(id)}
             className={`bottom-nav-item ${activeTab === id ? 'active' : ''}`}
             aria-current={activeTab === id ? 'page' : undefined}
@@ -1772,31 +2131,31 @@ export default function MemberDashboard() {
             <Icon size={activeTab === id ? 22 : 20} strokeWidth={activeTab === id ? 2.5 : 1.5} />
             <span>{label}</span>
             {activeTab === id && (
-              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary-600 rounded-full" />
+              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary-600 rounded-full" />
             )}
           </button>
         ))}
       </nav>
 
-      {/* Expiry Warning Popup */}
       {daysLeft !== null && daysLeft <= 90 && getMembershipStatus(member) === 'active' && showExpiryPopup && (
-        <div className="fixed bottom-20 lg:bottom-6 right-4 sm:right-6 z-50 shadow-2xl max-w-[calc(100vw-2rem)]">
+        <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] lg:bottom-6 right-3 sm:right-6 z-50 max-w-[calc(100vw-1.5rem)]">
           <div className="bg-white rounded-2xl shadow-2xl border border-amber-200 p-4 max-w-sm flex items-start gap-3 w-80">
             <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0 text-amber-600 mt-0.5">
               <Bell size={20} />
             </div>
-            <div className="flex-1">
-              <div className="flex items-start justify-between">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-2">
                 <h3 className="font-bold text-gray-900">Plan Expiring</h3>
-                <button onClick={() => setShowExpiryPopup(false)} className="text-gray-400 hover:text-gray-600 transition">
+                <button type="button" onClick={() => setShowExpiryPopup(false)} className="text-gray-400 hover:text-gray-600 transition shrink-0">
                   <XCircle size={16} />
                 </button>
               </div>
               <p className="text-xs text-gray-600 mt-1">
                 Your membership expires in <strong className="text-amber-700">{daysLeft} days</strong>.
               </p>
-              <button 
-                onClick={() => { setActiveTab('renewal'); setShowExpiryPopup(false) }} 
+              <button
+                type="button"
+                onClick={() => { setActiveTab('renewal'); setShowExpiryPopup(false) }}
                 className="mt-3 w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-xl text-sm transition shadow-sm"
               >
                 Renew Now
@@ -1805,7 +2164,6 @@ export default function MemberDashboard() {
           </div>
         </div>
       )}
-
     </div>
   )
 }

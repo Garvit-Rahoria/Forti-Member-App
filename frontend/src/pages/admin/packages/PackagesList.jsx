@@ -51,6 +51,11 @@ function formatDurationLabel(duration) {
   return raw
 }
 
+// "No Wing (General)" uses empty wing_id; exclude duplicate General from DB list
+function selectableWings(wings) {
+  return (wings || []).filter(w => w.slug !== 'general')
+}
+
 // ── Plan Modal ──────────────────────────────────────────────────────────────
 function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries, durations, wings }) {
   const isEdit = !!pkg
@@ -227,7 +232,7 @@ function PlanModal({ pkg, existingCombos, onClose, onSave, saving, countries, du
             <label className="label">Wing <span className="text-xs text-gray-400 font-normal">(optional)</span></label>
             <select className="input" value={d.wing_id || ''} onChange={e => setD(x => ({ ...x, wing_id: e.target.value }))}>
               <option value="">No Wing (General)</option>
-              {(wings || []).map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+              {selectableWings(wings).map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
           </div>
 
@@ -614,7 +619,7 @@ export default function PackagesList() {
         </select>
         <select className="input w-40 text-sm" value={filter.wing} onChange={e => setFilter(f => ({ ...f, wing: e.target.value }))}>
           <option value="">All Wings</option>
-          {wings.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+          {selectableWings(wings).map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
         </select>
         {(filter.location || filter.mt || filter.dur || filter.wing) && (
           <button className="text-xs text-gray-400 hover:text-gray-600" onClick={() => setFilter({ location: '', mt: '', dur: '', wing: '' })}>Clear</button>

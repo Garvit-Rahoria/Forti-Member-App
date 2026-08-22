@@ -9,6 +9,11 @@ import {
   UserCog, ClipboardList, RefreshCw, Mail, BookOpen,
   MailOpen, MapPin, Banknote
 } from 'lucide-react'
+import {
+  AdminLogoutConfirmModal,
+  performAdminLogout,
+} from '../components/admin/AdminLogoutConfirm'
+import { SITE_LOGO } from '../data/siteAssets'
 
 // Role-specific navigation trees
 // - Form Builder removed (hidden from nav, files kept)
@@ -29,7 +34,7 @@ const NAV_BY_ROLE = {
     { label: 'Email Templates', icon: Mail,            to: '/email-templates' },
     { label: 'SMTP Delivery',   icon: MailOpen,        to: '/smtp-settings' },
     { label: 'Audit Log',       icon: ClipboardList,   to: '/audit' },
-    // { label: 'Branches',        icon: MapPin,          to: '/branches' },
+    { label: 'Branches',        icon: MapPin,          to: '/branches' },
     // { label: 'Users',           icon: UserCog,         to: '/users' },
     { label: 'Settings',        icon: Settings,        to: '/settings' },
   ],
@@ -137,6 +142,7 @@ export default function AdminLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768)
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
 
   const role = user?.role || 'admin'
 
@@ -195,12 +201,9 @@ export default function AdminLayout() {
   const panelLabel = PANEL_LABEL[role] || 'Admin Panel'
   const roleBadge = ROLE_BADGE[role] || { label: role, cls: 'bg-gray-100 text-gray-600' }
 
-  const handleLogout = () => {
-    // Clear all auth data from storage
-    sessionStorage.clear()
-    localStorage.clear()
-    logout()
-    navigate('/', { replace: true })
+  const handleLogoutConfirm = () => {
+    setLogoutConfirmOpen(false)
+    performAdminLogout({ logout, navigate })
   }
 
   return (
@@ -218,12 +221,14 @@ export default function AdminLayout() {
         className={`fixed md:relative z-50 w-64 h-full flex-shrink-0 bg-gradient-sidebar border-r border-white/10 flex flex-col shadow-soft-lg transition-transform duration-300 ease-in-out
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:-translate-x-full md:w-0 md:overflow-hidden'}
         `}>
-        <div className="px-5 py-4 border-b border-white/10 flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-gradient-cta flex items-center justify-center text-white font-display font-bold text-sm shadow-glow">
-            F
-          </div>
-          <span className="font-display font-bold text-white text-lg flex-1 tracking-tight">FORTI</span>
-          <button onClick={() => setSidebarOpen(false)} className="md:hidden text-primary-200/60 hover:text-white transition-colors" title="Close sidebar">
+        <div className="px-5 py-4 border-b border-white/10 flex items-center gap-2 min-w-0">
+          <img
+            src={SITE_LOGO}
+            alt="FORTI"
+            className="h-auto w-auto max-h-10 max-w-full flex-1 object-contain object-left"
+            onError={e => { e.currentTarget.style.display = 'none' }}
+          />
+          <button onClick={() => setSidebarOpen(false)} className="md:hidden text-primary-200/60 hover:text-white transition-colors shrink-0" title="Close sidebar">
             <X size={18} />
           </button>
         </div>
@@ -242,22 +247,14 @@ export default function AdminLayout() {
           </div>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 min-h-0 px-2.5 py-3 flex flex-col">
-          <div className="space-y-0.5">
-          {navItems.map(item => <NavItem key={item.label} item={item} unreadCount={unreadData?.count || 0} />)}
+        {/* Navigation — scrollable so all items visible at 100% zoom */}
+        <nav className="flex-1 min-h-0 px-2.5 py-3 flex flex-col gap-2">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain space-y-0.5 pr-1 admin-sidebar-nav">
+            {navItems.map(item => <NavItem key={item.label} item={item} unreadCount={unreadData?.count || 0} />)}
           </div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="sidebar-link w-full mt-auto"
-          >
-            <LogOut size={18} />
-            Logout
-          </button>
         </nav>
 
-        <div className="px-4 pb-3 pt-1">
+        <div className="px-4 pb-3 pt-1 shrink-0">
           <p className="text-center text-[10px] leading-4 text-primary-300/50">
             Developed by{' '}
             <a href="https://kaitensoftware.com/" target="_blank" rel="noopener noreferrer"
@@ -274,20 +271,13 @@ export default function AdminLayout() {
             <Menu size={20} />
           </button>
           <h1 className="text-sm text-ink-muted font-semibold font-display">{panelLabel}</h1>
-          {/* {role === 'branch_manager' && regionData?.region_name && (
-            <span className="inline-flex items-center gap-1 text-xs font-medium bg-green-100 text-green-700 px-2.5 py-1 rounded-full">
-              <span className="w-1.5 h-1.5 bg-green-500 rounded-full"/>
-              {regionData.region_name}
-            </span>
-          )}
-          {role === 'office_staff' && staffRegionData?.region_name && (
-            <span className="inline-flex items-center gap-1 text-xs font-medium bg-orange-100 text-orange-700 px-2.5 py-1 rounded-full">
-              <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"/>
-              {staffRegionData.region_name}
-            </span>
-          )} */}
           <div className="ml-auto flex items-center gap-3 text-xs text-gray-400">
-            <button onClick={handleLogout} title="Logout" className="ml-1 flex items-center gap-1 text-gray-400 hover:text-red-500 transition-colors">
+            <button
+              type="button"
+              onClick={() => setLogoutConfirmOpen(true)}
+              title="Logout"
+              className="ml-1 flex items-center gap-1 text-gray-400 hover:text-red-500 transition-colors"
+            >
               <LogOut size={15} />
             </button>
           </div>
@@ -298,6 +288,13 @@ export default function AdminLayout() {
           <Outlet />
         </main>
       </div>
+
+      <AdminLogoutConfirmModal
+        open={logoutConfirmOpen}
+        panelLabel={panelLabel}
+        onCancel={() => setLogoutConfirmOpen(false)}
+        onConfirm={handleLogoutConfirm}
+      />
 
       {showPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-all animate-fade-in">

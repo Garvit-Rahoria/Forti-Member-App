@@ -94,10 +94,18 @@ function CurrencyModal({ item, countries, onClose, onSave, saving }) {
 
           {/* Exchange Rate */}
           <div>
-            <label className="label">Exchange Rate <span className="text-xs text-gray-400 font-normal ml-1">(relative to base)</span></label>
-            <input className="input" type="number" min={0} step="0.0001" placeholder="1.0000"
+            <label className="label">
+              Exchange Rate{' '}
+              <span className="text-xs text-gray-400 font-normal ml-1">
+                (1 {d.currency_code || 'UNIT'} = ? INR)
+              </span>
+            </label>
+            <input className="input" type="number" min={0} step="0.0001" placeholder="e.g. 90 for USD"
               value={d.exchange_rate}
               onChange={e => set('exchange_rate', e.target.value)}/>
+            <p className="text-xs text-gray-400 mt-1">
+              Example: if 1 USD = ₹90, enter <strong>90</strong>. Used to convert INR membership fees for international wire.
+            </p>
           </div>
 
           {/* Toggles */}

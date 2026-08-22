@@ -6,23 +6,42 @@ const { createAuditLog } = require('../utils/auditLog');
 
 const router = express.Router();
 
+/**
+ * Normalize stored exchange_rate to "INR per 1 unit of foreign currency".
+ * - rate >= 1  → admin-friendly "1 USD = ₹90" style
+ * - rate < 1   → legacy seed "1 INR = 0.012 USD" style
+ */
+function inrPerForeignUnit(currencyCode, exchangeRate) {
+  const code = String(currencyCode || '').toUpperCase();
+  const rate = Number(exchangeRate);
+  if (!code || code === 'INR') return 1;
+  if (!Number.isFinite(rate) || rate <= 0) return null;
+  return rate >= 1 ? rate : (1 / rate);
+}
+
+function roundMoney(n, decimals = 2) {
+  const f = 10 ** decimals;
+  return Math.round((Number(n) + Number.EPSILON) * f) / f;
+}
+
 // ── Internal seed helper ─────────────────────────────────────────────────────
 async function ensureCurrencySeeded() {
   const [[{ cnt }]] = await pool.query('SELECT COUNT(*) AS cnt FROM currency_settings');
   if (Number(cnt) > 0) return;
 
+  // Rates stored as INR per 1 unit of foreign currency (1 USD = ₹83.33)
   const SEEDS = [
     { iso: 'IN', code: 'INR', sym: '₹',   name: 'Indian Rupee',       rate: 1,      def: 1 },
-    { iso: 'US', code: 'USD', sym: '$',    name: 'US Dollar',          rate: 0.012,  def: 0 },
-    { iso: 'GB', code: 'GBP', sym: '£',    name: 'British Pound',      rate: 0.0094, def: 0 },
-    { iso: 'AE', code: 'AED', sym: 'د.إ', name: 'UAE Dirham',         rate: 0.044,  def: 0 },
-    { iso: 'JP', code: 'JPY', sym: '¥',    name: 'Japanese Yen',       rate: 1.77,   def: 0 },
-    { iso: 'AU', code: 'AUD', sym: 'A$',   name: 'Australian Dollar',  rate: 0.018,  def: 0 },
-    { iso: 'CA', code: 'CAD', sym: 'C$',   name: 'Canadian Dollar',    rate: 0.016,  def: 0 },
-    { iso: 'SG', code: 'SGD', sym: 'S$',   name: 'Singapore Dollar',   rate: 0.016,  def: 0 },
-    { iso: 'DE', code: 'EUR', sym: '€',    name: 'Euro',               rate: 0.011,  def: 0 },
-    { iso: 'SA', code: 'SAR', sym: '﷼',   name: 'Saudi Riyal',        rate: 0.045,  def: 0 },
-    { iso: 'QA', code: 'QAR', sym: '﷼',   name: 'Qatari Riyal',       rate: 0.044,  def: 0 },
+    { iso: 'US', code: 'USD', sym: '$',    name: 'US Dollar',          rate: 83.33,  def: 0 },
+    { iso: 'GB', code: 'GBP', sym: '£',    name: 'British Pound',      rate: 106.0,  def: 0 },
+    { iso: 'AE', code: 'AED', sym: 'د.إ', name: 'UAE Dirham',         rate: 22.70,  def: 0 },
+    { iso: 'JP', code: 'JPY', sym: '¥',    name: 'Japanese Yen',       rate: 0.56,   def: 0 },
+    { iso: 'AU', code: 'AUD', sym: 'A$',   name: 'Australian Dollar',  rate: 55.50,  def: 0 },
+    { iso: 'CA', code: 'CAD', sym: 'C$',   name: 'Canadian Dollar',    rate: 62.50,  def: 0 },
+    { iso: 'SG', code: 'SGD', sym: 'S$',   name: 'Singapore Dollar',   rate: 62.50,  def: 0 },
+    { iso: 'DE', code: 'EUR', sym: '€',    name: 'Euro',               rate: 90.90,  def: 0 },
+    { iso: 'SA', code: 'SAR', sym: '﷼',   name: 'Saudi Riyal',        rate: 22.20,  def: 0 },
+    { iso: 'QA', code: 'QAR', sym: '﷼',   name: 'Qatari Riyal',       rate: 22.70,  def: 0 },
   ];
 
   // Global default
@@ -67,6 +86,69 @@ router.get('/list', async (req, res) => {
     );
     return ok(res, rows);
   } catch (err) { console.error(err); return fail(res, 'Server error', 500); }
+});
+
+// GET /api/currency-settings/convert?amount=4999&from=INR&to=USD  PUBLIC
+// Converts membership fee (INR base) to target currency using admin-configured rates.
+router.get('/convert', async (req, res) => {
+  try {
+    await ensureCurrencySeeded();
+    const amount = Number(req.query.amount);
+    const from = String(req.query.from || 'INR').toUpperCase();
+    const to = String(req.query.to || 'USD').toUpperCase();
+
+    if (!Number.isFinite(amount) || amount < 0) {
+      return fail(res, 'Valid amount is required', 422);
+    }
+    if (from !== 'INR') {
+      return fail(res, 'Only INR base conversion is supported currently', 422);
+    }
+
+    if (to === 'INR') {
+      return ok(res, {
+        base_amount: roundMoney(amount),
+        base_currency: 'INR',
+        target_currency: 'INR',
+        exchange_rate: 1,
+        exchange_rate_label: '1 INR = ₹1',
+        payable_amount: roundMoney(amount),
+        instruction: `Please transfer exactly ₹${roundMoney(amount).toLocaleString('en-IN')} INR.`,
+      });
+    }
+
+    // Prefer global (country_id NULL) active rate, else any active row for the code
+    const [[row]] = await pool.query(
+      `SELECT currency_code, currency_symbol, exchange_rate
+       FROM currency_settings
+       WHERE is_active = TRUE AND UPPER(currency_code) = ?
+       ORDER BY country_id IS NULL DESC, is_default DESC, id ASC
+       LIMIT 1`,
+      [to]
+    );
+    if (!row) return fail(res, `Exchange rate for ${to} is not configured`, 404);
+
+    const inrPerUnit = inrPerForeignUnit(row.currency_code, row.exchange_rate);
+    if (!inrPerUnit) return fail(res, `Invalid exchange rate configured for ${to}`, 500);
+
+    const payable = roundMoney(amount / inrPerUnit, to === 'JPY' ? 0 : 2);
+    const rateDisplay = roundMoney(inrPerUnit, 2);
+    const sym = row.currency_symbol || to;
+
+    return ok(res, {
+      base_amount: roundMoney(amount),
+      base_currency: 'INR',
+      target_currency: to,
+      target_symbol: sym,
+      exchange_rate: rateDisplay,
+      exchange_rate_raw: Number(row.exchange_rate),
+      exchange_rate_label: `1 ${to} = ₹${rateDisplay.toLocaleString('en-IN')} INR`,
+      payable_amount: payable,
+      instruction: `Please transfer exactly ${sym}${Number(payable).toLocaleString(to === 'INR' ? 'en-IN' : 'en-US')} ${to}.`,
+    });
+  } catch (err) {
+    console.error(err);
+    return fail(res, 'Server error', 500);
+  }
 });
 
 // All admin endpoints require auth

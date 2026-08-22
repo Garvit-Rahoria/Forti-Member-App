@@ -68,6 +68,9 @@ CREATE TABLE IF NOT EXISTS member_public_profiles (
   show_positions      BOOLEAN NOT NULL DEFAULT TRUE,
   show_past_positions BOOLEAN NOT NULL DEFAULT TRUE,
   theme_color         VARCHAR(20) DEFAULT '#6C3EAB',
+  text_color          VARCHAR(20) DEFAULT '#000000',
+  background_style    VARCHAR(30) DEFAULT 'solid',
+  button_style        VARCHAR(30) DEFAULT 'rounded',
   cover_image_path    VARCHAR(500),
   profile_photo_path  VARCHAR(500),
   view_count          INTEGER NOT NULL DEFAULT 0,
@@ -94,8 +97,10 @@ ALTER TABLE fb_submissions ADD COLUMN IF NOT EXISTS wing_id INTEGER REFERENCES p
 
 INSERT INTO portal_wings (name, slug, sort_order) VALUES
   ('Main', 'main', 1),
-  ('Youth', 'youth', 2),
-  ('Women', 'women', 3)
+  ('General', 'general', 2),
+  ('Youth', 'youth', 3),
+  ('Women', 'women', 4),
+  ('Student', 'student', 5)
 ON CONFLICT (slug) DO NOTHING;
 
 INSERT INTO portal_positions (title, slug, level, sort_order) VALUES

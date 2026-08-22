@@ -74,13 +74,13 @@ INSERT INTO system_settings (setting_key, setting_value) VALUES
   ('card_template', '')
 ON CONFLICT (setting_key) DO NOTHING;
 
-INSERT INTO portal_payment_methods (name, type, instructions, is_active, sort_order)
-SELECT v.name, v.type, v.instructions, TRUE, v.sort_order
+INSERT INTO portal_payment_methods (name, type, upi_id, account_name, bank_name, account_number, ifsc_code, branch_name, account_type, iban, swift_code, bank_address, routing_number, currency, instructions, is_active, sort_order)
+SELECT v.name, v.type, v.upi_id, v.account_name, v.bank_name, v.account_number, v.ifsc_code, v.branch_name, v.account_type, v.iban, v.swift_code, v.bank_address, v.routing_number, v.currency, v.instructions, TRUE, v.sort_order
 FROM (VALUES
-  ('UPI Payment', 'upi', 'Pay via UPI ID: forti@upi. Share screenshot after payment.', 1),
-  ('Bank Transfer', 'bank_transfer', 'Transfer to: FORTI Bank, A/C: 1234567890, IFSC: FORT0000001. Share screenshot.', 2),
-  ('International Wire', 'international_wire', 'Contact admin for SWIFT details.', 3)
-) AS v(name, type, instructions, sort_order)
+  ('UPI Payment', 'upi', 'forti@upi', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'Pay via UPI ID: forti@upi. Share screenshot after payment.', 1),
+  ('Bank Transfer', 'bank_transfer', NULL, 'FORTI', 'FORTI Bank', '1234567890', 'FORT0000001', 'Head Office', 'Current', NULL, NULL, NULL, NULL, 'INR', 'Transfer to: FORTI Bank, A/C: 1234567890, IFSC: FORT0000001. Share screenshot.', 2),
+  ('International Wire', 'international_wire', NULL, 'Federation of Rajasthan Trade & Industry', 'FORTI International Bank', '123456789012', NULL, NULL, NULL, 'IN00FORTI000123456789012', 'FORTINBBXXX', 'Jaipur, Rajasthan, India', NULL, 'USD', 'Transfer via SWIFT/International Wire. Bank charges borne by sender. Share confirmation screenshot.', 3)
+) AS v(name, type, upi_id, account_name, bank_name, account_number, ifsc_code, branch_name, account_type, iban, swift_code, bank_address, routing_number, currency, instructions, sort_order)
 WHERE NOT EXISTS (SELECT 1 FROM portal_payment_methods m WHERE m.name = v.name);
 
 INSERT INTO portal_packages (name, code, price, duration_months, description, sort_order, membership_type, plan_type) VALUES

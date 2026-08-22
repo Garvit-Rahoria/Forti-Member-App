@@ -149,10 +149,11 @@ function ActionModal({ row, action, onClose, onConfirm, pending }) {
   const CONFIG = {
     under_review:      { title: "Mark Under Review",    icon: <RotateCcw size={18} className="text-yellow-600" />, btnCls: "bg-yellow-500 hover:bg-yellow-600 text-white", label: "Move to Under Review" },
     payment_verified:  { title: "Verify Payment",       icon: <CreditCard size={18} className="text-teal-600" />,  btnCls: "bg-teal-600 hover:bg-teal-700 text-white",      label: "Mark Payment Verified" },
+    reject_payment:    { title: "Reject Payment",       icon: <XCircle size={18} className="text-orange-600" />,  btnCls: "bg-orange-500 hover:bg-orange-600 text-white",  label: "Reject Payment", requireReason: true },
     approved:          { title: "Approve Application",  icon: <CheckCircle size={18} className="text-green-600" />, btnCls: "bg-green-600 hover:bg-green-700 text-white",   label: "Approve Application" },
     active:            { title: "Activate Membership",  icon: <Shield size={18} className="text-green-600" />,     btnCls: "bg-green-600 hover:bg-green-700 text-white",    label: "Activate Membership" },
-    activate:          { title: "Approve & Activate Membership",  icon: <Shield size={18} className="text-emerald-600" />,   btnCls: "bg-emerald-600 hover:bg-emerald-700 text-white", label: "Approve & Activate" },
-    rejected:          { title: "Reject Application",   icon: <XCircle size={18} className="text-red-600" />,      btnCls: "bg-red-600 hover:bg-red-700 text-white",        label: "Reject" },
+    activate:          { title: "Activate Membership",  icon: <Shield size={18} className="text-emerald-600" />,   btnCls: "bg-emerald-600 hover:bg-emerald-700 text-white", label: "Activate Membership" },
+    rejected:          { title: "Reject Application",   icon: <XCircle size={18} className="text-red-600" />,      btnCls: "bg-red-600 hover:bg-red-700 text-white",        label: "Reject", requireReason: true },
     pending_info:      { title: "Request Information",  icon: <MessageSquare size={18} className="text-blue-600" />, btnCls: "bg-blue-500 hover:bg-blue-600 text-white",     label: "Request Info" },
   }
   const cfg = CONFIG[action] || { title: action, label: action, btnCls: "bg-primary-600 text-white" }
@@ -209,32 +210,34 @@ function ActionModal({ row, action, onClose, onConfirm, pending }) {
             </div>
           )}
 
-          {action === "rejected" && (
+          {(action === "rejected" || action === "reject_payment") && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-700">
-              This will permanently reject the application. A rejection notification email will be sent.
+              {action === "reject_payment"
+                ? "Payment will be marked Rejected. The applicant must submit a new valid payment proof."
+                : "This will permanently reject the application. A rejection notification email will be sent."}
             </div>
           )}
 
           <div>
             <label className="label">
-              Notes {action === "rejected"
+              Notes {(action === "rejected" || action === "reject_payment")
                 ? <span className="text-red-500 text-xs"> — reason required</span>
                 : <span className="text-gray-400 font-normal"> (optional)</span>}
             </label>
             <textarea className="input" rows={3}
-              placeholder={action === "rejected" ? "Reason for rejection…" : "Add remarks…"}
+              placeholder={(action === "rejected" || action === "reject_payment") ? "Reason…" : "Add remarks…"}
               value={notes} onChange={e => setNotes(e.target.value)} />
           </div>
 
           <div className="flex gap-3 pt-1 border-t border-gray-100">
             <button
               className={`rounded-lg px-4 py-2 text-sm font-medium flex items-center gap-2 ${cfg.btnCls}`}
-              disabled={pending}
+              disabled={pending || ((action === "rejected" || action === "reject_payment") && !notes.trim())}
               onClick={() => onConfirm(action, notes)}>
               {pending && <Loader2 size={14} className="animate-spin" />}
               {cfg.label}
             </button>
-            <button className="btn-outline" onClick={onClose}>Cancel</button>
+            <button className="btn-outline" onClick={onClose} disabled={pending}>Cancel</button>
           </div>
           </div>
         </div>
@@ -317,37 +320,27 @@ export default function ApplicationsList() {
 
     btns.push({ label: "View", icon: <Eye size={12} />, onClick: () => nav(`/applications/${row.id}`), cls: "btn-outline btn-sm" })
 
-    const pmtVerified = (row.pmt_status === 'verified' || row.payment_status === 'verified' ||
-      s === 'payment_verified' || s === 'approved' || s === 'active')
-
-    if (s === "submitted") {
+    if (s === "submitted" || s === "pending_info") {
       if (isAdmin || isStaff)       btns.push(mkBtn("Review",      <RotateCcw size={12} />,    () => openAction(row, "under_review"),    "yellow"))
       if (isAdmin || isBM)          btns.push(mkBtn("Reject",      <XCircle size={12} />,      () => openAction(row, "rejected"),        "red"))
       if (isBM)                     btns.push(mkBtn("Req Info",    <MessageSquare size={12} />,() => openAction(row, "pending_info"),    "blue"))
     }
-    if (s === "under_review") {
-      if (isAdmin || isBM)          btns.push(mkBtn("Reject",      <XCircle size={12} />,      () => openAction(row, "rejected"),        "red"))
-      if (isBM)                     btns.push(mkBtn("Req Info",    <MessageSquare size={12} />,() => openAction(row, "pending_info"),    "blue"))
-    }
-    if (s === "payment_pending" || s === "payment_submitted") {
+    if (s === "under_review" || s === "payment_pending" || s === "payment_submitted") {
       if (isAdmin || isStaff) {
                                     btns.push(mkBtn("Verify Pmt",  <CreditCard size={12} />,   () => openAction(row, "payment_verified"),"teal"))
-                                    btns.push(mkBtn("Reject",      <XCircle size={12} />,      () => openAction(row, "rejected"),        "red"))
+                                    btns.push(mkBtn("Reject Pmt",  <XCircle size={12} />,      () => openAction(row, "reject_payment"),  "red"))
       }
+      if (isAdmin || isBM)          btns.push(mkBtn("Reject",      <XCircle size={12} />,      () => openAction(row, "rejected"),        "red"))
+      if (isBM && s === "under_review") btns.push(mkBtn("Req Info", <MessageSquare size={12} />,() => openAction(row, "pending_info"),    "blue"))
     }
     if (s === "payment_verified") {
-      // Single-click Approve = Approve + Activate directly
       if (isAdmin || isBM) {
-                                    btns.push(mkBtn("Approve",     <CheckCircle size={12} />,  () => openAction(row, "activate"),         "green"))
+                                    btns.push(mkBtn("Approve",     <CheckCircle size={12} />,  () => openAction(row, "approved"),         "green"))
                                     btns.push(mkBtn("Reject",      <XCircle size={12} />,      () => openAction(row, "rejected"),        "red"))
       }
     }
-    if (s === "pending_info") {
-      if (isAdmin || isStaff)       btns.push(mkBtn("Review",      <RotateCcw size={12} />,   () => openAction(row, "under_review"),    "yellow"))
-      if (isAdmin || isBM)          btns.push(mkBtn("Reject",      <XCircle size={12} />,      () => openAction(row, "rejected"),        "red"))
-    }
     if (s === "approved") {
-      // Already activated via single-click approve — no extra activate button needed
+      if (isAdmin || isBM)          btns.push(mkBtn("Activate",    <Shield size={12} />,       () => openAction(row, "activate"),         "green"))
     }
     return btns
   }
@@ -416,7 +409,11 @@ export default function ApplicationsList() {
                 const actions = getActions(row)
                 const pmt = getPaymentLabel(row)
                 return (
-                  <tr key={row.id} className="hover:bg-gray-50">
+                  <tr
+                    key={row.id}
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={() => nav(`/applications/${row.id}`)}
+                  >
                     <td className="px-4 py-3">
                       <p className="font-medium text-gray-900">{row.applicant_name || "—"}</p>
                       <p className="text-xs text-gray-400">{row.applicant_email || ""}</p>
@@ -451,7 +448,7 @@ export default function ApplicationsList() {
                     <td className="px-4 py-3 text-xs text-gray-400">
                       {row.submitted_at ? new Date(row.submitted_at).toLocaleDateString("en-IN") : "—"}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                       <InlineActions row={row} actions={actions} nav={nav} />
                     </td>
                   </tr>

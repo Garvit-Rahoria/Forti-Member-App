@@ -220,11 +220,13 @@ function PlansPreview({ onApply }) {
   const staticPlans = [
     { name: 'Individual Membership', badge: 'Most Popular', badgeColor: 'bg-primary-100 text-primary-700', icon: '👤',
       type: 'individual',
+      price: '₹50,000', pricePeriod: '/ year', priceColor: 'text-primary-700',
       desc: 'For professionals, consultants, freelancers, students, and independent practitioners.',
       features: ['Personal membership certificate','Digital ID card with QR code','Access to FORTI events','Networking directory listing','Monthly newsletter','Renewal management'],
       cta: 'Apply as Individual', gradient: 'from-primary-600 to-primary-800' },
     { name: 'Corporate Membership', badge: 'Best Value', badgeColor: 'bg-amber-100 text-amber-700', icon: '🏢',
       type: 'corporate',
+      price: '₹2,00,000', pricePeriod: '/ year', priceColor: 'text-amber-600',
       desc: 'For companies, organisations, institutions, and enterprises looking to associate with FORTI.',
       features: ['Multiple member seats','Corporate profile listing','Priority event access','Dedicated account manager','Corporate certificate','Custom payment terms'],
       cta: 'Apply as Corporate', gradient: 'from-amber-500 to-amber-700' },
@@ -248,6 +250,10 @@ function PlansPreview({ onApply }) {
                 </div>
                 <h3 className="text-xl font-black text-gray-900 mb-2">{t.name}</h3>
                 <p className="text-gray-500 text-sm">{t.desc}</p>
+                <div className="mt-4 flex items-baseline gap-1">
+                  <span className={`text-3xl font-black ${t.priceColor}`}>{t.price}</span>
+                  <span className="text-sm text-gray-400 font-medium">{t.pricePeriod}</span>
+                </div>
               </div>
               <div className="p-6 space-y-2.5">
                 {t.features.map(f => (
@@ -522,9 +528,13 @@ function Footer() {
 
             {/* About */}
             <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white font-black text-base shadow-md">F</div>
-                <span className="font-black text-white text-lg">FORTI</span>
+              <div className="mb-4 max-w-full">
+                <img
+                  src={SITE_LOGO}
+                  alt="FORTI"
+                  className="h-auto w-full max-w-[200px] max-h-12 object-contain object-left"
+                  onError={e => { e.currentTarget.style.display = 'none' }}
+                />
               </div>
               <p className="text-xs font-bold text-gray-300 uppercase tracking-widest mb-3">ABOUT US</p>
               <p className="text-sm text-gray-400 leading-relaxed mb-4">

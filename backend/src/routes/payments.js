@@ -369,12 +369,15 @@ router.post('/methods', requireRole('super_admin', 'admin'), upload.single('qr_i
     const qrPath = req.file ? `uploads/qr/${req.file.filename}` : null;
     const [r] = await pool.query(
       `INSERT INTO portal_payment_methods
-         (name, type, account_number, bank_name, swift_code, iban, bank_address,
+         (name, type, account_name, bank_name, account_number, ifsc_code, upi_id, branch_name, account_type,
+          swift_code, iban, bank_address, routing_number, currency,
           instructions, sort_order, is_active, is_default, location, country_code, country_name, qr_image)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [name, type,
-       account_number || null, bank_name || null, swift_code || null,
-       iban || null, bank_address || null,
+       account_name || null, bank_name || null, account_number || null, ifsc_code || null, upi_id || null,
+       req.body.branch_name || null, req.body.account_type || null,
+       swift_code || null, iban || null, bank_address || null,
+       req.body.routing_number || null, req.body.currency || null,
        instructions || null, sort_order, is_active, is_default,
        location || null, country_code || null, country_name || null, qrPath]
     );
@@ -389,7 +392,7 @@ router.put('/methods/:id', requireRole('super_admin', 'admin'), upload.single('q
     name, type,
     account_name, bank_name, account_number, ifsc_code, upi_id, swift_code, iban, bank_address,
     instructions, sort_order, is_active, is_default, location, qr_image,
-    country_code, country_name,
+    country_code, country_name, branch_name, account_type, routing_number, currency,
   } = req.body;
   try {
     const [[existing]] = await pool.query('SELECT * FROM portal_payment_methods WHERE id=?', [req.params.id]);
@@ -405,16 +408,24 @@ router.put('/methods/:id', requireRole('super_admin', 'admin'), upload.single('q
     await pool.query(
       `UPDATE portal_payment_methods SET
          name=?, type=?,
-         bank_name=?, account_number=?, swift_code=?,
-         iban=?, bank_address=?,
+         account_name=?, bank_name=?, account_number=?, ifsc_code=?, upi_id=?,
+         branch_name=?, account_type=?,
+         swift_code=?, iban=?, bank_address=?, routing_number=?, currency=?,
          instructions=?, sort_order=?, is_active=?, is_default=?, location=?, country_code=?, country_name=?, qr_image=?
        WHERE id=?`,
       [name || existing.name, type || existing.type,
+       account_name ?? existing.account_name,
        bank_name    ?? existing.bank_name,
        account_number ?? existing.account_number,
+       ifsc_code    ?? existing.ifsc_code,
+       upi_id       ?? existing.upi_id,
+       branch_name  ?? existing.branch_name,
+       account_type ?? existing.account_type,
        swift_code   ?? existing.swift_code,
        iban         ?? existing.iban,
        bank_address ?? existing.bank_address,
+       routing_number ?? existing.routing_number,
+       currency     ?? existing.currency,
        instructions ?? existing.instructions,
        sort_order   ?? existing.sort_order,
        is_active    !== undefined ? is_active : existing.is_active,

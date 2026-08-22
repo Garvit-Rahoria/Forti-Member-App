@@ -38,6 +38,8 @@ import ContactPage from './pages/public/ContactPage'
 import MemberLogin from './pages/member/MemberLogin'
 import MemberDashboard from './pages/member/MemberDashboard'
 import MemberStatus from './pages/member/MemberStatus'
+import BusinessDirectoryPage from './pages/public/BusinessDirectoryPage'
+import BusinessDetailPage from './pages/public/BusinessDetailPage'
 import TrackApplication from './pages/public/TrackApplication'
 import PublicProfilePage from './pages/public/PublicProfilePage'
 import ContentHubPage from './pages/public/ContentHubPage'
@@ -67,11 +69,7 @@ function RoleRoute({ children, roles }) {
 }
 
 function MemberRoute({ children }) {
-  // 1. Define the variables FIRST
   const { token, member, loading } = useMember()
-
-  // 2. NOW you can safely log or use the token
-  console.log("member route ", token)
 
   if (loading) {
     return (
@@ -81,12 +79,11 @@ function MemberRoute({ children }) {
     )
   }
 
-  console.log("member route 2 ", token)
-
   if (!token) return <Navigate to="/member/login" replace />
 
+  // If member data loaded and they don't have dashboard access, redirect to status
   if (member && !hasMemberDashboardAccess(member)) {
-    return <Navigate to={getMemberLandingPath(member)} replace />
+    return <Navigate to="/member/status" replace />
   }
 
   return children
@@ -122,6 +119,8 @@ export default function App() {
               <Route path="/content/:menuSlug" element={<ContentHubPage />} />
               <Route path="/gallery" element={<GalleryPage />} />
               <Route path="/contact" element={<ContactPage />} />
+              <Route path="/directory" element={<BusinessDirectoryPage />} />
+              <Route path="/directory/:id" element={<BusinessDetailPage />} />
 
               {/* ── Member Portal ── */}
               <Route path="/member/login" element={<MemberLogin />} />
@@ -174,6 +173,7 @@ export default function App() {
                   <Route path="reports" element={<RoleRoute roles={['super_admin', 'admin']}><Reports /></RoleRoute>} />
                   <Route path="manager-reports" element={<RoleRoute roles={['branch_manager']}><ManagerReports /></RoleRoute>} />
                   <Route path="audit" element={<RoleRoute roles={['super_admin']}><AuditLog /></RoleRoute>} />
+                  <Route path="branches" element={<RoleRoute roles={['super_admin', 'admin']}><BranchesPage /></RoleRoute>} />
                   <Route path="blog" element={<RoleRoute roles={['super_admin', 'admin']}><BlogManagerPage /></RoleRoute>} />
                   <Route path="settings" element={<RoleRoute roles={['super_admin', 'admin']}><Settings /></RoleRoute>} />
                   <Route path="currency-settings" element={<RoleRoute roles={['super_admin', 'admin']}><CurrencySettings /></RoleRoute>} />

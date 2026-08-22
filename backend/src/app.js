@@ -6,6 +6,7 @@ const morgan = require('morgan');
 const { testConnection, pool } = require('./config/database');
 const { apiLimiter, otpLimiter, uploadLimiter } = require('./middleware/rateLimiter');
 const { seedLocationsIfEmpty } = require('./utils/seedLocations');
+const { ensureCitiesAndBranchesSeeded } = require('./utils/seedCitiesBranches');
 const { ensureAdminUser } = require('./utils/seedAdmin');
 const { startRenewalReminderCron } = require('./cron/renewalReminders');
 
@@ -53,6 +54,8 @@ app.use('/api/membership',   require('./routes/membership'));
 app.use('/api/renewals',         require('./routes/renewals'));
 app.use('/api/invoices',         require('./routes/invoices'));
 app.use('/api/otp',              require('./routes/otp'));
+app.use('/api/member/business-profile', require('./routes/business-profile'));
+app.use('/api/business-profile', require('./routes/business-profile'));
 app.use('/api/member',           require('./routes/member-portal'));
 app.use('/api/currency-settings',require('./routes/currency-settings'));
 app.use('/api/pricing-rules',       require('./routes/pricing-rules'));
@@ -139,24 +142,24 @@ async function seedCurrencyData() {
   try {
     const COUNTRY_SEEDS = [
       { iso: 'IN', code: 'INR', sym: '₹',    name: 'Indian Rupee',       rate: 1,       def: 1 },
-      { iso: 'US', code: 'USD', sym: '$',     name: 'US Dollar',          rate: 0.012,   def: 0 },
-      { iso: 'GB', code: 'GBP', sym: '£',     name: 'British Pound',      rate: 0.0094,  def: 0 },
-      { iso: 'AE', code: 'AED', sym: 'د.إ',  name: 'UAE Dirham',         rate: 0.044,   def: 0 },
-      { iso: 'JP', code: 'JPY', sym: '¥',     name: 'Japanese Yen',       rate: 1.77,    def: 0 },
-      { iso: 'AU', code: 'AUD', sym: 'A$',    name: 'Australian Dollar',  rate: 0.018,   def: 0 },
-      { iso: 'CA', code: 'CAD', sym: 'C$',    name: 'Canadian Dollar',    rate: 0.016,   def: 0 },
-      { iso: 'SG', code: 'SGD', sym: 'S$',    name: 'Singapore Dollar',   rate: 0.016,   def: 0 },
-      { iso: 'DE', code: 'EUR', sym: '€',     name: 'Euro',               rate: 0.011,   def: 0 },
-      { iso: 'FR', code: 'EUR', sym: '€',     name: 'Euro',               rate: 0.011,   def: 0 },
-      { iso: 'SA', code: 'SAR', sym: '﷼',    name: 'Saudi Riyal',        rate: 0.045,   def: 0 },
-      { iso: 'QA', code: 'QAR', sym: '﷼',    name: 'Qatari Riyal',       rate: 0.044,   def: 0 },
-      { iso: 'KW', code: 'KWD', sym: 'KD',   name: 'Kuwaiti Dinar',      rate: 0.0037,  def: 0 },
-      { iso: 'BH', code: 'BHD', sym: 'BD',   name: 'Bahraini Dinar',     rate: 0.0045,  def: 0 },
-      { iso: 'OM', code: 'OMR', sym: 'OMR',  name: 'Omani Rial',         rate: 0.0046,  def: 0 },
-      { iso: 'MY', code: 'MYR', sym: 'RM',   name: 'Malaysian Ringgit',  rate: 0.056,   def: 0 },
-      { iso: 'NZ', code: 'NZD', sym: 'NZ$',  name: 'New Zealand Dollar', rate: 0.02,    def: 0 },
-      { iso: 'ZA', code: 'ZAR', sym: 'R',    name: 'South African Rand', rate: 0.22,    def: 0 },
-      { iso: 'CN', code: 'CNY', sym: '¥',    name: 'Chinese Yuan',       rate: 0.086,   def: 0 },
+      { iso: 'US', code: 'USD', sym: '$',     name: 'US Dollar',          rate: 83.33,   def: 0 },
+      { iso: 'GB', code: 'GBP', sym: '£',     name: 'British Pound',      rate: 106.0,   def: 0 },
+      { iso: 'AE', code: 'AED', sym: 'د.إ',  name: 'UAE Dirham',         rate: 22.70,   def: 0 },
+      { iso: 'JP', code: 'JPY', sym: '¥',     name: 'Japanese Yen',       rate: 0.56,    def: 0 },
+      { iso: 'AU', code: 'AUD', sym: 'A$',    name: 'Australian Dollar',  rate: 55.50,   def: 0 },
+      { iso: 'CA', code: 'CAD', sym: 'C$',    name: 'Canadian Dollar',    rate: 62.50,   def: 0 },
+      { iso: 'SG', code: 'SGD', sym: 'S$',    name: 'Singapore Dollar',   rate: 62.50,   def: 0 },
+      { iso: 'DE', code: 'EUR', sym: '€',     name: 'Euro',               rate: 90.90,   def: 0 },
+      { iso: 'FR', code: 'EUR', sym: '€',     name: 'Euro',               rate: 90.90,   def: 0 },
+      { iso: 'SA', code: 'SAR', sym: '﷼',    name: 'Saudi Riyal',        rate: 22.20,   def: 0 },
+      { iso: 'QA', code: 'QAR', sym: '﷼',    name: 'Qatari Riyal',       rate: 22.70,   def: 0 },
+      { iso: 'KW', code: 'KWD', sym: 'KD',   name: 'Kuwaiti Dinar',      rate: 270.0,   def: 0 },
+      { iso: 'BH', code: 'BHD', sym: 'BD',   name: 'Bahraini Dinar',     rate: 222.0,   def: 0 },
+      { iso: 'OM', code: 'OMR', sym: 'OMR',  name: 'Omani Rial',         rate: 217.0,   def: 0 },
+      { iso: 'MY', code: 'MYR', sym: 'RM',   name: 'Malaysian Ringgit',  rate: 17.85,   def: 0 },
+      { iso: 'NZ', code: 'NZD', sym: 'NZ$',  name: 'New Zealand Dollar', rate: 50.0,    def: 0 },
+      { iso: 'ZA', code: 'ZAR', sym: 'R',    name: 'South African Rand', rate: 4.55,    def: 0 },
+      { iso: 'CN', code: 'CNY', sym: '¥',    name: 'Chinese Yuan',       rate: 11.60,   def: 0 },
     ];
 
     // 1. Back-fill countries.currency where NULL
@@ -236,6 +239,194 @@ async function ensureMemberAccountsSchema() {
   }
 }
 
+async function ensureBranchesHierarchySchema() {
+  try {
+    await pool.query('ALTER TABLE portal_branches ADD COLUMN IF NOT EXISTS country_id INTEGER');
+    await pool.query('ALTER TABLE portal_branches ADD COLUMN IF NOT EXISTS city_id INTEGER');
+    try {
+      await pool.query('ALTER TABLE portal_branches ALTER COLUMN state_id DROP NOT NULL');
+    } catch (_) { /* already nullable */ }
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_portal_branches_country ON portal_branches(country_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_portal_branches_city ON portal_branches(city_id)');
+
+    await pool.query('ALTER TABLE cities ADD COLUMN IF NOT EXISTS country_id INTEGER');
+    try {
+      await pool.query('ALTER TABLE cities ALTER COLUMN state_id DROP NOT NULL');
+    } catch (_) { /* already nullable */ }
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_cities_country ON cities(country_id)');
+
+    // Backfill country from state
+    await pool.query(`
+      UPDATE portal_branches b
+      SET country_id = s.country_id
+      FROM states s
+      WHERE b.state_id = s.id
+        AND (b.country_id IS NULL OR b.country_id <> s.country_id)
+    `);
+
+    // Map city-named branches (e.g. "Jaipur HQ", "Kota Branch") to cities
+    await pool.query(`
+      UPDATE portal_branches b
+      SET city_id = c.id
+      FROM cities c
+      WHERE b.city_id IS NULL
+        AND b.state_id IS NOT NULL
+        AND c.state_id = b.state_id
+        AND (
+          lower(b.name) = lower(c.name)
+          OR lower(b.name) = lower(c.name || ' Branch')
+          OR lower(b.name) = lower(c.name || ' HQ')
+          OR lower(regexp_replace(b.name, '\\s+(Branch|HQ)$', '', 'i')) = lower(c.name)
+        )
+    `);
+
+    // Remaining state-linked rows → India if possible
+    await pool.query(`
+      UPDATE portal_branches b
+      SET country_id = (
+        SELECT id FROM countries WHERE upper(COALESCE(iso_code, '')) = 'IN' ORDER BY id LIMIT 1
+      )
+      WHERE b.country_id IS NULL AND b.state_id IS NOT NULL
+    `);
+
+    console.log('[SCHEMA] Checked portal_branches country/state/city hierarchy');
+  } catch (err) {
+    console.error('[SCHEMA] portal_branches hierarchy check failed (non-fatal):', err.message);
+  }
+}
+
+async function ensureSubmissionsSchema() {
+  try {
+    await pool.query('ALTER TABLE fb_submissions ADD COLUMN IF NOT EXISTS position VARCHAR(120)');
+    await pool.query('ALTER TABLE fb_submissions ADD COLUMN IF NOT EXISTS branch_id INTEGER');
+    await pool.query('ALTER TABLE fb_submissions ADD COLUMN IF NOT EXISTS wing_id INTEGER');
+    await pool.query('ALTER TABLE fb_submissions ADD COLUMN IF NOT EXISTS package_id INTEGER');
+    await pool.query('ALTER TABLE fb_submissions ADD COLUMN IF NOT EXISTS plan_type VARCHAR(50)');
+    await pool.query('ALTER TABLE fb_submissions ADD COLUMN IF NOT EXISTS membership_type VARCHAR(50)');
+    await pool.query('ALTER TABLE fb_submissions ADD COLUMN IF NOT EXISTS country_id INTEGER');
+    await pool.query('ALTER TABLE fb_submissions ADD COLUMN IF NOT EXISTS state_id INTEGER');
+    await pool.query('ALTER TABLE fb_submissions ADD COLUMN IF NOT EXISTS city_id INTEGER');
+    // Optional FK-style indexes (non-fatal if already exist)
+    try {
+      await pool.query('CREATE INDEX IF NOT EXISTS idx_fb_submissions_branch_id ON fb_submissions(branch_id)');
+    } catch (_) { /* ignore */ }
+    console.log('[SCHEMA] Checked fb_submissions location/membership columns');
+  } catch (err) {
+    console.error('[SCHEMA] fb_submissions schema check failed (non-fatal):', err.message);
+  }
+}
+
+async function ensureMemberPublicProfilesSchema() {
+  try {
+    await pool.query(`ALTER TABLE member_public_profiles ADD COLUMN IF NOT EXISTS text_color VARCHAR(20) DEFAULT '#000000'`);
+    await pool.query(`ALTER TABLE member_public_profiles ADD COLUMN IF NOT EXISTS background_style VARCHAR(30) DEFAULT 'solid'`);
+    await pool.query(`ALTER TABLE member_public_profiles ADD COLUMN IF NOT EXISTS button_style VARCHAR(30) DEFAULT 'rounded'`);
+    console.log('[SCHEMA] Checked member_public_profiles theme columns');
+  } catch (err) {
+    console.error('[SCHEMA] member_public_profiles schema check failed (non-fatal):', err.message);
+  }
+}
+
+async function ensurePaymentMethodsSchema() {
+  try {
+    await pool.query(`ALTER TABLE portal_payment_methods ADD COLUMN IF NOT EXISTS upi_id VARCHAR(200)`);
+    await pool.query(`ALTER TABLE portal_payment_methods ADD COLUMN IF NOT EXISTS account_name VARCHAR(200)`);
+    await pool.query(`ALTER TABLE portal_payment_methods ADD COLUMN IF NOT EXISTS ifsc_code VARCHAR(20)`);
+    await pool.query(`ALTER TABLE portal_payment_methods ADD COLUMN IF NOT EXISTS account_type VARCHAR(50)`);
+    await pool.query(`ALTER TABLE portal_payment_methods ADD COLUMN IF NOT EXISTS routing_number VARCHAR(50)`);
+    await pool.query(`ALTER TABLE portal_payment_methods ADD COLUMN IF NOT EXISTS currency VARCHAR(10)`);
+    // Allow extended payment lifecycle statuses (submitted, superseded, reset, …)
+    try {
+      await pool.query(`ALTER TABLE portal_payments ALTER COLUMN status TYPE VARCHAR(30)`);
+    } catch (_) { /* ignore */ }
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS application_activity (
+        id            SERIAL PRIMARY KEY,
+        submission_id INTEGER NOT NULL,
+        event_type    VARCHAR(80) NOT NULL,
+        notes         TEXT,
+        acted_by      INTEGER,
+        created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_application_activity_sub ON application_activity(submission_id)');
+    // Backfill UPI ID from common seed instruction text when column was missing
+    await pool.query(`
+      UPDATE portal_payment_methods
+      SET upi_id = 'forti@upi'
+      WHERE type = 'upi'
+        AND (upi_id IS NULL OR TRIM(upi_id) = '')
+        AND instructions ILIKE '%forti@upi%'
+    `);
+    // Backfill bank transfer structured fields from seed instruction text
+    await pool.query(`
+      UPDATE portal_payment_methods
+      SET
+        account_name = COALESCE(NULLIF(TRIM(account_name), ''), 'FORTI'),
+        bank_name = COALESCE(NULLIF(TRIM(bank_name), ''), 'FORTI Bank'),
+        account_number = COALESCE(NULLIF(TRIM(account_number), ''), '1234567890'),
+        ifsc_code = COALESCE(NULLIF(TRIM(ifsc_code), ''), 'FORT0000001'),
+        branch_name = COALESCE(NULLIF(TRIM(branch_name), ''), 'Head Office'),
+        account_type = COALESCE(NULLIF(TRIM(account_type), ''), 'Current')
+      WHERE type = 'bank_transfer'
+        AND (
+          account_number IS NULL OR TRIM(account_number) = ''
+          OR ifsc_code IS NULL OR TRIM(ifsc_code) = ''
+          OR bank_name IS NULL OR TRIM(bank_name) = ''
+        )
+        AND instructions ILIKE '%FORTI Bank%'
+    `);
+    // Backfill international wire placeholder details when empty
+    await pool.query(`
+      UPDATE portal_payment_methods
+      SET
+        account_name = COALESCE(NULLIF(TRIM(account_name), ''), 'Federation of Rajasthan Trade & Industry'),
+        bank_name = COALESCE(NULLIF(TRIM(bank_name), ''), 'FORTI International Bank'),
+        bank_address = COALESCE(NULLIF(TRIM(bank_address), ''), 'Jaipur, Rajasthan, India'),
+        account_number = COALESCE(NULLIF(TRIM(account_number), ''), '123456789012'),
+        iban = COALESCE(NULLIF(TRIM(iban), ''), 'IN00FORTI000123456789012'),
+        swift_code = COALESCE(NULLIF(TRIM(swift_code), ''), 'FORTINBBXXX'),
+        routing_number = COALESCE(NULLIF(TRIM(routing_number), ''), ''),
+        currency = COALESCE(NULLIF(TRIM(currency), ''), 'USD'),
+        instructions = COALESCE(
+          NULLIF(TRIM(instructions), ''),
+          'Transfer via SWIFT/International Wire. Bank charges borne by sender. Share confirmation screenshot.'
+        )
+      WHERE type = 'international_wire'
+        AND (
+          swift_code IS NULL OR TRIM(swift_code) = ''
+          OR account_number IS NULL OR TRIM(account_number) = ''
+          OR bank_name IS NULL OR TRIM(bank_name) = ''
+        )
+    `);
+    console.log('[SCHEMA] Checked portal_payment_methods UPI/bank detail columns');
+  } catch (err) {
+    console.error('[SCHEMA] portal_payment_methods schema check failed (non-fatal):', err.message);
+  }
+}
+
+async function ensurePackagesSchema() {
+  try {
+    await pool.query(`
+      ALTER TABLE portal_packages
+        ADD COLUMN IF NOT EXISTS wing_id INTEGER REFERENCES portal_wings(id)
+    `);
+    await pool.query(`
+      UPDATE portal_packages
+      SET duration_months = CASE
+        WHEN duration = 'lifetime' THEN 999
+        WHEN duration = '3years' THEN 36
+        WHEN duration IN ('1year', 'yearly') THEN 12
+        ELSE duration_months
+      END
+      WHERE duration_months IS NULL AND duration IS NOT NULL
+    `);
+    console.log('[SCHEMA] Checked portal_packages.wing_id column');
+  } catch (err) {
+    console.error('[SCHEMA] portal_packages schema check failed (non-fatal):', err.message);
+  }
+}
+
 async function ensureContactMessagesSchema() {
   try {
     await pool.query(`
@@ -246,10 +437,14 @@ async function ensureContactMessagesSchema() {
         phone VARCHAR(50),
         subject VARCHAR(250),
         message TEXT NOT NULL,
+        state_id INTEGER,
+        state_name VARCHAR(120),
         is_read BOOLEAN NOT NULL DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    await pool.query('ALTER TABLE portal_contact_messages ADD COLUMN IF NOT EXISTS state_id INTEGER');
+    await pool.query('ALTER TABLE portal_contact_messages ADD COLUMN IF NOT EXISTS state_name VARCHAR(120)');
     console.log('[SCHEMA] Checked/created portal_contact_messages table');
   } catch (err) {
     console.error('[SCHEMA] portal_contact_messages table check failed:', err.message);
@@ -368,15 +563,36 @@ async function start() {
   await testConnection();
   await runWingsMigration();
   await runBlogMigration();
+  await ensureSubmissionsSchema();
+  await ensureBranchesHierarchySchema();
+  await ensureMemberPublicProfilesSchema();
+  await ensurePackagesSchema();
+  await ensurePaymentMethodsSchema();
   await ensureMemberAccountsSchema();
   await ensureContactMessagesSchema();
+  try {
+    const { ensureBusinessProfileTables } = require('./routes/business-profile');
+    await ensureBusinessProfileTables();
+    console.log('[SCHEMA] Checked business profile tables');
+  } catch (err) {
+    console.error('[SCHEMA] business profile schema failed (non-fatal):', err.message);
+  }
   await seedLocationsIfEmpty();
+  await ensureCitiesAndBranchesSeeded();
   await seedCurrencyData();
   await backfillSubmissionsLocations();
   await ensureAdminUser();
   startRenewalReminderCron();
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`✅ FORTI Portal API running on http://localhost:${PORT}`);
+  });
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`✗ Port ${PORT} is already in use. Stop the other backend process and retry.`);
+      process.exit(1);
+    }
+    console.error('[UNCAUGHT EXCEPTION] listen', err);
+    process.exit(1);
   });
 }
 

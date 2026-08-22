@@ -36,17 +36,37 @@ router.get('/states', async (req, res) => {
   } catch (err) { return fail(res, 'Server error', 500); }
 });
 
-// GET /api/locations/cities?state_id=
+// GET /api/locations/cities?state_id=  OR  ?country_id=
 router.get('/cities', async (req, res) => {
-  const { state_id } = req.query;
-  if (!state_id) return fail(res, 'state_id required', 422);
+  const { state_id, country_id } = req.query;
+  if (!state_id && !country_id) return fail(res, 'state_id or country_id required', 422);
   try {
+    if (state_id) {
+      const [rows] = await pool.query(
+        'SELECT id, name, state_id, country_id FROM cities WHERE state_id=? AND (is_active IS TRUE OR is_active IS NULL) ORDER BY name',
+        [state_id]
+      );
+      return ok(res, rows);
+    }
+
+    // Overseas / country-level cities: direct country_id OR via states
     const [rows] = await pool.query(
-      'SELECT id, name FROM cities WHERE state_id=? ORDER BY name',
-      [state_id]
+      `SELECT DISTINCT ci.id, ci.name, ci.state_id, COALESCE(ci.country_id, s.country_id) AS country_id
+       FROM cities ci
+       LEFT JOIN states s ON s.id = ci.state_id
+       WHERE (ci.is_active IS TRUE OR ci.is_active IS NULL)
+         AND (
+           ci.country_id = ?
+           OR s.country_id = ?
+         )
+       ORDER BY ci.name`,
+      [country_id, country_id]
     );
     return ok(res, rows);
-  } catch (err) { return fail(res, 'Server error', 500); }
+  } catch (err) {
+    console.error('[locations/cities]', err.message);
+    return fail(res, 'Server error', 500);
+  }
 });
 
 // Admin-only: manage countries/states/cities

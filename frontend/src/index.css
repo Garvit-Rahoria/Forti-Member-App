@@ -94,9 +94,9 @@
     box-shadow: theme('boxShadow.soft-lg');
   }
   .card-header {
-    @apply px-6 py-4 border-b border-primary-100/50 flex items-center justify-between;
+    @apply px-4 sm:px-6 py-3.5 sm:py-4 border-b border-primary-100/50 flex items-center justify-between gap-2;
   }
-  .card-body { @apply px-6 py-5; }
+  .card-body { @apply px-4 sm:px-6 py-4 sm:py-5; }
 
   .glass-card {
     @apply rounded-2xl border border-white/40 bg-white/75 backdrop-blur-xl;
@@ -153,9 +153,60 @@
     @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
   }
 
-  /* ── Responsive Table Wrapper ── */
-  .table-responsive {
-    @apply w-full overflow-x-auto -mx-0;
+  /* ── Members admin table: sticky cols + internal scroll only ── */
+  .members-table-scroll {
+    @apply w-full max-w-full overflow-x-auto overflow-y-visible;
+    -webkit-overflow-scrolling: touch;
+  }
+  .members-table {
+    @apply w-full text-sm border-collapse;
+    min-width: 1180px;
+  }
+  .members-table th,
+  .members-table td {
+    @apply whitespace-nowrap align-middle;
+  }
+  .members-table .sticky-id {
+    position: sticky;
+    left: 0;
+    z-index: 21;
+    min-width: 132px;
+    width: 132px;
+    max-width: 148px;
+    box-shadow: 4px 0 8px -6px rgba(15, 23, 42, 0.28);
+  }
+  .members-table .sticky-name {
+    position: sticky;
+    left: 132px;
+    z-index: 20;
+    min-width: 220px;
+    width: 220px;
+    max-width: 260px;
+    box-shadow: 6px 0 10px -8px rgba(15, 23, 42, 0.22);
+  }
+  .members-table .sticky-actions {
+    position: sticky;
+    right: 0;
+    z-index: 21;
+    min-width: 72px;
+    width: 72px;
+    box-shadow: -4px 0 8px -6px rgba(15, 23, 42, 0.28);
+  }
+  .members-table thead .sticky-id,
+  .members-table thead .sticky-name,
+  .members-table thead .sticky-actions {
+    z-index: 30;
+    background-color: #f9fafb;
+  }
+  .members-table tbody .sticky-id,
+  .members-table tbody .sticky-name,
+  .members-table tbody .sticky-actions {
+    background-color: #fff;
+  }
+  .members-table tbody tr:hover .sticky-id,
+  .members-table tbody tr:hover .sticky-name,
+  .members-table tbody tr:hover .sticky-actions {
+    background-color: #f9fafb;
   }
 
   /* ── Touch Targets ── */
@@ -172,13 +223,20 @@
 
   /* ── Bottom Nav (Member Dashboard Mobile) ── */
   .bottom-nav {
-    @apply fixed bottom-0 left-0 right-0 z-50 flex lg:hidden items-stretch bg-white border-t border-gray-200 shadow-[0_-4px_16px_rgba(0,0,0,0.08)];
+    @apply fixed bottom-0 left-0 right-0 z-50 flex lg:hidden items-stretch bg-white/95 backdrop-blur-md border-t border-gray-200/90;
+    box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.08);
+    padding-bottom: env(safe-area-inset-bottom);
   }
   .bottom-nav-item {
     @apply flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-[10px] font-medium text-gray-400 hover:text-primary-600 transition-colors min-h-[56px] relative cursor-pointer;
   }
   .bottom-nav-item.active {
-    @apply text-primary-600;
+    @apply text-primary-700 font-semibold;
+  }
+
+  @keyframes slideInLeft {
+    from { transform: translateX(-100%); opacity: 0.6; }
+    to { transform: translateX(0); opacity: 1; }
   }
 
   /* ── Mesh backgrounds ── */
@@ -254,6 +312,25 @@ input[type="month"]::-webkit-calendar-picker-indicator:hover {
 .sidebar-link.active {
   @apply bg-white/15 text-white shadow-sm border-l-[3px] pl-[9px];
   border-color: theme('colors.accent.gold');
+}
+
+/* Admin sidebar nav scrollbar — visible when menu overflows at 100% zoom */
+.admin-sidebar-nav {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
+}
+.admin-sidebar-nav::-webkit-scrollbar {
+  width: 6px;
+}
+.admin-sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.admin-sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+}
+.admin-sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.55);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,6 +1,14 @@
 const nodemailer = require('nodemailer');
 const { pool } = require('../config/database');
 
+const DEFAULT_SUPPORT_EMAIL = 'info@forti.in';
+const DEFAULT_SOCIAL = [
+  { label: 'Facebook', url: 'https://forti.in' },
+  { label: 'Instagram', url: 'https://forti.in' },
+  { label: 'LinkedIn', url: 'https://forti.in' },
+  { label: 'X', url: 'https://forti.in' },
+];
+
 // ── Dynamic SMTP settings (DB-first, env fallback, 60s cache) ────────────────
 let _smtpCache = null;
 let _cacheTs   = 0;
@@ -53,7 +61,7 @@ async function getSmtpConfig() {
 function clearSmtpCache() {
   _smtpCache = null;
   _smtpVerifyTs = 0;
-  _orgCache = { ...DEFAULT_ORG };
+  _orgCache = { ...DEFAULT_ORG, logoUrl: defaultBrandLogoUrl() };
   _orgTs = 0;
 }
 
@@ -183,15 +191,29 @@ function normalizeAbsoluteUrl(rawValue) {
   if (/^https?:\/\//i.test(value)) return value;
 
   const base = (
+    process.env.FRONTEND_URL ||
+    process.env.PUBLIC_FRONTEND_URL ||
+    process.env.PUBLIC_BASE_URL ||
     process.env.BACKEND_URL ||
     process.env.BACKEND_PUBLIC_URL ||
-    process.env.PUBLIC_BASE_URL ||
-    process.env.FRONTEND_URL ||
     `http://localhost:${process.env.PORT || 5000}`
   ).replace(/\/+$/, '');
 
   if (value.startsWith('/')) return `${base}${value}`;
   return `${base}/${value.replace(/^\/+/, '')}`;
+}
+
+function frontendBaseUrl() {
+  return (
+    process.env.FRONTEND_URL ||
+    process.env.PUBLIC_FRONTEND_URL ||
+    process.env.PUBLIC_BASE_URL ||
+    'http://localhost:3000'
+  ).replace(/\/+$/, '');
+}
+
+function defaultBrandLogoUrl() {
+  return `${frontendBaseUrl()}/images/brand/logo.png`;
 }
 
 function normalizeWebsiteUrl(rawValue) {
@@ -258,10 +280,10 @@ async function getOrgBranding() {
       shortName,
       subtitle,
       website,
-      logoUrl: normalizeAbsoluteUrl(logoRaw),
+      logoUrl: normalizeAbsoluteUrl(logoRaw) || defaultBrandLogoUrl(),
     };
   } catch {
-    _orgCache = { ...DEFAULT_ORG };
+    _orgCache = { ...DEFAULT_ORG, logoUrl: defaultBrandLogoUrl() };
   }
 
   _orgTs = Date.now();
@@ -279,7 +301,7 @@ async function logEmail(to, subject, template, refId, status, errorMsg = null) {
 }
 
 // ── Core send helper ───────────────────────────────────────────────────────
-async function sendMail({ to, subject, html, template = null, refId = null }) {
+async function sendMail({ to, subject, html, template = null, refId = null, attachments = null }) {
   const cfg = await getSmtpConfig();
   try {
     validateSmtpConfig(cfg);
@@ -291,7 +313,11 @@ async function sendMail({ to, subject, html, template = null, refId = null }) {
 
   const transporter = nodemailer.createTransport(buildTransportOptions(cfg));
   try {
-    const info = await transporter.sendMail({ from: cfg.from, to, subject, html });
+    const mailOptions = { from: cfg.from, to, subject, html };
+    if (Array.isArray(attachments) && attachments.length) {
+      mailOptions.attachments = attachments;
+    }
+    const info = await transporter.sendMail(mailOptions);
     console.log(`[EMAIL SENT] to=${to} messageId=${info.messageId}`);
     await logEmail(to, subject, template, refId, 'sent');
   } catch (err) {
@@ -311,9 +337,10 @@ async function baseTemplate(content) {
   const websiteUrlRaw = org.website || DEFAULT_ORG.website;
   const websiteUrl = escapeHtml(websiteUrlRaw);
   const privacyUrl = escapeHtml(`${websiteUrlRaw.replace(/\/+$/, '')}/privacy`);
-  const logoHtml = org.logoUrl
-    ? `<img src="${escapeHtml(org.logoUrl)}" alt="${orgName}" class="header-brand-logo">`
-    : `<span class="header-brand-name">${orgShortName}</span>\n        <span class="header-brand-sub">${orgSubtitle}</span>`;
+  const contactUrl = escapeHtml(`${websiteUrlRaw.replace(/\/+$/, '')}/contact`);
+  const logoUrl = escapeHtml(org.logoUrl || defaultBrandLogoUrl());
+  const logoHtml = `<img src="${logoUrl}" alt="FORTI — Federation of Rajasthan Trade &amp; Industry" width="520" style="display:block;max-width:520px;width:100%;height:auto;margin:0 auto;border:0;outline:none;text-decoration:none">`;
+  const year = new Date().getFullYear();
 
   return `
   <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -321,12 +348,8 @@ async function baseTemplate(content) {
     *{box-sizing:border-box}
     body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;margin:0;padding:0}
     .wrap{max-width:620px;margin:30px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.10)}
-    .header{background:linear-gradient(135deg,#4c1d95 0%,#6d28d9 55%,#7c3aed 100%);padding:36px;text-align:center}
-    .header-brand{display:inline-block;margin-bottom:14px;width:100%}
-    .header-brand-logo{display:block;max-height:90px;max-width:400px;width:auto;height:auto;object-fit:contain;margin:0 auto}
-    .header-brand-name{display:block;font-size:38px;font-weight:900;color:#fff;letter-spacing:4px;line-height:1;font-family:'Segoe UI Black','Arial Black',sans-serif;text-shadow:0 2px 8px rgba(0,0,0,.2)}
-    .header-brand-sub{display:block;font-size:11px;font-weight:600;color:#c4b5fd;letter-spacing:2.5px;text-transform:uppercase;margin-top:4px}
-    .header-divider{width:48px;height:2px;background:rgba(255,255,255,.3);margin:14px auto}
+    .header{background:linear-gradient(135deg,#4c1d95 0%,#6d28d9 55%,#7c3aed 100%);padding:28px 24px 24px;text-align:center}
+    .header-logo-wrap{display:inline-block;background:#fff;border-radius:12px;padding:10px 14px;margin:0 auto 16px;max-width:92%}
     .header h1{color:#fff;margin:0;font-size:18px;font-weight:600;letter-spacing:.2px;opacity:.95}
     .body{padding:36px}
     .greeting{font-size:16px;color:#1f2937;font-weight:600;margin-bottom:8px}
@@ -349,28 +372,30 @@ async function baseTemplate(content) {
     ul.feature-list{color:#4b5563;font-size:14px;line-height:2.2;padding-left:20px;margin:12px 0}
     ul.feature-list li::marker{color:#7c3aed}
     .warning-box{background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 16px;font-size:12px;color:#9a3412}
-    .footer{text-align:center;padding:24px 36px;border-top:2px solid #f3f4f6;background:#fafafa;font-size:11px;color:#9ca3af;line-height:2}
+    .footer{text-align:center;padding:24px 28px;border-top:2px solid #f3f4f6;background:#fafafa;font-size:11px;color:#9ca3af;line-height:1.8}
     .footer a{color:#7c3aed;text-decoration:none}
-    .footer .footer-brand{font-size:13px;font-weight:700;color:#6d28d9;letter-spacing:1px}
-    .footer .footer-address{font-size:10.5px;color:#b0b7bf;margin-top:2px}
+    .footer-logo{display:block;max-width:160px;width:100%;height:auto;margin:0 auto 10px}
+    .footer .footer-org{font-size:12px;font-weight:600;color:#4b5563;margin:0 0 2px}
+    .footer .footer-address{font-size:10.5px;color:#9ca3af;margin:0 0 8px}
   </style></head><body>
   <div class="wrap">
     <div class="header">
-      <div class="header-brand">
-        ${logoHtml}
-      </div>
-      <div class="header-divider"></div>
+      <div class="header-logo-wrap">${logoHtml}</div>
       <h1>Membership Portal</h1>
     </div>
     <div class="body">${content}</div>
     <div class="footer">
-      <div class="footer-brand">${orgShortName}</div>
-      <div>${orgSubtitle}</div>
-      <div class="footer-address">Rajasthan, India &nbsp;&bull;&nbsp; <a href="${websiteUrl}">${websiteUrl}</a></div>
-      <div style="margin-top:8px;border-top:1px solid #e9ecef;padding-top:8px">
-        &copy; ${new Date().getFullYear()} ${orgShortName}. All rights reserved.<br>
-        This is an automated email. Please do not reply directly to this message.<br>
-        <a href="${websiteUrl}">Website</a> &bull; <a href="${privacyUrl}">Privacy Policy</a>
+      <img src="${logoUrl}" alt="${orgName}" class="footer-logo" width="160">
+      <div class="footer-org">${orgSubtitle}</div>
+      <div class="footer-address">Rajasthan, India</div>
+      <div>
+        <a href="${websiteUrl}">Website</a> &bull;
+        <a href="${privacyUrl}">Privacy Policy</a> &bull;
+        <a href="${contactUrl}">Contact Us</a>
+      </div>
+      <div style="margin-top:10px;border-top:1px solid #e9ecef;padding-top:10px">
+        &copy; ${year} ${orgShortName}. All rights reserved.<br>
+        This is an automated email. Please do not reply to this message.
       </div>
     </div>
   </div></body></html>`;
@@ -416,30 +441,133 @@ async function sendTemplatedEmail(eventKey, to, vars, sendEmailFn) {
   return true;
 }
 
-// ── OTP email ──────────────────────────────────────────────────────────────
+// ── OTP email (production FORTI branded) ───────────────────────────────────
+async function buildOtpEmailHtml({ name, otp, expiryTime, purpose = 'apply' }) {
+  const org = await getOrgBranding();
+  const { adminEmail } = await getSmtpConfig();
+  const supportEmail = adminEmail || DEFAULT_SUPPORT_EMAIL;
+  const websiteUrlRaw = org.website || DEFAULT_ORG.website;
+  const websiteUrl = escapeHtml(websiteUrlRaw);
+  const privacyUrl = escapeHtml(`${websiteUrlRaw.replace(/\/+$/, '')}/privacy`);
+  const contactUrl = escapeHtml(`${websiteUrlRaw.replace(/\/+$/, '')}/contact`);
+  const orgSubtitle = escapeHtml(org.subtitle || DEFAULT_ORG.subtitle);
+  const safeName = escapeHtml(String(name || '').trim());
+  const safeOtp = escapeHtml(String(otp || ''));
+  const safeExpiry = escapeHtml(String(expiryTime || '10'));
+  const year = new Date().getFullYear();
+  const isLogin = purpose === 'login';
+  const intro = isLogin
+    ? 'Use the verification code below to securely sign in to your FORTI Member Dashboard.'
+    : 'Use the verification code below to verify your identity and continue your FORTI membership application.';
+
+  const greeting = safeName
+    ? `Hello <strong style="color:#111827">${safeName}</strong>,`
+    : 'Hello,';
+
+  const socialHtml = DEFAULT_SOCIAL.map((s, i) => {
+    const sep = i < DEFAULT_SOCIAL.length - 1 ? '&nbsp;&nbsp;|&nbsp;&nbsp;' : '';
+    return `<a href="${escapeHtml(s.url)}" style="color:#7c3aed;text-decoration:none;font-weight:600">${escapeHtml(s.label)}</a>${sep}`;
+  }).join('');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>FORTI Verification Code</title>
+  <!--[if mso]><style>table,td{font-family:Arial,Helvetica,sans-serif!important}</style><![endif]-->
+</head>
+<body style="margin:0;padding:0;background-color:#f0f2f5;font-family:'Segoe UI',Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%">
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all">
+    Your FORTI verification code is ${safeOtp}. Valid for ${safeExpiry} minutes.
+  </div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f0f2f5;margin:0;padding:24px 12px">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+
+          <!-- Purple header: text brand only (no embedded image / attachment) -->
+          <tr>
+            <td align="center" bgcolor="#6d28d9" style="background:linear-gradient(135deg,#4c1d95 0%,#6d28d9 55%,#7c3aed 100%);padding:28px 20px 24px">
+              <p style="margin:0;color:#ffffff;font-size:28px;font-weight:800;letter-spacing:1px;line-height:1.2">FORTI</p>
+              <p style="margin:10px 0 0;color:#ffffff;font-size:16px;font-weight:600;letter-spacing:0.3px;line-height:1.3;opacity:0.95">Membership Portal</p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:32px 28px 12px;color:#4b5563;font-size:15px;line-height:1.7">
+              <p style="margin:0 0 12px;font-size:16px;color:#1f2937">${greeting}</p>
+              <p style="margin:0 0 20px">${intro}</p>
+
+              <!-- OTP card -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 20px;background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:2px solid #7c3aed;border-radius:14px">
+                <tr>
+                  <td align="center" style="padding:28px 20px">
+                    <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#7c3aed">Verification Code</p>
+                    <p style="margin:0;font-size:42px;font-weight:800;letter-spacing:10px;color:#5b21b6;font-family:Consolas,'Courier New',monospace;line-height:1.2">${safeOtp}</p>
+                    <p style="margin:14px 0 0;font-size:13px;font-weight:600;color:#6d28d9">Valid for ${safeExpiry} minutes &bull; One-time use only</p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Security warning -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px">
+                <tr>
+                  <td style="padding:14px 16px;font-size:13px;line-height:1.6;color:#9a3412">
+                    <strong>Security tip:</strong> Never share this OTP with anyone. FORTI staff will never ask for your OTP.
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 8px;font-size:13px;color:#6b7280;line-height:1.65">
+                If you did not request this OTP, you can safely ignore this email. If you believe someone else tried to access your account, please contact support at
+                <a href="mailto:${escapeHtml(supportEmail)}" style="color:#7c3aed;text-decoration:none;font-weight:600">${escapeHtml(supportEmail)}</a>.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer (no logo duplicate) -->
+          <tr>
+            <td align="center" style="padding:24px 28px 28px;border-top:1px solid #f3f4f6;background:#fafafa">
+              <p style="margin:0 0 2px;font-size:13px;font-weight:600;color:#374151;line-height:1.4">${orgSubtitle}</p>
+              <p style="margin:0 0 12px;font-size:12px;color:#9ca3af">Rajasthan, India</p>
+              <p style="margin:0 0 10px;font-size:12px;line-height:1.8">
+                <a href="${websiteUrl}" style="color:#7c3aed;text-decoration:none;font-weight:600">Website</a>
+                &nbsp;&bull;&nbsp;
+                <a href="${privacyUrl}" style="color:#7c3aed;text-decoration:none;font-weight:600">Privacy Policy</a>
+                &nbsp;&bull;&nbsp;
+                <a href="${contactUrl}" style="color:#7c3aed;text-decoration:none;font-weight:600">Contact Us</a>
+              </p>
+              <p style="margin:0 0 14px;font-size:12px;line-height:1.8">${socialHtml}</p>
+              <p style="margin:0;padding-top:12px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;line-height:1.7">
+                &copy; ${year} FORTI. All rights reserved.<br>
+                This is an automated email. Please do not reply to this message.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
 async function sendOTP({ to, name, otp, purpose = 'apply' }) {
   const [[setting]] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'otp_expiry_time'");
   const expiryTime = setting?.setting_value || '10';
-  if (await sendTemplatedEmail('otp_verification', to, { name, otp, purpose, expiryTime }, async (t, s, b) => sendMail({ to: t, subject: s, html: b, template: 'otp_verification', refId: to }))) return;
 
   const isLogin = purpose === 'login';
   const subject = isLogin
     ? 'Your FORTI Member Portal Login OTP'
     : 'Your FORTI Membership Application — OTP Verification';
 
-  const html = await baseTemplate(`
-    <p class="greeting">Hello${name ? `, <strong>${name}</strong>` : ''},</p>
-    <p>${isLogin ? 'Use this OTP to securely log in to your FORTI Member Dashboard.' : 'Please use the OTP below to verify your identity and proceed with your membership application.'}</p>
-    <div class="otp-box">
-      <div class="otp">${otp}</div>
-      <p class="otp-hint">Valid for <strong>${expiryTime} minutes</strong> &bull; Single use only</p>
-    </div>
-    <div class="warning-box">
-      &#9888;&#65039; Never share this OTP with anyone. FORTI staff will <strong>never</strong> ask for your OTP.
-    </div>
-  `);
-
-  await sendMail({ to, subject, html, template: 'otp', refId: to });
+  const html = await buildOtpEmailHtml({ name, otp, expiryTime, purpose });
+  // No CID / inline logo — Gmail was showing the brand PNG as an attachment.
+  await sendMail({ to, subject, html, template: 'otp_verification', refId: to });
 }
 
 // ── Application submitted ──────────────────────────────────────────────────

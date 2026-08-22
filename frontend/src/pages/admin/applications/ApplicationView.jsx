@@ -1,14 +1,18 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, CheckCircle, XCircle, Clock, Package, CreditCard, User, MapPin, FileText, ExternalLink, Receipt, X, Image, AlertCircle, Loader2, MessageSquare, Send, Trash2, Edit2, Save } from 'lucide-react'
+import {
+  ArrowLeft, CheckCircle, XCircle, Clock, Package, CreditCard, User,
+  MapPin, FileText, ExternalLink, Receipt, X, AlertCircle, Loader2,
+  MessageSquare, Send, Trash2, ShieldCheck, ShieldX, Zap, Users
+} from 'lucide-react'
 import api from '../../../api/client'
 import AdminModalPortal from '../../../components/admin/AdminModalPortal'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../../contexts/AuthContext'
 import MemberOrgPanel from '../../../components/admin/MemberOrgPanel'
-
 import { assetUrl as resolveAssetUrl } from '../../../utils/assetUrl'
+import CopyMembershipId from '../../../components/admin/CopyMembershipId'
 
 function fmtAmount(amount, currency) {
   if (!amount && amount !== 0) return '—'
@@ -30,28 +34,47 @@ const STATUS_COLORS = {
 }
 
 const SECTION_ICONS = {
-  'Personal Details':  <User size={15}/>,
-  'Location Details':  <MapPin size={15}/>,
+  'Personal Details':   <User size={15}/>,
+  'Location Details':   <MapPin size={15}/>,
   'Membership Details': <FileText size={15}/>,
-  'Payment Details':   <CreditCard size={15}/>,
+  'Payment Details':    <CreditCard size={15}/>,
 }
 
-function FieldValue({ field }) {
+function FieldValue({ field, onOpenImage }) {
+  const [showAadhaar, setShowAadhaar] = useState(false)
   if (!field.value && !field.file_path) return <span className="text-gray-400">—</span>
-
   if (field.type === 'file' || field.file_path) {
     const path = field.file_path || field.value
     const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(path)
     const url = resolveAssetUrl(path)
     return isImage
-      ? <a href={url} target="_blank" rel="noreferrer">
-          <img src={url} alt={field.label} className="w-24 h-24 object-cover rounded-lg border border-gray-200 hover:opacity-80 transition-opacity"/>
-        </a>
+      ? <button type="button" onClick={() => (onOpenImage ? onOpenImage(path) : window.open(url, '_blank'))} className="text-left">
+          <img src={url} alt={field.label} className="w-28 h-28 object-cover rounded-lg border border-gray-200 hover:opacity-90 transition-opacity shadow-sm"/>
+          <span className="block text-[11px] text-primary-600 mt-1">Click to enlarge</span>
+        </button>
       : <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary-600 hover:underline text-sm">
           <ExternalLink size={12}/> View File
         </a>
   }
-
+  const isAadhaar = /aadhaar/i.test(field.label || '')
+  if (isAadhaar && field.value) {
+    const digits = String(field.value).replace(/\D/g, '')
+    const masked = digits.length >= 4
+      ? `XXXX XXXX ${digits.slice(-4)}`
+      : 'XXXX XXXX ****'
+    return (
+      <span className="inline-flex items-center gap-2 text-sm text-gray-900">
+        <span className="font-mono tracking-wide">{showAadhaar ? digits : masked}</span>
+        <button
+          type="button"
+          onClick={() => setShowAadhaar(v => !v)}
+          className="text-[11px] font-semibold text-primary-600 hover:underline"
+        >
+          {showAadhaar ? 'Hide' : 'Show'}
+        </button>
+      </span>
+    )
+  }
   if (typeof field.value === 'string' && field.value.includes('\n')) {
     return (
       <div className="space-y-0.5">
@@ -59,11 +82,10 @@ function FieldValue({ field }) {
       </div>
     )
   }
-
   return <span className="text-gray-900 text-sm">{String(field.value)}</span>
 }
 
-function SectionCard({ section }) {
+function SectionCard({ section, onOpenImage }) {
   const icon = SECTION_ICONS[section.title] || <FileText size={15}/>
   return (
     <div className="card overflow-hidden">
@@ -75,9 +97,7 @@ function SectionCard({ section }) {
         {section.fields.map((field, i) => (
           <div key={i} className="grid grid-cols-5 gap-3 px-5 py-3">
             <span className="col-span-2 text-gray-500 text-sm font-medium self-start pt-0.5">{field.label}</span>
-            <div className="col-span-3">
-              <FieldValue field={field} />
-            </div>
+            <div className="col-span-3"><FieldValue field={field} onOpenImage={onOpenImage}/></div>
           </div>
         ))}
       </div>
@@ -85,7 +105,6 @@ function SectionCard({ section }) {
   )
 }
 
-/* ── Screenshot Modal ── */
 function ScreenshotModal({ src, onClose }) {
   if (!src) return null
   const url = resolveAssetUrl(src)
@@ -103,24 +122,148 @@ function ScreenshotModal({ src, onClose }) {
   )
 }
 
-/* ── Confirm Dialog ── */
-function ConfirmDialog({ title, message, confirmLabel, confirmColor, onConfirm, onCancel, pending }) {
+const REJECTION_REASON_OPTIONS = [
+  'Invalid Information',
+  'Payment Issue',
+  'Invalid Payment Proof',
+  'Duplicate Application',
+  'Eligibility Issue',
+  'Documents Incomplete',
+  'Other',
+]
+
+const WORKFLOW_STEPS = [
+  { key: 'submitted', label: 'Submitted' },
+  { key: 'under_review', label: 'Under Review' },
+  { key: 'payment_verified', label: 'Payment Verified' },
+  { key: 'approved', label: 'Approved' },
+  { key: 'active', label: 'Active' },
+]
+
+function workflowStepIndex(status) {
+  const s = String(status || '').toLowerCase()
+  if (s === 'payment_submitted' || s === 'submitted') return 0
+  if (s === 'under_review' || s === 'payment_pending' || s === 'pending_info') return 1
+  if (s === 'payment_verified') return 2
+  if (s === 'approved') return 3
+  if (s === 'active') return 4
+  if (s === 'rejected') return -1
+  return 0
+}
+
+/* ── Action Confirm Dialog with optional notes / mandatory rejection reasons ── */
+function ActionDialog({ action, onConfirm, onCancel, pending }) {
+  const [reasonChoice, setReasonChoice] = useState('')
+  const [otherText, setOtherText] = useState('')
+  const [optionalNote, setOptionalNote] = useState('')
+
+  useEffect(() => {
+    setReasonChoice('')
+    setOtherText('')
+    setOptionalNote('')
+  }, [action?.status, action?.title])
+
+  if (!action) return null
+
+  const needsReason = action.requireReason
+  const resolvedReason = needsReason
+    ? (reasonChoice === 'Other' ? otherText.trim() : reasonChoice.trim())
+    : optionalNote.trim()
+  const canSubmit = !needsReason
+    ? true
+    : reasonChoice && (reasonChoice !== 'Other' ? true : otherText.trim().length > 0)
+
   return (
     <AdminModalPortal>
-      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={onCancel}>
-        <div className="card w-full max-w-sm" onClick={e => e.stopPropagation()}>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onClick={() => !pending && onCancel()}>
+        <div className="card w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
           <div className="p-5 space-y-4">
             <div className="flex items-center gap-2">
-              <AlertCircle size={18} className="text-gray-500"/>
-              <h3 className="font-semibold text-gray-900">{title}</h3>
+              <AlertCircle size={18} className={needsReason ? 'text-red-500' : 'text-gray-500'}/>
+              <h3 className="font-semibold text-gray-900">{action.title}</h3>
             </div>
-            <p className="text-sm text-gray-600">{message}</p>
-            <div className="flex gap-3 pt-1">
-              <button className={`px-4 py-2 rounded-lg text-sm font-medium text-white flex items-center gap-2 ${confirmColor}`} disabled={pending} onClick={onConfirm}>
+            <p className="text-sm text-gray-600">{action.message}</p>
+
+            {needsReason && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                    Rejection Reason <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    className="input w-full text-sm"
+                    value={reasonChoice}
+                    onChange={e => setReasonChoice(e.target.value)}
+                    autoFocus
+                  >
+                    <option value="">Select a reason…</option>
+                    {REJECTION_REASON_OPTIONS.map(opt => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+                {reasonChoice === 'Other' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                      Please specify <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      className="input w-full text-sm resize-none"
+                      rows={3}
+                      placeholder="Enter the rejection reason (shared with the applicant)…"
+                      value={otherText}
+                      onChange={e => setOtherText(e.target.value)}
+                    />
+                  </div>
+                )}
+                {reasonChoice && reasonChoice !== 'Other' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">Additional note (optional)</label>
+                    <textarea
+                      className="input w-full text-sm resize-none"
+                      rows={2}
+                      placeholder="Optional details…"
+                      value={otherText}
+                      onChange={e => setOtherText(e.target.value)}
+                    />
+                  </div>
+                )}
+                {!canSubmit && (
+                  <p className="text-xs text-red-500">Rejection reason is required.</p>
+                )}
+              </div>
+            )}
+
+            {action.showNotes && !needsReason && (
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Admin Note (optional)</label>
+                <textarea
+                  className="input w-full text-sm resize-none"
+                  rows={2}
+                  placeholder="Add an optional note…"
+                  value={optionalNote}
+                  onChange={e => setOptionalNote(e.target.value)}
+                />
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-3 pt-1">
+              <button
+                className={`px-5 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${action.confirmColor}`}
+                disabled={pending || !canSubmit}
+                onClick={() => {
+                  if (pending || !canSubmit) return
+                  if (needsReason && reasonChoice && reasonChoice !== 'Other' && otherText.trim()) {
+                    onConfirm(`${reasonChoice}: ${otherText.trim()}`)
+                  } else {
+                    onConfirm(resolvedReason)
+                  }
+                }}
+              >
                 {pending && <Loader2 size={14} className="animate-spin"/>}
-                {confirmLabel}
+                {action.confirmLabel}
               </button>
-              <button className="btn-outline text-sm" onClick={onCancel}>Cancel</button>
+              <button className="btn-outline text-sm" disabled={pending} onClick={onCancel}>Cancel</button>
             </div>
           </div>
         </div>
@@ -129,7 +272,7 @@ function ConfirmDialog({ title, message, confirmLabel, confirmColor, onConfirm, 
   )
 }
 
-/* ── Staff / Manager Internal Notes Panel ── */
+/* ── Internal Notes Panel ── */
 function StaffNotesPanel({ submissionId, currentUserId, role }) {
   const qc = useQueryClient()
   const [noteText, setNoteText] = useState('')
@@ -142,20 +285,13 @@ function StaffNotesPanel({ submissionId, currentUserId, role }) {
 
   const addMut = useMutation({
     mutationFn: (note) => api.post(`/approvals/${submissionId}/notes`, { note }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['app-notes', submissionId] })
-      setNoteText('')
-      toast.success('Note added')
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['app-notes', submissionId] }); setNoteText(''); toast.success('Note added') },
     onError: err => toast.error(err.response?.data?.message || 'Failed to add note'),
   })
 
   const delMut = useMutation({
     mutationFn: (noteId) => api.delete(`/approvals/${submissionId}/notes/${noteId}`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['app-notes', submissionId] })
-      toast.success('Note deleted')
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['app-notes', submissionId] }); toast.success('Note deleted') },
     onError: err => toast.error(err.response?.data?.message || 'Failed to delete note'),
   })
 
@@ -172,23 +308,15 @@ function StaffNotesPanel({ submissionId, currentUserId, role }) {
         <div className="flex items-center gap-2">
           <MessageSquare size={15} className="text-amber-600"/>
           <h3 className="font-semibold text-amber-800 text-sm">Internal Notes</h3>
-          <span className="text-xs text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full font-medium">
-            Not visible to applicant
-          </span>
+          <span className="text-xs text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full font-medium">Not visible to applicant</span>
         </div>
-        {notes.length > 0 && (
-          <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">{notes.length}</span>
-        )}
+        {notes.length > 0 && <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">{notes.length}</span>}
       </div>
-
       <div className="p-4 space-y-3">
-        {/* Notes list */}
         {isLoading ? (
-          <div className="flex justify-center py-4">
-            <Loader2 size={16} className="animate-spin text-gray-400"/>
-          </div>
+          <div className="flex justify-center py-4"><Loader2 size={16} className="animate-spin text-gray-400"/></div>
         ) : notes.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-3">No notes yet. Add the first one below.</p>
+          <p className="text-sm text-gray-400 text-center py-3">No notes yet.</p>
         ) : (
           <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
             {notes.map(n => {
@@ -207,12 +335,8 @@ function StaffNotesPanel({ submissionId, currentUserId, role }) {
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-400">{new Date(n.created_at).toLocaleString()}</span>
                       {canDelete && (
-                        <button
-                          onClick={() => delMut.mutate(n.id)}
-                          disabled={delMut.isPending}
-                          className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all"
-                          title="Delete note"
-                        >
+                        <button onClick={() => delMut.mutate(n.id)} disabled={delMut.isPending}
+                          className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all">
                           <Trash2 size={13}/>
                         </button>
                       )}
@@ -224,32 +348,17 @@ function StaffNotesPanel({ submissionId, currentUserId, role }) {
             })}
           </div>
         )}
-
-        {/* Add note */}
         <div className="flex gap-2 pt-1 border-t border-gray-100">
-          <textarea
-            className="input text-sm flex-1 resize-none"
-            rows={2}
-            placeholder="Add an internal note…"
-            value={noteText}
-            onChange={e => setNoteText(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && noteText.trim()) {
-                e.preventDefault()
-                addMut.mutate(noteText.trim())
-              }
-            }}
+          <textarea className="input text-sm flex-1 resize-none" rows={2}
+            placeholder="Add an internal note… (Ctrl+Enter to submit)"
+            value={noteText} onChange={e => setNoteText(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && noteText.trim()) { e.preventDefault(); addMut.mutate(noteText.trim()) } }}
           />
-          <button
-            className="btn-primary px-3 self-end"
-            disabled={!noteText.trim() || addMut.isPending}
-            onClick={() => addMut.mutate(noteText.trim())}
-            title="Add note (Ctrl+Enter)"
-          >
+          <button className="btn-primary px-3 self-end" disabled={!noteText.trim() || addMut.isPending}
+            onClick={() => addMut.mutate(noteText.trim())}>
             {addMut.isPending ? <Loader2 size={14} className="animate-spin"/> : <Send size={14}/>}
           </button>
         </div>
-        <p className="text-xs text-gray-400">Ctrl+Enter to submit. Notes are internal only.</p>
       </div>
     </div>
   )
@@ -260,13 +369,13 @@ export default function ApplicationView() {
   const nav = useNavigate()
   const qc = useQueryClient()
   const { user } = useAuth()
-  const [notes, setNotes] = useState('')
   const [screenshotModal, setScreenshotModal] = useState(null)
-  const [confirmDialog, setConfirmDialog] = useState(null)
+  const [activeAction, setActiveAction] = useState(null)
+
   const role = user?.role || ''
-  const isStaff   = role === 'office_staff'
-  const isBM      = role === 'branch_manager'
-  const isAdmin   = role === 'super_admin' || role === 'admin'
+  const isStaff    = role === 'office_staff'
+  const isBM       = role === 'branch_manager'
+  const isAdmin    = role === 'super_admin' || role === 'admin'
   const canApprove = isAdmin || isBM
   const canReview  = isAdmin || isBM || isStaff
 
@@ -276,10 +385,26 @@ export default function ApplicationView() {
     retry: 1,
   })
 
+  const { data: activity = [] } = useQuery({
+    queryKey: ['app-activity', id],
+    queryFn: () => api.get(`/approvals/${id}/activity`).then(r => r.data.data || []),
+    enabled: !!id,
+  })
+
   const statusMut = useMutation({
-    mutationFn: ({ status }) => api.patch(`/approvals/${id}/status`, { status, notes }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['submission', id] }); toast.success('Status updated'); setConfirmDialog(null) },
-    onError: err => { toast.error(err.response?.data?.message || 'Error'); setConfirmDialog(null) },
+    mutationFn: ({ status, notes }) => api.patch(`/approvals/${id}/status`, { status, notes }),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['submission', id] })
+      qc.invalidateQueries({ queryKey: ['app-activity', id] })
+      qc.invalidateQueries({ queryKey: ['approvals-all'] })
+      qc.invalidateQueries({ queryKey: ['members'] })
+      const msg = res?.data?.message
+      toast.success(msg || 'Status updated')
+      setActiveAction(null)
+    },
+    onError: err => {
+      toast.error(err.response?.data?.message || 'Error')
+    },
   })
 
   const invoiceMut = useMutation({
@@ -289,25 +414,25 @@ export default function ApplicationView() {
       try {
         const resp = await api.get(`/invoices/${data.id}/download`, { responseType: 'blob' })
         const url = window.URL.createObjectURL(new Blob([resp.data], { type: 'application/pdf' }))
-        const a = document.createElement('a')
-        a.href = url
+        const a = document.createElement('a'); a.href = url
         a.download = `invoice-${data.invoice_number || data.id}.pdf`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        window.URL.revokeObjectURL(url)
+        document.body.appendChild(a); a.click()
+        document.body.removeChild(a); window.URL.revokeObjectURL(url)
       } catch { toast.error('Download failed') }
     },
     onError: err => toast.error(err.response?.data?.message || 'Failed to generate invoice'),
   })
 
-  function openConfirm(status, title, message, confirmLabel, confirmColor) {
-    setConfirmDialog({ status, title, message, confirmLabel, confirmColor })
+  function triggerAction(action) { setActiveAction(action) }
+
+  function handleConfirm(reason) {
+    if (!activeAction || statusMut.isPending) return
+    statusMut.mutate({ status: activeAction.status, notes: reason || '' })
   }
 
   if (isLoading) return (
     <div className="flex justify-center py-20">
-      <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" />
+      <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full"/>
     </div>
   )
   if (isError) return (
@@ -318,13 +443,49 @@ export default function ApplicationView() {
   )
   if (!sub) return <p className="text-center text-gray-400 py-20">Application not found.</p>
 
-  const statusLabel = (sub.status || '').replace(/_/g, ' ')
+  const statusLabel   = (sub.status || '').replace(/_/g, ' ')
+  const paymentStatus = String(sub.payment?.status || sub.payment_status || '').toLowerCase()
+  const paymentVerified = paymentStatus === 'verified' || paymentStatus === 'approved' || sub.status === 'payment_verified'
+  const paymentRejected = paymentStatus === 'rejected'
+  const hasPayment    = !!sub.payment
+  const screenshotPath = sub.payment?.screenshot_path || sub.data?.payment_screenshot || null
+  const isTerminalRejected = sub.status === 'rejected'
+  const isMembershipActive = sub.status === 'active'
+  const isApprovedOnly = sub.status === 'approved'
+  const isInitialSubmitted = ['submitted', 'payment_submitted'].includes(sub.status)
+  const isInReview = ['under_review', 'payment_pending'].includes(sub.status)
+  const curStepIdx = workflowStepIndex(sub.status)
+  const actionBusy = statusMut.isPending
+
+  const ACTION_EVENT_LABELS = {
+    application_submitted: 'Application Submitted',
+    payment_submitted: 'Payment Submitted',
+    marked_under_review: 'Marked Under Review',
+    payment_verified: 'Payment Verified',
+    payment_rejected: 'Payment Rejected',
+    application_approved: 'Application Approved',
+    application_rejected: 'Application Rejected',
+    membership_activated: 'Membership Activated',
+    payment_pending: 'Payment Pending',
+    info_requested: 'Information Requested',
+    plan_changed: 'Plan Changed',
+  }
+
+  const rejectApplicationAction = {
+    status: 'rejected',
+    title: 'Reject Application',
+    message: 'This will reject the application and notify the applicant. A reason is required.',
+    confirmLabel: 'Reject Application',
+    confirmColor: 'bg-red-600 hover:bg-red-700',
+    requireReason: true,
+  }
 
   return (
     <div className="space-y-5 max-w-5xl">
-      {/* Header */}
+
+      {/* ── Page Header ── */}
       <div className="flex items-start gap-3">
-        <button className="btn-outline btn-sm mt-1" onClick={() => nav(-1)}>
+        <button className="btn-outline btn-sm mt-1" onClick={() => nav('/applications')}>
           <ArrowLeft size={14}/> Back
         </button>
         <div className="flex-1">
@@ -337,34 +498,272 @@ export default function ApplicationView() {
             </span>
             {sub.membership_id && (
               <span className="font-mono text-xs font-bold text-primary-700 bg-primary-50 border border-primary-200 px-2.5 py-0.5 rounded-full">
-                {sub.membership_id}
+                <CopyMembershipId id={sub.membership_id}/>
               </span>
             )}
           </div>
-          <div className="flex items-center gap-4 mt-1 text-xs text-gray-400">
+          <div className="flex items-center gap-4 mt-1 text-xs text-gray-400 flex-wrap">
             {sub.applicant_email && <span>{sub.applicant_email}</span>}
             {sub.applicant_phone && <span>{sub.applicant_phone}</span>}
             {sub.submitted_at && <span>Submitted {new Date(sub.submitted_at).toLocaleString()}</span>}
+            {sub.reviewed_at && <span>Last reviewed {new Date(sub.reviewed_at).toLocaleString()}</span>}
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* ── Main content ── */}
-        <div className="lg:col-span-2 space-y-4">
+      {/* ── Workflow stepper ── */}
+      <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3">
+        <div className="flex items-center gap-1 sm:gap-2 text-xs overflow-x-auto pb-0.5">
+          {WORKFLOW_STEPS.map((step, idx) => {
+            const done = !isTerminalRejected && curStepIdx > idx
+            const active = !isTerminalRejected && curStepIdx === idx
+            return (
+              <div key={step.key} className="flex items-center gap-1 sm:gap-2 shrink-0">
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-medium ${
+                  active
+                    ? 'bg-primary-100 text-primary-700 ring-2 ring-primary-200'
+                    : done
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-gray-100 text-gray-400'
+                }`}>
+                  {done ? <CheckCircle size={12}/> : active ? <Clock size={12}/> : null}
+                  {step.label}
+                </span>
+                {idx < WORKFLOW_STEPS.length - 1 && <span className="text-gray-300">→</span>}
+              </div>
+            )
+          })}
+        </div>
+        {isTerminalRejected && (
+          <p className="text-xs text-red-600 mt-2 font-medium">Workflow stopped — application rejected.</p>
+        )}
+      </div>
 
-          {/* Sections */}
+      {/* ── PROMINENT ACTION BAR ── */}
+      {canReview && !isMembershipActive && !isTerminalRejected && (
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+          <div className="bg-gray-50 border-b border-gray-200 px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <p className="text-sm font-bold text-gray-800">Application Actions</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Submitted → Under Review → Payment Verified → Approved → Active
+              </p>
+            </div>
+            {paymentVerified && (
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full">
+                <CheckCircle size={13}/> Payment Verified
+              </span>
+            )}
+            {paymentRejected && !paymentVerified && (
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-orange-700 bg-orange-50 border border-orange-200 px-3 py-1.5 rounded-full">
+                <ShieldX size={13}/> Payment Rejected
+              </span>
+            )}
+          </div>
+
+          <div className="p-4">
+            <div className="flex flex-wrap items-center gap-2">
+
+              {/* Submitted / Payment Submitted → Mark Under Review only (Reject in More Actions) */}
+              {isInitialSubmitted && (
+                <button
+                  type="button"
+                  onClick={() => triggerAction({
+                    status: 'under_review',
+                    title: 'Mark Under Review',
+                    message: 'Move this application to Under Review so the team can check details and payment proof.',
+                    confirmLabel: 'Mark Under Review',
+                    confirmColor: 'bg-yellow-500 hover:bg-yellow-600',
+                    showNotes: true,
+                  })}
+                  disabled={actionBusy}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-gray-800 bg-yellow-100 hover:bg-yellow-200 border border-yellow-200 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                  {actionBusy ? <Loader2 size={15} className="animate-spin"/> : <Clock size={15}/>}
+                  Mark Under Review
+                </button>
+              )}
+
+              {/* Under Review / Payment Pending → Verify / Reject Payment / Reject App */}
+              {isInReview && (
+                <>
+                  {(isStaff || isAdmin) && !paymentVerified && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => triggerAction({
+                          status: 'payment_verified',
+                          title: 'Verify Payment',
+                          message: 'Confirm the payment method, reference and uploaded receipt are valid. Application will move to Payment Verified.',
+                          confirmLabel: 'Verify Payment',
+                          confirmColor: 'bg-emerald-600 hover:bg-emerald-700',
+                          showNotes: true,
+                        })}
+                        disabled={actionBusy}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+                        {actionBusy ? <Loader2 size={15} className="animate-spin"/> : <ShieldCheck size={15}/>}
+                        Verify Payment
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => triggerAction({
+                          status: 'reject_payment',
+                          title: 'Reject Payment',
+                          message: 'Payment will be marked Rejected. The applicant must submit a new valid payment receipt.',
+                          confirmLabel: 'Reject Payment',
+                          confirmColor: 'bg-orange-500 hover:bg-orange-600',
+                          requireReason: true,
+                        })}
+                        disabled={actionBusy}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+                        <ShieldX size={15}/> Reject Payment
+                      </button>
+                    </>
+                  )}
+                  {(isStaff || isAdmin) && paymentVerified && (
+                    <span className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-xl font-medium">
+                      Payment already verified — proceed to approval when ready.
+                    </span>
+                  )}
+                  {canApprove && (
+                    <button
+                      type="button"
+                      onClick={() => triggerAction(rejectApplicationAction)}
+                      disabled={actionBusy}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+                      <XCircle size={15}/> Reject Application
+                    </button>
+                  )}
+                </>
+              )}
+
+              {/* Payment Verified → Approve (requires verified payment) + Reject */}
+              {sub.status === 'payment_verified' && canApprove && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => triggerAction({
+                      status: 'approved',
+                      title: 'Approve Application',
+                      message: 'Approve this application and assign a Membership ID. Activation is a separate next step.',
+                      confirmLabel: 'Approve Application',
+                      confirmColor: 'bg-primary-600 hover:bg-primary-700',
+                      showNotes: true,
+                    })}
+                    disabled={actionBusy || !paymentVerified}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+                    {actionBusy ? <Loader2 size={15} className="animate-spin"/> : <CheckCircle size={15}/>}
+                    Approve Application
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => triggerAction(rejectApplicationAction)}
+                    disabled={actionBusy}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+                    <XCircle size={15}/> Reject Application
+                  </button>
+                </>
+              )}
+
+              {/* Approved → Activate Membership */}
+              {isApprovedOnly && (isAdmin || isBM) && (
+                <button
+                  type="button"
+                  onClick={() => triggerAction({
+                    status: 'activate',
+                    title: 'Activate Membership',
+                    message: 'Activate the membership account now? This creates/activates the member record, enables login, and generates certificate/card. Safe to retry if already active.',
+                    confirmLabel: 'Activate Membership',
+                    confirmColor: 'bg-emerald-600 hover:bg-emerald-700',
+                  })}
+                  disabled={actionBusy || !paymentVerified}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+                  {actionBusy ? <Loader2 size={15} className="animate-spin"/> : <Zap size={15}/>}
+                  Activate Membership
+                </button>
+              )}
+
+              {isStaff && !canApprove && (
+                <p className="w-full text-xs text-gray-400 mt-1">
+                  Staff can mark under review and verify payments. Approval and activation require a Branch Manager or Admin.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Active — member management (workflow actions hidden) */}
+      {isMembershipActive && (
+        <div className="bg-white border border-green-200 rounded-2xl shadow-sm overflow-hidden">
+          <div className="bg-green-50 border-b border-green-200 px-5 py-3 flex items-center gap-3">
+            <CheckCircle size={18} className="text-green-600 shrink-0"/>
+            <div>
+              <p className="font-bold text-sm text-green-800">Membership Active</p>
+              {sub.activated_at && <p className="text-xs text-gray-500 mt-0.5">Activated {new Date(sub.activated_at).toLocaleString()}</p>}
+            </div>
+          </div>
+          <div className="p-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => nav(`/members/${id}/full`)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 transition shadow-sm">
+              <Users size={15}/> View Member Profile
+            </button>
+            <button
+              type="button"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 transition disabled:opacity-50"
+              disabled={invoiceMut.isPending}
+              onClick={() => invoiceMut.mutate()}>
+              {invoiceMut.isPending ? <Loader2 size={15} className="animate-spin"/> : <Receipt size={15}/>}
+              {invoiceMut.isPending ? 'Generating…' : 'Download Invoice'}
+            </button>
+            <button
+              type="button"
+              onClick={() => nav('/members')}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 transition">
+              <Users size={15}/> Open Members List
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isTerminalRejected && (
+        <div className="rounded-2xl border px-5 py-4 flex items-center gap-3 bg-red-50 border-red-200">
+          <XCircle size={20} className="text-red-500 shrink-0"/>
+          <div>
+            <p className="font-bold text-sm text-red-700">Application Rejected</p>
+            {sub.reviewed_at && <p className="text-xs text-gray-500 mt-0.5">{new Date(sub.reviewed_at).toLocaleString()}</p>}
+            {sub.review_notes && <p className="text-xs text-gray-600 mt-1 italic">&quot;{sub.review_notes}&quot;</p>}
+          </div>
+        </div>
+      )}
+
+      {/* Approved helper note (Activate is also in the action bar) */}
+      {isApprovedOnly && (isAdmin || isBM) && (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
+            <p className="text-xs text-emerald-800">
+              Application is <strong>Approved</strong>. Use <strong>Activate Membership</strong> above to create/activate the member account. Activation is idempotent — repeated clicks will not create duplicates.
+            </p>
+          </div>
+      )}
+
+      {/* ── Main content + sidebar ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+        {/* Main */}
+        <div className="lg:col-span-2 space-y-4">
           {(sub.sections || []).length > 0
-            ? sub.sections.map((section, i) => <SectionCard key={i} section={section}/>)
+            ? sub.sections.map((section, i) => (
+              <SectionCard key={i} section={section} onOpenImage={(src) => setScreenshotModal(src)}/>
+            ))
             : (
               <div className="card p-8 text-center text-gray-400">
                 <FileText size={32} className="mx-auto mb-2 opacity-40"/>
-                <p>No structured data available for this submission.</p>
+                <p>No structured data available.</p>
               </div>
             )
           }
 
-          {/* Package card */}
           {sub.package && (
             <div className="card overflow-hidden">
               <div className="px-5 py-3 bg-primary-50 border-b border-primary-100 flex items-center gap-2">
@@ -373,51 +772,52 @@ export default function ApplicationView() {
               </div>
               <div className="p-5">
                 <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <p className="text-gray-500 text-xs">Package Name</p>
-                    <p className="font-semibold text-gray-900">{sub.package.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500 text-xs">Fee</p>
-                    <p className="font-semibold text-primary-700">{fmtAmount(sub.package.price, sub.package.currency)}</p>
-                  </div>
+                  <div><p className="text-gray-500 text-xs">Package Name</p><p className="font-semibold text-gray-900">{sub.package.name}</p></div>
+                  <div><p className="text-gray-500 text-xs">Fee</p><p className="font-semibold text-primary-700">{fmtAmount(sub.package.price, sub.package.currency)}</p></div>
                   <div>
                     <p className="text-gray-500 text-xs">Location</p>
-                    <p className="text-gray-900">{sub.package.location ? sub.package.location.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Not specified'}</p>
+                    <p className="text-gray-900">{sub.package.location ? sub.package.location.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase()) : '—'}</p>
                   </div>
-                  {sub.package.membership_type && (
-                    <div>
-                      <p className="text-gray-500 text-xs">Type</p>
-                      <p className="text-gray-900 capitalize">{sub.package.membership_type}</p>
-                    </div>
-                  )}
-                  {(sub.package.duration || sub.package.plan_type) && (
-                    <div>
-                      <p className="text-gray-500 text-xs">Duration</p>
-                      <p className="text-gray-900">{(() => {
-                        const raw = String(sub.package.duration || sub.package.plan_type || '').trim().toLowerCase()
-                        if (!raw) return '—'
-                        if (raw === 'lifetime') return 'Lifetime'
-                        const m = raw.match(/^(\d+)years?$/)
-                        if (m) { const y = Number(m[1]); return `${y} Year${y === 1 ? '' : 's'}` }
-                        if (raw === '1year' || raw === 'yearly') return '1 Year'
-                        if (raw === '3years' || raw === '3_years') return '3 Years'
-                        return raw.charAt(0).toUpperCase() + raw.slice(1)
-                      })()}</p>
-                    </div>
-                  )}
+                  {sub.package.membership_type && <div><p className="text-gray-500 text-xs">Type</p><p className="text-gray-900 capitalize">{sub.package.membership_type}</p></div>}
                 </div>
               </div>
             </div>
           )}
 
-          {/* Internal Notes Panel — staff & manager & admin */}
-          {canReview && <StaffNotesPanel submissionId={id} currentUserId={user?.id} role={role} />}
+          {/* Activity Timeline */}
+          <div className="card overflow-hidden">
+            <div className="px-5 py-3 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
+              <Clock size={15} className="text-gray-500"/>
+              <h3 className="font-semibold text-gray-800 text-sm">Activity Timeline</h3>
+            </div>
+            <div className="p-5">
+              {(!activity || activity.length === 0) ? (
+                <p className="text-sm text-gray-400">No activity recorded yet.</p>
+              ) : (
+                <ol className="relative border-l border-gray-200 space-y-4 ml-2">
+                  {activity.map((ev, i) => (
+                    <li key={ev.id || i} className="ml-4">
+                      <div className="absolute -left-1.5 mt-1.5 w-3 h-3 rounded-full bg-primary-500 border-2 border-white"/>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {ACTION_EVENT_LABELS[ev.event_type] || String(ev.event_type || '').replace(/_/g, ' ')}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {ev.acted_by_name || 'System'}
+                        {ev.created_at ? ` · ${new Date(ev.created_at).toLocaleString()}` : ''}
+                      </p>
+                      {ev.notes && <p className="text-xs text-gray-600 mt-1 bg-gray-50 rounded-lg px-2.5 py-1.5 italic">&quot;{ev.notes}&quot;</p>}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          </div>
+
+          {canReview && <StaffNotesPanel submissionId={id} currentUserId={user?.id} role={role}/>}
         </div>
 
-        {/* ── Sidebar ── */}
+        {/* Sidebar */}
         <div className="space-y-4">
-          {/* Meta info */}
           <div className="card p-4 text-sm space-y-2.5">
             <h4 className="font-semibold text-gray-700 text-xs uppercase tracking-wide">Details</h4>
             <div className="flex justify-between gap-2">
@@ -436,164 +836,84 @@ export default function ApplicationView() {
             )}
           </div>
 
-          {/* Review panel — role-gated */}
-          {canReview && ['submitted', 'under_review', 'payment_pending', 'payment_submitted', 'payment_verified'].includes(sub.status) && (
-            <div className="card p-4 space-y-3">
-              <h4 className="font-semibold text-gray-900 text-sm">Review Application</h4>
-              <textarea className="input text-sm" rows={3} placeholder="Add review notes (Required for rejection)…"
-                value={notes} onChange={e => setNotes(e.target.value)} />
-              <div className="flex flex-col gap-2">
-                {/* Approve — admin + branch_manager only */}
-                {canApprove && (
-                  <button className="btn-primary w-full text-sm" onClick={() => openConfirm('approved', 'Approve Application', 'This will approve the application, create a member account, and send a welcome email. Continue?', 'Approve Application', 'bg-green-600 hover:bg-green-700')} disabled={statusMut.isPending}>
-                    <CheckCircle size={14}/> Approve Application
-                  </button>
-                )}
-                {/* Reject — admin + branch_manager only */}
-                {canApprove && (
-                  <button className="w-full text-sm bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    onClick={() => openConfirm('rejected', 'Reject Application', 'This will permanently reject this application and send a rejection email. Continue?', 'Reject Application', 'bg-red-600 hover:bg-red-700')} disabled={statusMut.isPending || !notes.trim()}>
-                    <XCircle size={14}/> Reject Application
-                  </button>
-                )}
-                {/* Verify Payment — office_staff + admin (only when payment is NOT yet verified) */}
-                {(isStaff || isAdmin) && sub.payment && !['verified'].includes(sub.payment.status) && sub.status !== 'payment_verified' && (
-                  <button
-                    className="w-full text-sm bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
-                    onClick={() => openConfirm('payment_verified', 'Verify Payment', 'Mark this payment as verified. Branch manager can then approve the application.', 'Verify Payment', 'bg-emerald-600 hover:bg-emerald-700')}
-                    disabled={statusMut.isPending}>
-                    <CheckCircle size={14}/> Verify Payment
-                  </button>
-                )}
-                {/* Payment verified badge — shown once payment is verified */}
-                {(isStaff || isAdmin) && (sub.payment?.status === 'verified' || sub.status === 'payment_verified') && (
-                  <div className="w-full text-sm bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 font-medium">
-                    <CheckCircle size={14}/> Payment Verified
-                  </div>
-                )}
-                {/* Reject Payment — office_staff + admin (only when payment is NOT yet verified) */}
-                {(isStaff || isAdmin) && sub.payment && !['verified'].includes(sub.payment.status) && sub.status !== 'payment_verified' && (
-                  <button
-                    className="w-full text-sm bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
-                    onClick={() => openConfirm('payment_pending', 'Reject Payment', 'Mark payment as needing resubmission. Applicant will be asked to re-upload proof.', 'Reject Payment', 'bg-orange-500 hover:bg-orange-600')}
-                    disabled={statusMut.isPending}>
-                    <XCircle size={14}/> Reject Payment
-                  </button>
-                )}
-                {/* Under Review — all review roles */}
-                <button className="btn-outline w-full text-sm" onClick={() => openConfirm('under_review', 'Mark Under Review', 'This will move the application to Under Review status. Continue?', 'Mark Under Review', 'bg-yellow-500 hover:bg-yellow-600')} disabled={statusMut.isPending}>
-                  <Clock size={14}/> Mark Under Review
-                </button>
-                {/* Staff hint */}
-                {isStaff && (
-                  <p className="text-xs text-gray-400 text-center">Staff can verify payments &amp; mark Under Review. Approval requires a Branch Manager.</p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Approved / rejected status panel */}
-          {['approved', 'rejected', 'active'].includes(sub.status) && (
-            <div className={`card p-4 ${sub.status === 'rejected' ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}`}>
-              <div className="flex items-center gap-2 mb-1">
-                {sub.status === 'rejected'
-                  ? <XCircle size={16} className="text-red-500"/>
-                  : <CheckCircle size={16} className="text-green-600"/>}
-                <span className={`font-semibold text-sm capitalize ${sub.status === 'rejected' ? 'text-red-600' : 'text-green-700'}`}>
-                  {statusLabel}
-                </span>
-              </div>
-              {sub.reviewed_at && <p className="text-xs text-gray-500">{new Date(sub.reviewed_at).toLocaleString()}</p>}
-            </div>
-          )}
-
-          {/* Activate Membership — shown when status is approved and user is admin/BM */}
-          {sub.status === 'approved' && (isAdmin || isBM) && (() => {
-            const paymentVerified = sub.payment?.status === 'verified' || sub.payment?.status === 'approved'
-            return (
-              <div className="card p-4 space-y-3 border-emerald-200 bg-emerald-50">
-                <h4 className="font-semibold text-gray-900 text-sm flex items-center gap-1.5">
-                  <CheckCircle size={15} className="text-emerald-600"/> Activate Membership
-                </h4>
-                {paymentVerified ? (
-                  <p className="text-xs text-gray-500">
-                    Payment has been verified. Click below to activate the membership account.
-                  </p>
-                ) : (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-xs text-yellow-800 font-medium">
-                    ⚠ Payment must be verified before activating membership.
-                    <br/>
-                    <span className="text-yellow-600 font-normal">
-                      Current payment status: <strong>{sub.payment?.status || 'No payment submitted'}</strong>
-                    </span>
-                  </div>
-                )}
-                <div className="bg-white rounded-lg p-3 text-xs text-emerald-800 space-y-0.5 border border-emerald-100">
-                  <p className="font-medium mb-1">This will:</p>
-                  <p>• Assign Membership ID (if not yet assigned)</p>
-                  <p>• Create / update member login account</p>
-                  <p>• Send membership confirmation email</p>
-                  <p>• Generate Certificate and Membership Card (background)</p>
-                  <p>• Set application status to Active</p>
+          {/* Payment Details card */}
+          <div className="card p-4 space-y-3">
+            <h4 className="font-semibold text-gray-700 text-xs uppercase tracking-wide flex items-center gap-1.5">
+              <CreditCard size={12}/> Payment Details
+            </h4>
+            {hasPayment ? (
+              <>
+                <div className="flex justify-between text-sm gap-2">
+                  <span className="text-gray-500">Status</span>
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize
+                    ${paymentVerified ? 'bg-emerald-100 text-emerald-700' : paymentRejected ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
+                    {paymentStatus || 'pending'}
+                  </span>
                 </div>
-                <button
-                  className="w-full text-sm bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={() => openConfirm('activate', 'Activate Membership', 'This will activate the membership account, assign a Membership ID, and send the welcome email. Continue?', 'Activate Membership', 'bg-emerald-600 hover:bg-emerald-700')}
-                  disabled={statusMut.isPending || !paymentVerified}>
-                  {statusMut.isPending ? <Loader2 size={14} className="animate-spin"/> : <CheckCircle size={14}/>}
-                  Activate Membership
-                </button>
-              </div>
-            )
-          })()}
+                {sub.payment.method_name && (
+                  <div className="flex justify-between text-sm gap-2">
+                    <span className="text-gray-500">Method</span>
+                    <span className="text-gray-900 text-right">{sub.payment.method_name}</span>
+                  </div>
+                )}
+                {(sub.payment.amount != null) && (
+                  <div className="flex justify-between text-sm gap-2">
+                    <span className="text-gray-500">Amount</span>
+                    <span className="font-semibold text-gray-900">{fmtAmount(sub.payment.amount, sub.payment.currency)}</span>
+                  </div>
+                )}
+                {sub.payment.transaction_id && (
+                  <div className="flex justify-between text-sm gap-2">
+                    <span className="text-gray-500">Reference</span>
+                    <span className="font-mono text-xs text-gray-800">{sub.payment.transaction_id}</span>
+                  </div>
+                )}
+                {screenshotPath && (
+                  <button type="button" onClick={() => setScreenshotModal(screenshotPath)} className="w-full text-left">
+                    <img
+                      src={resolveAssetUrl(screenshotPath)}
+                      alt="Payment proof"
+                      className="w-full h-36 object-cover rounded-lg border border-gray-200 hover:opacity-95"
+                    />
+                    <span className="text-[11px] text-primary-600 mt-1 inline-block">Click to view full size</span>
+                  </button>
+                )}
+                {paymentRejected && sub.payment.notes && (
+                  <p className="text-xs text-red-700 bg-red-50 border border-red-100 rounded-lg px-2.5 py-2">
+                    Reject reason: {sub.payment.notes}
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-gray-400">No payment record yet.</p>
+            )}
+          </div>
 
-          {/* Download Invoice – for approved/active members */}
           {['approved', 'active'].includes(sub.status) && (
             <div className="card p-4">
               <h4 className="font-semibold text-gray-700 text-xs uppercase tracking-wide mb-3">Invoice</h4>
-              <button
-                className="btn-outline w-full text-sm flex items-center justify-center gap-2"
-                disabled={invoiceMut.isPending}
-                onClick={() => invoiceMut.mutate()}
-              >
-                <Receipt size={14} />
+              <button className="btn-outline w-full text-sm flex items-center justify-center gap-2"
+                disabled={invoiceMut.isPending} onClick={() => invoiceMut.mutate()}>
+                <Receipt size={14}/>
                 {invoiceMut.isPending ? 'Generating…' : 'Download Invoice'}
               </button>
             </div>
           )}
 
-          {/* Wing, positions, public profile */}
           {['active', 'approved'].includes(sub.status) && (
-            <MemberOrgPanel memberId={id} canManage={isAdmin || isBM} />
-          )}
-
-          {/* Review notes */}
-          {sub.review_notes && (
-            <div className="card p-4 text-sm">
-              <p className="font-medium text-gray-700 mb-1 text-xs uppercase tracking-wide">Review Notes</p>
-              <p className="text-gray-600">{sub.review_notes}</p>
-            </div>
+            <MemberOrgPanel memberId={id} canManage={isAdmin || isBM}/>
           )}
         </div>
       </div>
 
-      {/* Screenshot Modal */}
-      {screenshotModal && (
-        <ScreenshotModal src={screenshotModal} onClose={() => setScreenshotModal(null)} />
-      )}
+      {screenshotModal && <ScreenshotModal src={screenshotModal} onClose={() => setScreenshotModal(null)}/>}
 
-      {/* Confirm Dialog */}
-      {confirmDialog && (
-        <ConfirmDialog
-          title={confirmDialog.title}
-          message={confirmDialog.message}
-          confirmLabel={confirmDialog.confirmLabel}
-          confirmColor={confirmDialog.confirmColor}
-          pending={statusMut.isPending}
-          onConfirm={() => statusMut.mutate({ status: confirmDialog.status })}
-          onCancel={() => setConfirmDialog(null)}
-        />
-      )}
+      <ActionDialog
+        action={activeAction}
+        onConfirm={handleConfirm}
+        onCancel={() => !statusMut.isPending && setActiveAction(null)}
+        pending={statusMut.isPending}
+      />
     </div>
   )
 }

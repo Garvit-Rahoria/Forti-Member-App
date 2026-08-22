@@ -9,9 +9,25 @@ router.use(authMiddleware);
 // Portal members = fb_submissions with status 'approved'
 // ─────────────────────────────────────────────────────────
 
-// GET /api/members
+// GET /api/members — list with filters (no HTTP cache — filters must always be fresh)
 router.get('/', async (req, res) => {
-  const { q, status, member_status, expiring_days, wing_id, page = 1, per_page = 20 } = req.query;
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.set('Pragma', 'no-cache');
+
+  const {
+    q,
+    status,
+    member_status,
+    membership_type,
+    package_id,
+    package_name,
+    expiring_days,
+    wing_id,
+    sort_by,
+    sort_dir,
+    page = 1,
+    per_page = 20,
+  } = req.query;
 
   // Default: show active + approved (approved is a transitional state before active)
   let where;
@@ -32,15 +48,49 @@ router.get('/', async (req, res) => {
   }
 
   if (q) {
-    where += ' AND (s.applicant_name LIKE ? OR s.applicant_email LIKE ? OR s.membership_id LIKE ?)';
+    where += ' AND (LOWER(s.applicant_name) LIKE LOWER(?) OR LOWER(s.applicant_email) LIKE LOWER(?) OR LOWER(COALESCE(s.membership_id, \'\')) LIKE LOWER(?))';
     params.push(`%${q}%`, `%${q}%`, `%${q}%`);
   }
-  if (member_status) { where += ' AND s.member_status=?'; params.push(member_status); }
-  if (wing_id) { where += ' AND s.wing_id=?'; params.push(wing_id); }
+  if (member_status) {
+    if (String(member_status).toLowerCase() === 'expired') {
+      where += ` AND (
+        LOWER(COALESCE(s.member_status, '')) = 'expired'
+        OR (s.expiry_date IS NOT NULL AND s.expiry_date < CURDATE())
+      )`;
+    } else {
+      where += ' AND LOWER(COALESCE(s.member_status, \'\'))=LOWER(?)';
+      params.push(String(member_status));
+    }
+  }
+  if (membership_type) {
+    where += ' AND LOWER(COALESCE(s.membership_type, \'\'))=LOWER(?)';
+    params.push(String(membership_type));
+  }
+  if (package_id !== undefined && package_id !== null && String(package_id).trim() !== '') {
+    where += ' AND s.package_id=?';
+    params.push(Number(package_id));
+  }
+  if (package_name) {
+    where += ' AND LOWER(COALESCE(pp.name, \'\'))=LOWER(?)';
+    params.push(String(package_name));
+  }
+  if (wing_id !== undefined && wing_id !== null && String(wing_id).trim() !== '') {
+    where += ' AND s.wing_id=?';
+    params.push(Number(wing_id));
+  }
   if (expiring_days) {
     where += ' AND s.expiry_date IS NOT NULL AND s.expiry_date >= CURDATE() AND DATEDIFF(s.expiry_date, CURDATE()) <= ?';
     params.push(Number(expiring_days));
   }
+
+  const sortKey = String(sort_by || '').toLowerCase();
+  const sortDir = String(sort_dir || 'desc').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+  const orderBy = sortKey === 'name'
+    ? `s.applicant_name ${sortDir}, s.id DESC`
+    : sortKey === 'expiry'
+      ? `s.expiry_date ${sortDir} NULLS LAST, s.id DESC`
+      : `s.created_at DESC`;
+
   try {
     const result = await paginate(
       pool,
@@ -68,11 +118,91 @@ router.get('/', async (req, res) => {
        LEFT JOIN portal_packages pp ON pp.id=s.package_id
        LEFT JOIN portal_wings pw ON pw.id=s.wing_id
        LEFT JOIN fb_submission_data org ON org.submission_id=s.id AND org.field_key='organisation_name'
-       WHERE ${where} ORDER BY s.created_at DESC`,
-      params, Number(page), Number(per_page)
+       WHERE ${where} ORDER BY ${orderBy}`,
+      params, Number(page), Math.min(100, Math.max(1, Number(per_page) || 20))
     );
     return ok(res, result);
   } catch (err) { console.error(err); return fail(res, 'Server error', 500); }
+});
+
+// GET /api/members/filter-options — distinct values actually used by members
+router.get('/filter-options', async (req, res) => {
+  try {
+    const baseWhere = "s.status IN ('active','approved')";
+    const params = [];
+    let scope = '';
+    if (req.user.role === 'branch_manager' || req.user.role === 'office_staff') {
+      if (req.user.assigned_branch_id) {
+        scope = ' AND s.branch_id=?';
+        params.push(req.user.assigned_branch_id);
+      } else if (req.user.assigned_state_id) {
+        scope = ' AND s.state_id=?';
+        params.push(req.user.assigned_state_id);
+      }
+    }
+    const where = `${baseWhere}${scope}`;
+
+    const [packages] = await pool.query(
+      `SELECT s.package_id AS id,
+              COALESCE(NULLIF(pp.name, ''), CONCAT('Package #', s.package_id)) AS name,
+              pp.membership_type,
+              COUNT(*)::int AS member_count
+       FROM fb_submissions s
+       LEFT JOIN portal_packages pp ON pp.id = s.package_id
+       WHERE ${where} AND s.package_id IS NOT NULL
+       GROUP BY s.package_id, pp.name, pp.membership_type
+       ORDER BY name ASC`,
+      params
+    );
+
+    const [wings] = await pool.query(
+      `SELECT s.wing_id AS id,
+              COALESCE(NULLIF(pw.name, ''), CONCAT('Wing #', s.wing_id)) AS name,
+              COUNT(*)::int AS member_count
+       FROM fb_submissions s
+       LEFT JOIN portal_wings pw ON pw.id = s.wing_id
+       WHERE ${where} AND s.wing_id IS NOT NULL
+       GROUP BY s.wing_id, pw.name
+       ORDER BY name ASC`,
+      params
+    );
+
+    const [types] = await pool.query(
+      `SELECT LOWER(s.membership_type) AS value, COUNT(*)::int AS member_count
+       FROM fb_submissions s
+       WHERE ${where} AND s.membership_type IS NOT NULL AND TRIM(s.membership_type) <> ''
+       GROUP BY LOWER(s.membership_type)
+       ORDER BY value ASC`,
+      params
+    );
+
+    const [statuses] = await pool.query(
+      `SELECT LOWER(s.member_status) AS value, COUNT(*)::int AS member_count
+       FROM fb_submissions s
+       WHERE ${where} AND s.member_status IS NOT NULL AND TRIM(s.member_status) <> ''
+       GROUP BY LOWER(s.member_status)
+       ORDER BY value ASC`,
+      params
+    );
+
+    return ok(res, {
+      packages: packages || [],
+      wings: wings || [],
+      types: (types || []).map(t => ({
+        value: t.value,
+        label: t.value === 'corporate' ? 'Corporate' : t.value === 'individual' ? 'Individual' : t.value,
+        member_count: t.member_count,
+      })),
+      statuses: (statuses || []).map(s => ({
+        value: s.value,
+        label: String(s.value || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        member_count: s.member_count,
+      })),
+    });
+  } catch (err) {
+    console.error('[members/filter-options]', err);
+    return fail(res, 'Server error', 500);
+  }
 });
 
 // GET /api/members/:id
@@ -99,22 +229,22 @@ router.get('/:id', async (req, res) => {
 router.get('/:id/full', async (req, res) => {
   try {
     const [[member]] = await pool.query(
-      `SELECT s.*, f.name AS form_name, f.form_type, pw.name AS wing_name
+      `SELECT s.*, f.name AS form_name, f.form_type, pw.name AS wing_name,
+              pp.name AS package_name, pp.duration AS package_duration
        FROM fb_submissions s
        LEFT JOIN fb_forms f ON f.id=s.form_id
        LEFT JOIN portal_wings pw ON pw.id=s.wing_id
+       LEFT JOIN portal_packages pp ON pp.id=s.package_id
        WHERE s.id=?`, [req.params.id]
     );
     if (!member) return fail(res, 'Member not found', 404);
-    
-    // Member Accounts
+
     const [memberAccounts] = await pool.query(
-      `SELECT id, email, phone, full_name, role, is_active, last_login 
+      `SELECT id, email, phone, full_name, role, is_active, last_login
        FROM member_accounts WHERE submission_id = ?`, [member.id]
     );
     member.accounts = memberAccounts;
 
-    // Field Data (without file_path for document hiding)
     const [fields] = await pool.query(
       `SELECT sd.field_key, sd.value, sd.file_path, fld.label, fld.field_type
        FROM fb_submission_data sd LEFT JOIN fb_fields fld ON fld.id=sd.field_id
@@ -122,7 +252,6 @@ router.get('/:id/full', async (req, res) => {
     );
     member.field_data = fields.filter(f => !f.file_path);
 
-    // Public Profile
     const [[profile]] = await pool.query(
       'SELECT * FROM member_public_profiles WHERE submission_id = ?', [member.id]
     );
@@ -130,18 +259,19 @@ router.get('/:id/full', async (req, res) => {
       'SELECT * FROM member_profile_links WHERE submission_id = ? ORDER BY sort_order, id', [member.id]
     );
 
-    // Payment History
     const [paymentHistory] = await pool.query(
       `SELECT pp.id, pp.uuid, pp.transaction_id, pp.amount, pp.status,
               pp.created_at AS payment_date, pp.currency, pp.screenshot_path,
-              pm.name AS method_name
+              pp.verified_at, pp.notes AS payment_notes,
+              pm.name AS method_name,
+              u.full_name AS verified_by_name
        FROM portal_payments pp
        LEFT JOIN portal_payment_methods pm ON pm.id = pp.method_id
+       LEFT JOIN portal_admin_users u ON u.id = pp.verified_by
        WHERE pp.submission_id = ?
        ORDER BY pp.created_at DESC`, [member.id]
     );
 
-    // Renewal History
     const [renewalHistory] = await pool.query(
       `SELECT r.id, r.uuid, r.status, r.amount, r.currency, r.transaction_id,
               r.old_expiry_date, r.new_expiry_date, r.created_at, r.notes, r.screenshot_path,
@@ -153,31 +283,146 @@ router.get('/:id/full', async (req, res) => {
        ORDER BY r.created_at DESC`, [member.id]
     );
 
-    // Org Positions (currently unsupported)
-    const positionHistory = [];
+    let positionHistory = [];
+    try {
+      const { getPositionHistory } = require('../utils/memberOrg');
+      positionHistory = await getPositionHistory(member.id);
+    } catch (e) {
+      console.error('[full positions]', e.message);
+    }
+
+    let activity = [];
+    try {
+      const [rows] = await pool.query(
+        `SELECT a.id, a.event_type, a.notes, a.acted_by, a.created_at,
+                u.full_name AS acted_by_name
+         FROM application_activity a
+         LEFT JOIN portal_admin_users u ON u.id = a.acted_by
+         WHERE a.submission_id = ?
+         ORDER BY a.created_at ASC, a.id ASC`,
+        [member.id]
+      );
+      activity = [
+        {
+          event_type: 'application_submitted',
+          notes: null,
+          acted_by_name: member.applicant_name || 'Applicant',
+          created_at: member.submitted_at || member.created_at,
+        },
+        ...rows,
+      ];
+    } catch (e) {
+      console.error('[full activity]', e.message);
+    }
+
+    let notes = [];
+    try {
+      const [noteRows] = await pool.query(
+        `SELECT an.id, an.note, an.created_at, an.created_by, u.full_name AS author_name
+         FROM application_notes an
+         LEFT JOIN portal_admin_users u ON u.id = an.created_by
+         WHERE an.submission_id = ?
+         ORDER BY an.created_at DESC`,
+        [member.id]
+      );
+      notes = noteRows;
+    } catch (e) {
+      console.error('[full notes]', e.message);
+    }
+
+    const certificate = {
+      available: !!(member.cert_generated || member.certificate_pdf),
+      cert_generated: !!member.cert_generated,
+      certificate_pdf: member.certificate_pdf || null,
+      card_generated: !!member.card_generated,
+      id_card_pdf: member.id_card_pdf || null,
+      membership_id: member.membership_id || null,
+      issue_date: member.submitted_at || member.created_at || null,
+    };
 
     return ok(res, {
       member,
-      profile,
+      profile: profile || null,
       links,
       paymentHistory,
       renewalHistory,
-      positionHistory
+      positionHistory,
+      activity,
+      notes,
+      certificate,
     });
   } catch (err) { console.error(err); return fail(res, 'Server error', 500); }
 });
 
+// GET /api/members/:id/notes
+router.get('/:id/notes', requireRole('super_admin', 'admin', 'branch_manager', 'office_staff'), async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT an.id, an.note, an.created_at, an.created_by, u.full_name AS author_name
+       FROM application_notes an
+       LEFT JOIN portal_admin_users u ON u.id = an.created_by
+       WHERE an.submission_id = ?
+       ORDER BY an.created_at DESC`,
+      [req.params.id]
+    );
+    return ok(res, rows);
+  } catch (err) { return fail(res, 'Server error', 500); }
+});
+
+// POST /api/members/:id/notes
+router.post('/:id/notes', requireRole('super_admin', 'admin', 'branch_manager', 'office_staff'), async (req, res) => {
+  const note = String(req.body?.note || '').trim();
+  if (!note) return fail(res, 'Note is required', 422);
+  try {
+    const [[member]] = await pool.query('SELECT id FROM fb_submissions WHERE id=?', [req.params.id]);
+    if (!member) return fail(res, 'Member not found', 404);
+    await pool.query(
+      'INSERT INTO application_notes (submission_id, created_by, note) VALUES (?,?,?)',
+      [req.params.id, req.user.id, note]
+    );
+    const [[row]] = await pool.query(
+      `SELECT an.id, an.note, an.created_at, an.created_by, u.full_name AS author_name
+       FROM application_notes an
+       LEFT JOIN portal_admin_users u ON u.id = an.created_by
+       WHERE an.submission_id = ?
+       ORDER BY an.id DESC LIMIT 1`,
+      [req.params.id]
+    );
+    return ok(res, row, 'Note added');
+  } catch (err) { return fail(res, 'Server error', 500); }
+});
+
 // PATCH /api/members/:id/status
 router.patch('/:id/status', requireRole('super_admin', 'admin'), async (req, res) => {
-  const { status, reason } = req.body;
-  const valid = ['active', 'suspended', 'inactive'];
-  if (!valid.includes(status)) return fail(res, 'Invalid status. Must be: active, suspended, or inactive', 422);
+  const { status, reason, note } = req.body;
+  const valid = ['active', 'suspended', 'inactive', 'cancelled'];
+  if (!valid.includes(status)) return fail(res, 'Invalid status. Must be: active, suspended, inactive, or cancelled', 422);
+
+  if (status === 'cancelled' && !reason?.trim()) {
+    return fail(res, 'Cancellation reason is required', 422);
+  }
+
   try {
     if (status === 'suspended') {
       await pool.query(
         `UPDATE fb_submissions SET member_status=?, suspension_reason=?, suspended_by=?, suspended_at=NOW() WHERE id=?`,
         [status, reason || null, req.user.id, req.params.id]
       );
+    } else if (status === 'cancelled') {
+      await pool.query(
+        `UPDATE fb_submissions
+         SET member_status=?, suspension_reason=?, suspended_by=?, suspended_at=NOW()
+         WHERE id=?`,
+        ['cancelled', reason.trim(), req.user.id, req.params.id]
+      );
+      // Also deactivate the member_account so portal access is removed
+      await pool.query(
+        `UPDATE member_accounts SET is_active=FALSE WHERE submission_id=?`,
+        [req.params.id]
+      );
+      // End any active positions
+      const { endPositionsOnMembershipExpiry } = require('../utils/memberOrg');
+      await endPositionsOnMembershipExpiry(req.params.id);
     } else {
       await pool.query(
         'UPDATE fb_submissions SET member_status=?, suspension_reason=NULL, suspended_by=NULL, suspended_at=NULL WHERE id=?',

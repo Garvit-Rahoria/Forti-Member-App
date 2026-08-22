@@ -1,4 +1,6 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
 const { authMiddleware, JWT_SECRET } = require('../middleware/auth');
@@ -6,6 +8,23 @@ const { upload } = require('../middleware/upload');
 const { ok, fail } = require('../utils/helpers');
 const { sendApplicationSubmitted, sendPaymentSubmitted, sendMembershipConfirmed } = require('../utils/email');
 const { getCurrencyCodeByCountry } = require('../utils/membershipCurrency');
+
+const RECEIPT_MAX_BYTES = 5 * 1024 * 1024;
+const RECEIPT_OK_MIME = new Set(['image/jpeg', 'image/png', 'application/pdf']);
+const RECEIPT_OK_EXT = new Set(['.jpg', '.jpeg', '.png', '.pdf']);
+
+function unlinkQuiet(filePath) {
+  try { if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch (_) { /* ignore */ }
+}
+
+function normalizePaymentClientStatus(raw) {
+  const value = String(raw || 'awaiting_verification').toLowerCase().trim();
+  // Never accept client-side "verified" — admin verifies only
+  if (value === 'verified' || value === 'approved') return 'awaiting_verification';
+  if (value === 'proof_submitted') return 'awaiting_verification';
+  if (['pending', 'submitted', 'awaiting_verification'].includes(value)) return value;
+  return 'awaiting_verification';
+}
 
 const router = express.Router();
 
@@ -136,13 +155,14 @@ router.get('/packages/match', async (req, res) => {
 
     // Base package lookup (country_id IS NULL for base packages)
     // Prefer manually created packages (auto_generated=0) over auto-generated ones
+    // Also accept empty-string country_id from older rows
     const [rows] = await pool.query(
       `SELECT * FROM portal_packages
        WHERE is_active = 1
          AND location = ?
          AND membership_type = ?
          AND duration = ?
-         AND country_id IS NULL
+         AND (country_id IS NULL OR country_id = 0)
        ORDER BY auto_generated ASC, sort_order ASC, id ASC`,
       [loc, mtype, dur]
     );
@@ -202,7 +222,7 @@ router.get('/packages/match', async (req, res) => {
         `INSERT INTO portal_packages
            (name, code, price, currency, location, membership_type, duration, duration_months, country_id,
             description, benefits, is_active, auto_generated)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 1, 1)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, TRUE, TRUE)`,
         [
           autoName, autoCode, basePrice, currency,
           loc, mtype, dur, durationMonths,
@@ -229,6 +249,7 @@ router.get('/packages/match', async (req, res) => {
 // GET /api/membership/payment-methods?location=&country_code=
 // Returns location-specific methods if configured, otherwise falls back to default methods.
 // For overseas: first try country_code match, then location='overseas', then global.
+// Incomplete UPI methods (no upi_id and no qr_image) are excluded so applicants can still pay via other methods.
 router.get('/payment-methods', async (req, res) => {
   const { location, country_code } = req.query;
   try {
@@ -260,6 +281,54 @@ router.get('/payment-methods', async (req, res) => {
       rows = fallback;
     }
 
+    // Enrich empty payment details from system_settings when present
+    const [settingRows] = await pool.query(
+      `SELECT setting_key, setting_value FROM system_settings
+       WHERE setting_key IN ('upi_id','bank_account_number','bank_ifsc','bank_name','bank_account_name','bank_branch','bank_account_type')`
+    );
+    const settings = {};
+    for (const r of settingRows) settings[r.setting_key] = (r.setting_value || '').trim();
+
+    rows = rows.map((m) => {
+      if (m.type === 'upi') {
+        return { ...m, upi_id: (m.upi_id || '').trim() || settings.upi_id || null };
+      }
+      if (m.type === 'bank_transfer') {
+        return {
+          ...m,
+          account_name: (m.account_name || '').trim() || settings.bank_account_name || null,
+          bank_name: (m.bank_name || '').trim() || settings.bank_name || null,
+          account_number: (m.account_number || '').trim() || settings.bank_account_number || null,
+          ifsc_code: (m.ifsc_code || '').trim() || settings.bank_ifsc || null,
+          branch_name: (m.branch_name || '').trim() || settings.bank_branch || null,
+          account_type: (m.account_type || '').trim() || settings.bank_account_type || null,
+        };
+      }
+      return m;
+    }).filter((m) => {
+      if (m.type === 'upi') {
+        const hasUpi = !!(m.upi_id && String(m.upi_id).trim());
+        const hasQr = !!(m.qr_image && String(m.qr_image).trim());
+        return hasUpi || hasQr;
+      }
+      if (m.type === 'bank_transfer') {
+        return !!(
+          (m.account_number && String(m.account_number).trim()) ||
+          (m.ifsc_code && String(m.ifsc_code).trim()) ||
+          (m.bank_name && String(m.bank_name).trim())
+        );
+      }
+      if (m.type === 'international_wire') {
+        return !!(
+          (m.swift_code && String(m.swift_code).trim()) ||
+          (m.iban && String(m.iban).trim()) ||
+          (m.account_number && String(m.account_number).trim()) ||
+          (m.bank_name && String(m.bank_name).trim())
+        );
+      }
+      return true;
+    });
+
     return ok(res, rows);
   } catch (err) { console.error(err); return fail(res, 'Server error', 500); }
 });
@@ -283,33 +352,61 @@ router.post(
       state_other, city_other, overseas_city,
       membership_type, plan_type, package_id, wing_id,
       payment_method, payment_reference, currency,
+      payable_amount, exchange_rate, base_amount_inr,
+      payment_attempts, payment_client_status,
     } = req.body;
-    console.log(req.body)
     // Basic validation
     if (!full_name || !email)        return fail(res, 'Full name and email are required', 422);
     if (!wing_id)                    return fail(res, 'Wing selection is required', 422);
     if (!membership_type)            return fail(res, 'Membership type is required', 422);
     if (!plan_type)                  return fail(res, 'Plan type is required', 422);
     if (!payment_method)             return fail(res, 'Payment method is required', 422);
-    if (!req.files?.payment_screenshot?.[0]) return fail(res, 'Payment screenshot is required', 422);
+    if (!req.files?.payment_screenshot?.[0]) return fail(res, 'Payment receipt is required (JPG, PNG, or PDF, max 5 MB)', 422);
+
+    const receiptFile = req.files.payment_screenshot[0];
+    const receiptExt = path.extname(receiptFile.originalname || '').toLowerCase();
+    const receiptMimeOk = RECEIPT_OK_MIME.has(String(receiptFile.mimetype || '').toLowerCase());
+    const receiptExtOk = RECEIPT_OK_EXT.has(receiptExt);
+    if (!receiptMimeOk && !receiptExtOk) {
+      unlinkQuiet(receiptFile.path);
+      return fail(res, 'Payment receipt must be JPG, PNG, or PDF', 422);
+    }
+    if (Number(receiptFile.size || 0) > RECEIPT_MAX_BYTES) {
+      unlinkQuiet(receiptFile.path);
+      return fail(res, 'Payment receipt must be 5 MB or smaller', 422);
+    }
+
+    const safePaymentClientStatus = normalizePaymentClientStatus(payment_client_status);
 
     try {
       // Check if email already belongs to an existing member account
       const [[existingMember]] = await pool.query(
-        'SELECT id FROM member_accounts WHERE email = ? LIMIT 1',
+        'SELECT id FROM member_accounts WHERE LOWER(email) = ? LIMIT 1',
         [email.trim().toLowerCase()]
       );
       if (existingMember) {
-        return fail(res, 'An account with this email address already exists. Please use a different email or log in.', 409);
+        return fail(res, 'An account with this email address already exists. Please log in or use a different email.', 409);
       }
 
-      // Check if email already has a pending application
+      // Check if email already has any non-draft submission
       const [[existingSubmission]] = await pool.query(
-        "SELECT id FROM fb_submissions WHERE applicant_email = ? AND status = 'pending' LIMIT 1",
+        "SELECT id FROM fb_submissions WHERE LOWER(applicant_email) = ? AND status != 'draft' LIMIT 1",
         [email.trim().toLowerCase()]
       );
       if (existingSubmission) {
-        return fail(res, 'A membership application with this email is already pending approval.', 409);
+        return fail(res, 'A membership application with this email already exists. Please log in or use a different email.', 409);
+      }
+
+      // Check if phone number is already registered
+      if (phone && phone.trim()) {
+        const normalizedPhone = phone.trim().replace(/\s+/g, '');
+        const [[existingPhone]] = await pool.query(
+          "SELECT id FROM fb_submissions WHERE REPLACE(applicant_phone, ' ', '') = ? AND status != 'draft' LIMIT 1",
+          [normalizedPhone]
+        );
+        if (existingPhone) {
+          return fail(res, 'This mobile number is already registered with another membership application.', 409);
+        }
       }
     } catch (err) {
       console.error('[Duplicate Check Error]', err);
@@ -383,10 +480,10 @@ router.post(
         try { return JSON.parse(social_links); } catch { return social_links || ''; }
       })(),
       location_type:      location_type || null,
-      state_id:           state_id  ? Number(state_id) : null,
-      city_id:            city_id   ? Number(city_id)  : null,
-      branch_id:          branch_id ? Number(branch_id) : null,
-      country_id:         country_id ? Number(country_id) : null,
+      state_id:           state_id && !isNaN(Number(state_id)) ? Number(state_id) : (state_id || null),
+      city_id:            city_id && !isNaN(Number(city_id)) ? Number(city_id) : (city_id || null),
+      branch_id:          branch_id && !isNaN(Number(branch_id)) ? Number(branch_id) : null,
+      country_id:         country_id && !isNaN(Number(country_id)) ? Number(country_id) : (country_id || null),
       state_other:        state_other || null,
       city_other:         city_other || null,
       overseas_city:      overseas_city || null,
@@ -396,6 +493,9 @@ router.post(
       payment_method,
       payment_reference: paymentReferenceForStorage,
       currency: fixedCurrency,
+      payable_amount: payable_amount ? Number(payable_amount) : null,
+      exchange_rate: exchange_rate ? Number(exchange_rate) : null,
+      base_amount_inr: base_amount_inr ? Number(base_amount_inr) : null,
       payment_screenshot: screenshotPath,
     };
 
@@ -470,7 +570,24 @@ router.post(
           } catch (e) { console.error('[state name resolve]', e.message); }
         }
       }
-      let resolvedCityId = city_id ? Number(city_id) : null;
+      let resolvedCityId = null;
+      if (city_id) {
+        if (!isNaN(Number(city_id))) {
+          resolvedCityId = Number(city_id);
+        } else {
+          try {
+            const cityParams = [String(city_id).trim().toLowerCase()];
+            let citySql = 'SELECT id FROM cities WHERE LOWER(name) = LOWER(?)';
+            if (resolvedStateId) {
+              citySql += ' AND state_id = ?';
+              cityParams.push(resolvedStateId);
+            }
+            citySql += ' LIMIT 1';
+            const [[cityRow]] = await conn.query(citySql, cityParams);
+            if (cityRow) resolvedCityId = cityRow.id;
+          } catch (e) { console.error('[city name resolve]', e.message); }
+        }
+      }
       let resolvedBranchId = null;
 
       // Rajasthan applicants: form only sends city_id, not state_id → auto-assign Rajasthan
@@ -483,31 +600,46 @@ router.post(
         } catch (e) { console.error('[state auto-resolve]', e.message); }
       }
 
+      // If city was a name and state was resolved late (Rajasthan), retry city lookup
+      if (!resolvedCityId && city_id && isNaN(Number(city_id)) && resolvedStateId) {
+        try {
+          const [[cityRow]] = await conn.query(
+            'SELECT id FROM cities WHERE LOWER(name) = LOWER(?) AND state_id = ? LIMIT 1',
+            [String(city_id).trim(), resolvedStateId]
+          );
+          if (cityRow) resolvedCityId = cityRow.id;
+        } catch (e) { console.error('[city name resolve retry]', e.message); }
+      }
+
       // If we have an explicitly provided branch_id, use it. Otherwise, lookup via city_id.
-      if (formData.branch_id) {
-        resolvedBranchId = formData.branch_id;
-      } else {
-        if (resolvedCityId) {
-          try {
-            const [[cityRow]] = await conn.query('SELECT branch_id FROM cities WHERE id = ? LIMIT 1', [resolvedCityId]);
-            if (cityRow && cityRow.branch_id) {
-              resolvedBranchId = cityRow.branch_id;
-            }
-          } catch (e) { console.error('[branch auto-resolve]', e.message); }
-        }
+      if (formData.branch_id && !isNaN(Number(formData.branch_id))) {
+        resolvedBranchId = Number(formData.branch_id);
+      } else if (resolvedCityId) {
+        try {
+          const [[branchRow]] = await conn.query(
+            `SELECT id FROM portal_branches
+             WHERE city_id = ? AND (is_active IS TRUE OR is_active IS NULL)
+             ORDER BY id LIMIT 1`,
+            [resolvedCityId]
+          );
+          if (branchRow?.id) resolvedBranchId = branchRow.id;
+        } catch (e) { console.error('[branch auto-resolve]', e.message); }
       }
 
       // Overseas: No state, No branch. Just leave both null so only Super Admin handles them.
       // Keep stored JSON payload consistent with the resolved IDs
+      if (resolvedCountryId) formData.country_id = resolvedCountryId;
       if (resolvedStateId) formData.state_id = resolvedStateId;
+      if (resolvedCityId) formData.city_id = resolvedCityId;
       if (resolvedBranchId) formData.branch_id = resolvedBranchId;
 
+      // Receipt is required on apply → Payment Submitted / Awaiting Verification (never auto-verified)
       const [r] = await conn.query(
         `INSERT INTO fb_submissions
            (uuid, form_id, user_id, status, current_step, submitted_at,
             applicant_name, applicant_email, applicant_phone, membership_id, ip_address, data,
-            plan_type, membership_type, package_id, wing_id, country_id, state_id, city_id, branch_id)
-         VALUES (?,?,0,'submitted',5,NOW(),?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            plan_type, membership_type, package_id, wing_id, country_id, state_id, city_id, branch_id, payment_status)
+         VALUES (?,?,0,'payment_submitted',5,NOW(),?,?,?,?,?,?,?,?,?,?,?,?,?,?,'submitted')`,
         [submUuid, formId, full_name, email, phone || null,
          membershipId, req.ip, JSON.stringify(formData),
          plan_type || null, membership_type || null, package_id ? Number(package_id) : null,
@@ -519,9 +651,11 @@ router.post(
       );
       const submissionId = r.insertId;
 
-      // Resolve price from package (if package_id given)
+      // Resolve price from package (INR base). For international wire, prefer converted payable_amount.
       let amount = 0;
-      if (package_id) {
+      if (payable_amount && Number(payable_amount) > 0) {
+        amount = Number(payable_amount);
+      } else if (package_id) {
         const [[pkg]] = await conn.query(
           'SELECT price FROM portal_packages WHERE id=? LIMIT 1', [package_id]
         );
@@ -531,12 +665,50 @@ router.post(
       const payUuid = require('crypto').randomUUID();
       await conn.query(
         `INSERT INTO portal_payments
-           (uuid, submission_id, method_id, transaction_id, screenshot_path, status, amount, currency)
-         VALUES (?,?,?,?,?,'pending',?,?)`,
+           (uuid, submission_id, method_id, transaction_id, screenshot_path, status, amount, currency, exchange_rate, notes)
+         VALUES (?,?,?,?,?,'submitted',?,?,?,?)`,
         [payUuid, submissionId,
          resolvedMethodId,
-         paymentReferenceForStorage, screenshotPath, amount, fixedCurrency]
+         paymentReferenceForStorage, screenshotPath, amount, fixedCurrency,
+         exchange_rate ? Number(exchange_rate) : null,
+         `client_status=${safePaymentClientStatus}`]
       );
+
+      // Preserve superseded/reset payment attempts from the application form (audit history)
+      let attempts = [];
+      try {
+        if (payment_attempts) {
+          attempts = typeof payment_attempts === 'string'
+            ? JSON.parse(payment_attempts)
+            : payment_attempts;
+        }
+      } catch (_) { attempts = []; }
+      if (Array.isArray(attempts) && attempts.length) {
+        for (const attempt of attempts) {
+          const attemptStatus = ['superseded', 'reset'].includes(String(attempt?.status || '').toLowerCase())
+            ? String(attempt.status).toLowerCase()
+            : 'superseded';
+          const attemptUuid = require('crypto').randomUUID();
+          const attemptMethodId = attempt?.method_id && !isNaN(Number(attempt.method_id))
+            ? Number(attempt.method_id)
+            : resolvedMethodId;
+          await conn.query(
+            `INSERT INTO portal_payments
+               (uuid, submission_id, method_id, transaction_id, screenshot_path, status, amount, currency, notes)
+             VALUES (?,?,?,?,NULL,?,?,?,?)`,
+            [
+              attemptUuid,
+              submissionId,
+              attemptMethodId,
+              attempt?.reference_id || null,
+              attemptStatus,
+              amount,
+              fixedCurrency,
+              `Archived client attempt (${attemptStatus}) at ${attempt?.archived_at || 'n/a'}`,
+            ]
+          );
+        }
+      }
 
       // ── Lifetime plan: auto-verify payment and activate immediately ──
       let finalMembershipId = membershipId;
@@ -557,7 +729,7 @@ router.post(
         try {
           const [mResult] = await conn.query(
             `INSERT INTO member_accounts (uuid, submission_id, email, full_name, phone, membership_id, plan_type, membership_type, package_id, is_active)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)`,
             [memberUuid, submissionId, email.toLowerCase().trim(), full_name, phone || null, finalMembershipId,
              plan_type || null, membership_type || null, package_id ? Number(package_id) : null]
           );
@@ -590,6 +762,22 @@ router.post(
       );
 
       await conn.commit();
+
+      // Activity timeline: application + payment submitted (never auto-verified)
+      try {
+        await pool.query(
+          `INSERT INTO application_activity (submission_id, event_type, notes, acted_by)
+           VALUES (?, 'application_submitted', ?, NULL)`,
+          [submissionId, `Application submitted with payment receipt (${safePaymentClientStatus})`]
+        );
+        await pool.query(
+          `INSERT INTO application_activity (submission_id, event_type, notes, acted_by)
+           VALUES (?, 'payment_submitted', ?, NULL)`,
+          [submissionId, `Payment reference ${paymentReferenceForStorage}`]
+        );
+      } catch (actErr) {
+        console.error('[apply activity]', actErr.message);
+      }
 
       if (resolvedWingId) {
         const { assignWing } = require('../utils/memberOrg');
@@ -635,9 +823,11 @@ router.post(
           email: email.toLowerCase().trim(),
           applicationId: finalMembershipId,
           membership_id: finalMembershipId,
-          membershipStatus: autoActivated ? 'active' : 'submitted',
+          membershipStatus: autoActivated ? 'active' : 'payment_submitted',
+          payment_status: 'submitted',
+          payment_client_status: safePaymentClientStatus,
         },
-        autoActivated ? 'Membership activated successfully' : 'Application submitted successfully',
+        autoActivated ? 'Membership activated successfully' : 'Application submitted — payment awaiting verification',
         201
       );
     } catch (err) {

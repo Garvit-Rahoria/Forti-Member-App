@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Save, Loader2, Settings2 } from 'lucide-react'
+import { Save, Loader2, Settings2, Shield, LogOut } from 'lucide-react'
 import api from '../../../api/client'
 import toast from 'react-hot-toast'
 import WingsPositionsSettings from './WingsPositionsSettings'
+import {
+  AdminLogoutConfirmModal,
+  useAdminLogoutConfirm,
+} from '../../../components/admin/AdminLogoutConfirm'
 
 function SectionCard({ icon: Icon, title, children }) {
   return (
@@ -20,6 +24,8 @@ function SectionCard({ icon: Icon, title, children }) {
 
 export default function Settings() {
   const qc = useQueryClient()
+  const [logoutOpen, setLogoutOpen] = useState(false)
+  const { confirmAndLogout, panelLabel } = useAdminLogoutConfirm()
 
   const [form, setForm] = useState({
     otp_expiry_time:        '10',
@@ -112,6 +118,36 @@ export default function Settings() {
       <SectionCard icon={Settings2} title="Wings & positions">
         <WingsPositionsSettings />
       </SectionCard>
+
+      {/* Account & Security — separate from System Settings / Wings */}
+      <SectionCard icon={Shield} title="Account & Security">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-red-100 bg-red-50/40 px-4 py-4">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-gray-900">Logout</p>
+            <p className="text-sm text-gray-600 mt-0.5">
+              Sign out from your Super Admin account
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setLogoutOpen(true)}
+            className="inline-flex items-center justify-center gap-2 shrink-0 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700 shadow-sm transition"
+          >
+            <LogOut size={16} />
+            Logout
+          </button>
+        </div>
+      </SectionCard>
+
+      <AdminLogoutConfirmModal
+        open={logoutOpen}
+        panelLabel={panelLabel}
+        onCancel={() => setLogoutOpen(false)}
+        onConfirm={() => {
+          setLogoutOpen(false)
+          confirmAndLogout()
+        }}
+      />
     </div>
   )
 }
